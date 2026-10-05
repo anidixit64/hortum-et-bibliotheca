@@ -84,6 +84,24 @@ make run-study         # :8003
 
 Each service serves interactive API docs at `/docs`.
 
+## Building the corpus
+
+```sh
+uv run hortum-pipeline all --gui          # every stage, with a progress window
+uv run hortum-pipeline parse-answers --gui # just re-parse answers
+uv run hortum-pipeline review-answers      # fix low-confidence answers by hand
+uv run hortum-pipeline all --from group    # rebuild topics after fixing answers
+uv run hortum-pipeline link --max-requests 2000  # link in chunks; cached requests are free
+```
+
+The review window lists answer lines the parser wasn't sure about, most-asked first, with
+similar answers from the data as suggestions. Fixes are saved to
+`pipeline/overrides/answers.jsonl` (commit it) and re-applied on every run. **Rerun
+corrected** writes just those fixes into `corpus.db`.
+
+Linking needs contact details in `PIPELINE_WIKIMEDIA_USER_AGENT` (see `.env.example`):
+Wikimedia refuses requests without them.
+
 ## Configuration
 
 Settings come from environment variables (or a `.env` file; see `.env.example`). Each service has its own prefix:

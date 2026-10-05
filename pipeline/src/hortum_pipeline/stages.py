@@ -1,9 +1,11 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from hortum_pipeline import answer_stage, facts, grouping, ingest, linking
 from hortum_pipeline.config import PipelineSettings
+from hortum_pipeline.progress import Reporter
 
-StageFn = Callable[[PipelineSettings], None]
+StageFn = Callable[[PipelineSettings, Reporter], None]
 
 
 @dataclass(frozen=True)
@@ -16,11 +18,16 @@ class Stage:
 
 # Order matters: each stage reads what the previous ones wrote.
 STAGES: tuple[Stage, ...] = (
-    Stage("ingest", "Load the NDJSON dump, unwrap extended JSON, dedupe", phase=1),
-    Stage("parse-answers", "Parse answer lines into required/accept/prompt/reject", phase=1),
-    Stage("group", "Group answers into candidate topics", phase=1),
-    Stage("link", "Link topics to Wikipedia/Wikidata and merge by QID", phase=1),
-    Stage("facts", "Fetch Wikidata dates, places and descriptions", phase=1),
+    Stage("ingest", "Load the NDJSON dump, unwrap extended JSON, dedupe", 1, ingest.run),
+    Stage(
+        "parse-answers",
+        "Parse answer lines into required/accept/prompt/reject",
+        1,
+        answer_stage.run,
+    ),
+    Stage("group", "Group answers into candidate topics", 1, grouping.run),
+    Stage("link", "Link topics to Wikipedia/Wikidata and merge by QID", 1, linking.run),
+    Stage("facts", "Fetch Wikidata dates, places and descriptions", 1, facts.run),
     Stage("clues", "Split questions into clues with positions and key terms", phase=2),
     Stage("cluster", "Cluster clues that state the same fact", phase=2),
     Stage("score", "Score clue clusters for impact and heatmap statistics", phase=2),

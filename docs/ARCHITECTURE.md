@@ -134,9 +134,9 @@ This is the step that makes grouping actually work, and it's free:
 2. Score each of the top ~5 results by TF-IDF cosine between the group's combined question text and the article's lead. Questions about the planet Mercury overlap heavily with the planet's article and very little with the god's.
 3. Accept the best match above a threshold, and record its **Wikidata QID** and Wikipedia title.
 4. **Candidate groups that resolve to the same QID merge into one topic.** This is where "soccer" and "association football" come together correctly.
-5. Pull Wikidata labels and aliases, plus Wikipedia redirects, into `topic_aliases` so a search for "futbol" or "association football" finds the topic.
+5. Answer forms (main, underlined parts, accepted alternates) and the Wikipedia title go into `topic_aliases`, so a search for "futbol" or "association football" finds the topic. Stage 4b adds Wikidata's aliases.
 
-Unlinked groups (common for categories like "doctors" or "stadiums") stay as topics with a local ID. They still work; they just get thinner enrichment. Wikimedia's API policy asks for a descriptive `User-Agent` with contact details and serial requests. That's fine here because results are cached on disk.
+Unlinked groups (common for categories like "doctors" or "stadiums") stay as topics with a local ID (`local:<slug>`); unlinked groups with the same normalized answer merge. They still work; they just get thinner enrichment. Wikimedia **refuses** requests whose `User-Agent` lacks contact details (a URL or email), so `link` and `facts` won't start until `PIPELINE_WIKIMEDIA_USER_AGENT` has one. Requests are serial and cached on disk, and `--max-requests N` caps new requests per run (cached ones are free), so a long first run can be split across sessions.
 
 ### Stage 4b: `facts` → dates and places from Wikidata
 For every topic with a QID, fetch its Wikidata entity in bulk (`wbgetentities`, 50 IDs per request, so ~800 requests for the whole corpus, cached on disk) and keep:
@@ -206,13 +206,21 @@ Denormalize everything the page needs from the corpus into `topic_snapshots(topi
 
 ```sql
 sets(id, name, year, is_standard)
-tossups(id, set_id, packet, number, category, subcategory, alt_subcategory,
-        difficulty, question_text, question_html, answer_html, power_word_index,
-        topic_id, answer_parse JSON, parse_confidence)
-topics(id, slug, display_name, wikidata_qid, wikipedia_title, primary_category,
+tossups(id, text_hash, set_id, packet_name, packet_number, number, category, subcategory,
+        alt_subcategory, difficulty, question_text, question_html, answer_text, answer_html,
+        n_reports, power_word_index)
+tossup_duplicates(tossup_id, kept_id)
+answer_parses(tossup_id, line_key, main, main_norm, parser_main, required JSON, accept JSON,
+              prompt JSON, reject JSON, notes JSON, issues JSON, parser_confidence, confidence,
+              source /* parser|override|excluded */, parser_version)
+candidate_groups(id, norm_key, category, subcategory, display_name, n_tossups, n_sets)
+tossup_groups(tossup_id, group_id)
+group_links(group_id, status /* linked|no_match|skipped */, qid, title, score, similarity, candidates JSON)
+tossup_topics(tossup_id, topic_id)
+topics(id, slug, display_name, wikidata_qid, wikipedia_title, description, primary_category,
        n_tossups, n_sets, difficulty_min, difficulty_max, first_year, last_year)
-topic_aliases(topic_id, alias, alias_norm, source /* main|accept|required|wikidata|redirect */, weight)
-topic_aliases_fts  -- FTS5, tokenize='trigram' over alias_norm: typo-tolerant prefix/fuzzy search
+topic_aliases(topic_id, alias, alias_search, source /* main|required|accept|title|wikidata */, weight)
+topic_aliases_fts  -- FTS5, tokenize='trigram' over alias_search: typo-tolerant search
 clues(id, tossup_id, topic_id, ordinal, text, char_start, char_end, word_start, word_end,
       position, in_power, is_giveaway, key_terms JSON, cluster_id)
 clue_clusters(id, topic_id, label, key_terms JSON, representative_clue_id,

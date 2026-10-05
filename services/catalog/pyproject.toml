@@ -7,6 +7,7 @@ dependencies = [
     "hortum-common",
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
+    "rapidfuzz>=3.9",
 ]
 
 [tool.uv.sources]
