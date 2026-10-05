@@ -54,7 +54,14 @@ def run_stage(stage: Stage, settings: PipelineSettings, reporter: Reporter) -> i
 
 
 def run_stages(stages: Sequence[Stage], settings: PipelineSettings, reporter: Reporter) -> int:
-    for stage in stages:
+    """Runs stages in order, stopping cleanly before the first one that isn't built yet."""
+    for ran, stage in enumerate(stages):
+        if stage.run is None and ran:
+            reporter.log(
+                f"Done: stopped before '{stage.name}', which arrives in build plan phase "
+                f"{stage.phase}."
+            )
+            return 0
         if code := run_stage(stage, settings, reporter):
             return code
     return 0

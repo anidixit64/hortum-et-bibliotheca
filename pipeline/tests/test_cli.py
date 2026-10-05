@@ -45,8 +45,21 @@ def test_unimplemented_stage_reports_and_fails(
     assert "not implemented yet" in capsys.readouterr().err
 
 
-def test_all_stops_at_first_unimplemented_stage(unimplemented: str) -> None:
+def test_all_from_an_unimplemented_stage_fails(unimplemented: str) -> None:
     assert main(["all", "--from", unimplemented]) == EXIT_NOT_IMPLEMENTED
+
+
+def test_all_stops_cleanly_before_unbuilt_stages(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    ran: list[str] = []
+    built = Stage("one", "built", 1, lambda s, r: ran.append("one"))
+    later = Stage("two", "not built", 2)
+    monkeypatch.setattr("hortum_pipeline.cli.STAGES", (built, later))
+    monkeypatch.setitem(stages.STAGES_BY_NAME, "one", built)
+    assert main(["all"]) == 0
+    assert ran == ["one"]
+    assert "stopped before 'two'" in capsys.readouterr().err
 
 
 def test_missing_raw_dump_fails_clearly() -> None:

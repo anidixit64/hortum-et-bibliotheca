@@ -21,12 +21,12 @@ def page(index: int, title: str, qid: str | None, extract: str, disamb: bool = F
 
 
 SEARCH = {
-    "Leo Tolstoy": [page(1, "Leo Tolstoy", "Q7243", "Russian author who wrote War and Peace.")],
+    "leo tolstoy": [page(1, "Leo Tolstoy", "Q7243", "Russian author who wrote War and Peace.")],
     "soccer": [
         page(1, "Association football", "Q2736", "Sport played in the World Cup by two teams."),
         page(2, "Soccer (disambiguation)", None, "Soccer may refer to", disamb=True),
     ],
-    "Mercury": [
+    "mercury": [
         page(1, "Mercury (planet)", "Q308", "Mercury is the planet closest to the Sun."),
         page(2, "Mercury (mythology)", "Q40556", "Roman messenger god with winged sandals."),
         page(3, "Mercury", None, "Mercury may refer to", disamb=True),
@@ -170,3 +170,23 @@ def test_robot_policy_refusal_explains_itself(tmp_path) -> None:  # type: ignore
     client = WikiClient(HttpCache(tmp_path / "c.db"), UA, min_interval=0, transport=refuse)
     with pytest.raises(RuntimeError, match="PIPELINE_WIKIMEDIA_USER_AGENT"):
         client.get_json("https://en.wikipedia.org/w/api.php", {"a": "b"})
+
+
+def test_exact_title_needs_less_text_overlap() -> None:
+    from hortum_pipeline.config import PipelineSettings
+    from hortum_pipeline.linking import Candidate, accept_link
+
+    settings = PipelineSettings(_env_file=None)  # type: ignore[call-arg]
+    exact = Candidate("France", "Q142", "", 1, False, similarity=0.03, score=0.32, exact_title=True)
+    loose = Candidate("Music", "Q638", "", 1, False, similarity=0.03, score=0.32)
+    assert accept_link(exact, settings)
+    assert not accept_link(loose, settings)
+
+
+def test_search_hint_follows_subcategory_then_category() -> None:
+    from hortum_pipeline.linking import search_hint, search_query
+
+    assert search_hint("Fine Arts", "Auditory Fine Arts") == "music"
+    assert search_hint("Philosophy", "Philosophy") == "philosophy"
+    assert search_hint("Pop Culture", "Movies") == ""
+    assert search_query("The Republic", "philosophy") == "the republic philosophy"

@@ -60,12 +60,13 @@ class WikiClient:
         user_agent: str,
         min_interval: float = 0.1,
         transport: httpx.BaseTransport | None = None,
+        timeout: float = 30.0,
     ) -> None:
         self.cache = cache
         self.min_interval = min_interval
         self.http = httpx.Client(
             headers={"User-Agent": user_agent, "Accept-Encoding": "gzip"},
-            timeout=30.0,
+            timeout=timeout,
             transport=transport,
         )
         self.network_requests = 0
@@ -91,7 +92,13 @@ class WikiClient:
             if wait > 0:
                 time.sleep(wait)
             self._last_request = time.monotonic()
-            response = self.http.get(url, params=params)
+            try:
+                response = self.http.get(url, params=params)
+            except (httpx.TimeoutException, httpx.TransportError):
+                if attempt == 5:
+                    raise
+                time.sleep(2**attempt)
+                continue
             self.network_requests += 1
             if response.status_code in (429, 503):
                 time.sleep(float(response.headers.get("Retry-After", 2**attempt)))

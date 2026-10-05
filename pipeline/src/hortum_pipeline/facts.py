@@ -10,6 +10,8 @@ import sqlite3
 from collections.abc import Iterator, Sequence
 from typing import Any
 
+import httpx
+
 from hortum_common.text import normalize
 from hortum_pipeline import db, topics
 from hortum_pipeline.config import PipelineSettings
@@ -44,7 +46,7 @@ PLACE_PROPERTIES = {
     "P131": "located in",
     "P17": "country",
 }
-BATCH = 150
+BATCH = 50
 
 _POINT = re.compile(r"Point\(\s*(-?[\d.]+)\s+(-?[\d.]+)\s*\)")
 
@@ -132,8 +134,12 @@ def parse_places(response: dict[str, Any]) -> list[tuple[str, str, dict[str, Any
 
 def make_client(settings: PipelineSettings, user_agent: str) -> WikiClient:
     # The query service is shared and expensive; one query a second is plenty.
+    # Queries can take a while server-side (the service's own limit is 60s).
     return WikiClient(
-        HttpCache(settings.http_cache_dir / "wikidata.db"), user_agent, min_interval=1.0
+        HttpCache(settings.http_cache_dir / "wikidata.db"),
+        user_agent,
+        min_interval=1.0,
+        timeout=90.0,
     )
 
 
@@ -151,7 +157,7 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
     batches = [qids[i : i + BATCH] for i in range(0, len(qids), BATCH)]
     reporter.begin("Fetching Wikidata facts", len(batches))
     n_dates = n_places = n_aliases = 0
-    skipped = 0
+    skipped = failed = 0
     for batch in batches:
         cache_only = (
             settings.link_new_requests is not None
@@ -169,6 +175,14 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
             )
         except NotCached:
             skipped += 1
+            reporter.advance()
+            continue
+        except (httpx.HTTPError, RuntimeError) as exc:
+            # One slow or failing batch shouldn't sink the run; a re-run retries it.
+            failed += 1
+            reporter.log(
+                f"batch starting {batch[0]} failed ({type(exc).__name__}); will retry next run"
+            )
             reporter.advance()
             continue
 
@@ -195,8 +209,8 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
     reporter.stat(
         "Dates / places / Wikidata aliases", f"{n_dates:,} / {n_places:,} / {n_aliases:,}"
     )
-    if skipped:
-        reporter.stat("Batches left for a later run", f"{skipped:,}")
+    if skipped or failed:
+        reporter.stat("Batches left for a later run", f"{skipped + failed:,}")
     conn.close()
 
 

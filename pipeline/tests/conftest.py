@@ -91,4 +91,5 @@ def settings(tmp_path: Path) -> PipelineSettings:
     with (data / "raw" / "tossups.json").open("w") as f:
         for rec in SAMPLE:
             f.write(json.dumps(rec) + "\n")
-    return PipelineSettings(data_dir=data, overrides_dir=tmp_path / "overrides")
+    # _env_file=None: tests must not pick up the developer's .env (e.g. a real User-Agent).
+    return PipelineSettings(_env_file=None, data_dir=data, overrides_dir=tmp_path / "overrides")  # type: ignore[call-arg]
