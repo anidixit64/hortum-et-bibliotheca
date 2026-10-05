@@ -1,0 +1,45 @@
+name: hortum-et-bibliotheca
+
+x-service-defaults: &service-defaults
+  restart: unless-stopped
+  env_file:
+    - path: .env
+      required: false
+
+services:
+  gateway:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/gateway/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      GATEWAY_SERVICE_A_URL: http://service-a:8000
+      GATEWAY_SERVICE_B_URL: http://service-b:8000
+    depends_on:
+      service-a:
+        condition: service_healthy
+      service-b:
+        condition: service_healthy
+
+  service-a:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/service-a/Dockerfile
+    ports:
+      - "8001:8000"
+
+  service-b:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/service-b/Dockerfile
+    ports:
+      - "8002:8000"
+    environment:
+      SERVICE_B_SERVICE_A_URL: http://service-a:8000
+    depends_on:
+      service-a:
+        condition: service_healthy
