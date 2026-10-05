@@ -15,31 +15,50 @@ services:
     ports:
       - "8000:8000"
     environment:
-      GATEWAY_SERVICE_A_URL: http://service-a:8000
-      GATEWAY_SERVICE_B_URL: http://service-b:8000
+      GATEWAY_CATALOG_URL: http://catalog:8000
+      GATEWAY_CONTENT_URL: http://content:8000
+      GATEWAY_STUDY_URL: http://study:8000
     depends_on:
-      service-a:
+      catalog:
         condition: service_healthy
-      service-b:
+      content:
+        condition: service_healthy
+      study:
         condition: service_healthy
 
-  service-a:
+  catalog:
     <<: *service-defaults
     build:
       context: .
-      dockerfile: services/service-a/Dockerfile
+      dockerfile: services/catalog/Dockerfile
     ports:
       - "8001:8000"
+    environment:
+      CATALOG_CORPUS_PATH: /data/build/corpus.db
+    volumes:
+      - ./data/build:/data/build:ro
 
-  service-b:
+  content:
     <<: *service-defaults
     build:
       context: .
-      dockerfile: services/service-b/Dockerfile
+      dockerfile: services/content/Dockerfile
     ports:
       - "8002:8000"
     environment:
-      SERVICE_B_SERVICE_A_URL: http://service-a:8000
-    depends_on:
-      service-a:
-        condition: service_healthy
+      CONTENT_DB_PATH: /data/content.db
+      CONTENT_CATALOG_URL: http://catalog:8000
+    volumes:
+      - ./data:/data
+
+  study:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/study/Dockerfile
+    ports:
+      - "8003:8000"
+    environment:
+      STUDY_DB_PATH: /data/study.db
+    volumes:
+      - ./data:/data

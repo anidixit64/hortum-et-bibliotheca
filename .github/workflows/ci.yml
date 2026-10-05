@@ -17,7 +17,7 @@ jobs:
       - run: uv sync --all-packages
       - run: uv run ruff check .
       - run: uv run ruff format --check .
-      - run: uv run mypy libs/common/src services/*/src
+      - run: uv run mypy libs/common/src pipeline/src services/*/src
       - run: uv run pytest
 
   images:
@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [gateway, service-a, service-b]
+        service: [gateway, catalog, content, study]
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3

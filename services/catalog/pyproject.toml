@@ -1,0 +1,20 @@
+[project]
+name = "catalog"
+version = "0.1.0"
+description = "Topic catalog: search and precomputed topic data from corpus.db"
+requires-python = ">=3.12"
+dependencies = [
+    "hortum-common",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+]
+
+[tool.uv.sources]
+hortum-common = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/catalog"]

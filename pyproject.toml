@@ -8,7 +8,7 @@ requires-python = ">=3.12"
 package = false
 
 [tool.uv.workspace]
-members = ["libs/*", "services/*"]
+members = ["libs/*", "services/*", "pipeline"]
 
 [dependency-groups]
 dev = [
@@ -27,16 +27,23 @@ target-version = "py312"
 select = ["E", "F", "I", "B", "UP", "SIM", "ASYNC"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["hortum_common", "gateway", "service_a", "service_b"]
+known-first-party = ["hortum_common", "hortum_pipeline", "gateway", "catalog", "content", "study"]
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
-mypy_path = ["libs/common/src", "services/gateway/src", "services/service-a/src", "services/service-b/src"]
+mypy_path = [
+    "libs/common/src",
+    "pipeline/src",
+    "services/gateway/src",
+    "services/catalog/src",
+    "services/content/src",
+    "services/study/src",
+]
 explicit_package_bases = true
 
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib"
 asyncio_mode = "auto"
-testpaths = ["libs", "services"]
+testpaths = ["libs", "pipeline", "services"]

@@ -2,28 +2,33 @@
 
 > *Si hortum in bibliotheca habes, deerit nihil.* — Cicero
 
-A Python microservices monorepo: FastAPI services, a shared library, and an API gateway, managed as a [uv](https://docs.astral.sh/uv/) workspace.
+A study tool for quiz bowl: search a topic, see the clues that matter most, and learn it through summaries, buzzer practice and flashcards. It's built as Python microservices (FastAPI) plus an offline data pipeline, managed as a [uv](https://docs.astral.sh/uv/) workspace.
+
+The full design and build plan are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Architecture
 
 ```
-                 ┌──────────────┐
-  client ──────▶ │   gateway    │ :8000
-                 └──────┬───────┘
-          /api/a/*      │      /api/b/*
-            ┌───────────┴───────────┐
-            ▼                       ▼
-     ┌─────────────┐         ┌─────────────┐
-     │  service-a  │ ◀────── │  service-b  │
-     │   :8001     │  HTTP   │   :8002     │
-     └─────────────┘         └─────────────┘
+                         ┌──────────────┐
+  browser ─────────────▶ │   gateway    │ :8000
+                         └──────┬───────┘
+         /api/catalog/*         │ /api/content/*       /api/study/*
+        ┌───────────────────────┼──────────────────────┐
+        ▼                       ▼                      ▼
+ ┌─────────────┐         ┌─────────────┐        ┌─────────────┐
+ │   catalog   │ :8001   │   content   │ :8002  │    study    │ :8003
+ └──────┬──────┘         └──────┬──────┘        └──────┬──────┘
+   corpus.db              content.db              study.db
+ (built by pipeline)   (fetched + generated)    (your progress)
 ```
 
-| Service     | Port | Responsibility                                                |
-|-------------|------|---------------------------------------------------------------|
-| `gateway`   | 8000 | Single entry point. Routes `/api/{a,b}/...` to backends.      |
-| `service-a` | 8001 | Example resource owner (`/items`, in-memory store).           |
-| `service-b` | 8002 | Example consumer: builds `/summary` by calling `service-a`.   |
+| Component  | Port | Responsibility                                                         |
+|------------|------|------------------------------------------------------------------------|
+| `gateway`  | 8000 | Single entry point. Routes `/api/{catalog,content,study}/...`.          |
+| `catalog`  | 8001 | Search and precomputed topic data from the read-only `corpus.db`.       |
+| `content`  | 8002 | Wikipedia, books, videos and AI-written sections, cached per topic.     |
+| `study`    | 8003 | Flashcards, review scheduling and buzz history.                        |
+| `pipeline` | —    | Offline CLI that builds `corpus.db` from `data/raw/tossups.json`.       |
 
 Every service gets these from `libs/common` (`hortum_common`):
 
@@ -36,13 +41,16 @@ Every service gets these from `libs/common` (`hortum_common`):
 
 ```
 .
-├── libs/
-│   └── common/              # shared app factory, settings, logging, health, middleware
+├── data/                    # gitignored: raw dump, caches, built databases
+├── docs/ARCHITECTURE.md     # design and build plan
+├── libs/common/             # shared app factory, settings, logging, health, middleware
+├── pipeline/                # hortum-pipeline CLI (one subcommand per stage)
 ├── services/
 │   ├── gateway/
-│   ├── service-a/
-│   └── service-b/
-│       ├── src/<package>/   # main.py, config.py, routes.py, ...
+│   ├── catalog/
+│   ├── content/
+│   └── study/
+│       ├── src/<package>/   # main.py (build_app factory), config.py, ...
 │       ├── tests/
 │       ├── Dockerfile       # build context = repo root
 │       └── pyproject.toml
@@ -53,24 +61,25 @@ Every service gets these from `libs/common` (`hortum_common`):
 
 ## Getting started
 
-Prerequisites: Python 3.12+, [uv](https://docs.astral.sh/uv/getting-started/installation/), Docker.
+Prerequisites: Python 3.12+, [uv](https://docs.astral.sh/uv/getting-started/installation/), Docker. Put the raw dump at `data/raw/tossups.json`.
 
 ```sh
 make install           # uv sync --all-packages
 make check             # lint + typecheck + tests
 
+make pipeline          # build data/build/corpus.db (stages arrive phase by phase)
 make up                # full stack via docker compose
-curl -X POST localhost:8000/api/a/items -H 'content-type: application/json' -d '{"name":"widget"}'
-curl localhost:8000/api/b/summary
+curl localhost:8000/healthz
 make down
 ```
 
 To run one service with auto-reload outside Docker:
 
 ```sh
-make run-service-a     # :8001
-make run-service-b     # :8002
 make run-gateway       # :8000
+make run-catalog       # :8001
+make run-content       # :8002
+make run-study         # :8003
 ```
 
 Each service serves interactive API docs at `/docs`.
@@ -79,17 +88,19 @@ Each service serves interactive API docs at `/docs`.
 
 Settings come from environment variables (or a `.env` file; see `.env.example`). Each service has its own prefix:
 
-| Service     | Prefix        | Notable settings                               |
-|-------------|---------------|------------------------------------------------|
-| `gateway`   | `GATEWAY_`    | `SERVICE_A_URL`, `SERVICE_B_URL`, `UPSTREAM_TIMEOUT_SECONDS` |
-| `service-a` | `SERVICE_A_`  |                                                |
-| `service-b` | `SERVICE_B_`  | `SERVICE_A_URL`, `HTTP_TIMEOUT_SECONDS`        |
+| Component  | Prefix      | Notable settings                                         |
+|------------|-------------|----------------------------------------------------------|
+| `gateway`  | `GATEWAY_`  | `CATALOG_URL`, `CONTENT_URL`, `STUDY_URL`, `UPSTREAM_TIMEOUT_SECONDS` |
+| `catalog`  | `CATALOG_`  | `CORPUS_PATH`                                            |
+| `content`  | `CONTENT_`  | `DB_PATH`, `CATALOG_URL`                                 |
+| `study`    | `STUDY_`    | `DB_PATH`, `BACKUP_DIR`                                  |
+| `pipeline` | `PIPELINE_` | `DATA_DIR`, `WIKIMEDIA_USER_AGENT`                       |
 
 Common to all: `ENVIRONMENT`, `LOG_LEVEL`, `LOG_JSON`.
 
 ## Adding a service
 
-1. Copy `services/service-a` to `services/<name>` and rename the package under `src/`.
+1. Copy `services/study` to `services/<name>` and rename the package under `src/`.
 2. Update `name`, `packages`, and the uvicorn module in the new `pyproject.toml` and `Dockerfile`.
 3. Give it its own `env_prefix` in `config.py`.
 4. Add it to `docker-compose.yml`, the CI image matrix, and (if it should be public) `Settings.upstreams()` in the gateway.
