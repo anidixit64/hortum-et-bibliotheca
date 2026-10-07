@@ -269,4 +269,19 @@ def test_facts_rerun_reuses_per_id_store(
     monkeypatch.setattr(facts, "make_client", offline_client)
     facts.run(linked, NullReporter())
     conn = sqlite3.connect(linked.corpus_path)
-    assert conn.execute("SELECT COUNT(*) FROM topic_facts WHERE topic_id='Q7243'").fetchone()[0] == 2
+    assert (
+        conn.execute("SELECT COUNT(*) FROM topic_facts WHERE topic_id='Q7243'").fetchone()[0] == 2
+    )
+
+
+def test_disambiguated_answer_needs_text_agreement() -> None:
+    from hortum_pipeline.config import PipelineSettings
+    from hortum_pipeline.linking import Candidate, accept_link, merge_direct
+
+    settings = PipelineSettings(_env_file=None)  # type: ignore[call-arg]
+    the_doctor = Candidate("The Doctor", "Q1", "", 1, False, similarity=0.03, score=0.33)
+    the_doctor.exact_title = True
+    disamb = Candidate("Doctor", "Q2", "", 0, True)
+    merged = merge_direct([the_doctor], "doctor", {"doctor": disamb})
+    assert all(c.ambiguous for c in merged)
+    assert not accept_link(merged[0], settings)

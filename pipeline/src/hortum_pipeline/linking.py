@@ -62,6 +62,7 @@ class Candidate:
     exact_title: bool = False
     from_hint: bool = False  # found only by the second, category-hinted search
     direct_bonus: float = 0.0  # set when the answer itself is this page's title or redirect
+    ambiguous: bool = False  # the answer's own title is a disambiguation page
 
 
 def search_query(display_name: str, hint: str = "") -> str:
@@ -198,7 +199,11 @@ def accept_link(best: Candidate, settings: PipelineSettings) -> bool:
     An exact match on Wikipedia's main article (no parenthetical) needs none: a single stray
     question ("Napoleon Bonaparte" in a literature set) gives too little text to compare.
     """
-    if best.direct_bonus:
+    if best.ambiguous:
+        # "Doctor", "Bliss", "The Republic" are disambiguation pages: the name alone proves
+        # nothing, so the page has to agree with the questions.
+        needed = settings.link_min_similarity
+    elif best.direct_bonus:
         needed = 0.0  # the answer is literally this page's title or a redirect to it
     elif best.exact_title:
         needed = 0.0 if "(" not in best.title else settings.link_min_similarity / 5
@@ -210,11 +215,18 @@ def accept_link(best: Candidate, settings: PipelineSettings) -> bool:
 def merge_direct(
     candidates: list[Candidate], display: str, direct: dict[str, Candidate | None]
 ) -> list[Candidate]:
-    """Adds direct title hits to the search results, marking any already there."""
+    """Adds direct title hits to the search results, marking any already there.
+
+    If the answer's own title is a disambiguation page, every candidate is marked ambiguous
+    and the bare form ("Republic" for "The Republic") isn't treated as a direct hit.
+    """
+    lookups = title_lookups(display)
+    full = direct.get(lookups[0][0]) if lookups else None
+    ambiguous = full is not None and full.disambiguation
     by_title = {c.title: c for c in candidates}
-    for lookup, bonus in title_lookups(display):
+    for lookup, bonus in lookups:
         hit = direct.get(lookup)
-        if hit is None or hit.disambiguation or not hit.qid:
+        if ambiguous or hit is None or hit.disambiguation or not hit.qid:
             continue
         target = by_title.get(hit.title)
         if target is None:
@@ -222,6 +234,8 @@ def merge_direct(
             by_title[hit.title] = target
             candidates = [*candidates, target]
         target.direct_bonus = max(target.direct_bonus, bonus)
+    for cand in candidates:
+        cand.ambiguous = ambiguous
     return candidates
 
 
@@ -314,14 +328,14 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
                 vector, candidates, names[group_id], vectorizer, frozenset(alternates[group_id])
             )
             hint = search_hint(category, subcategory)
-            direct_win = bool(scored and scored[0].direct_bonus)
-            if hint and not direct_win and needs_second_search(scored, n_tossups):
+            if hint and needs_second_search(scored, n_tossups):
                 params2 = search_params(search_query(display, hint))
                 if allowed(params2):
                     seen = {c.title for c in candidates}
                     extra = parse_candidates(client.get_json(WIKIPEDIA_API, params2))
                     for c in extra:
                         c.from_hint = True
+                        c.ambiguous = bool(candidates and candidates[0].ambiguous)
                     candidates += [c for c in extra if c.title not in seen]
                     scored = score_candidates(
                         vector,

@@ -130,13 +130,15 @@ The same main string in very different categories (e.g. "Mercury" in Science/Ast
 
 ### Stage 4: `link` → canonical topics via Wikidata
 This is the step that makes grouping actually work, and it's free:
-1. For each candidate group, query Wikipedia search (`action=query&list=search`) with the main answer plus a category hint.
-2. Score each of the top ~5 results by TF-IDF cosine between the group's combined question text and the article's lead. Questions about the planet Mercury overlap heavily with the planet's article and very little with the god's.
-3. Accept the best match above a threshold, and record its **Wikidata QID** and Wikipedia title.
-4. **Candidate groups that resolve to the same QID merge into one topic.** This is where "soccer" and "association football" come together correctly.
+1. **Direct title lookup** (20 answers per request): each answer is looked up as a Wikipedia title, following redirects ("Soccer" → "Association football") and also trying it without a leading "the". A hit is the strongest candidate. If the answer's own title is a **disambiguation page** ("Mercury", "Doctor", "Bliss"), the name alone proves nothing, and every candidate must agree with the questions.
+2. **Search:** for each group, one Wikipedia search returns the top hits with their intro text and Wikidata ID. When the evidence is weak, a second search adds a category hint ("The Republic philosophy"); hits found only that way get a small penalty.
+3. **Scoring:** TF-IDF similarity between each candidate's intro and the group's own questions, plus a bonus for a direct hit (largest), an exact title match on the main answer (a plain title beats a parenthesized one), or a match on an accepted alternate or part of the title (smaller). An exact match on Wikipedia's main article needs little or no text similarity, so "France" asked in music questions still links to France.
+4. **Groups that resolve to the same Wikidata item merge into one topic.** This is where "soccer" and "association football" come together correctly, and Mercury splits into the planet and the element.
 5. Answer forms (main, underlined parts, accepted alternates) and the Wikipedia title go into `topic_aliases`, so a search for "futbol" or "association football" finds the topic. Stage 4b adds Wikidata's aliases.
 
-Unlinked groups (common for categories like "doctors" or "stadiums") stay as topics with a local ID (`local:<slug>`); unlinked groups with the same normalized answer merge. They still work; they just get thinner enrichment. Wikimedia **refuses** requests whose `User-Agent` lacks contact details (a URL or email), so `link` and `facts` won't start until `PIPELINE_WIKIMEDIA_USER_AGENT` has one. Requests are serial and cached on disk, and `--max-requests N` caps new requests per run (cached ones are free), so a long first run can be split across sessions.
+On the full corpus (October 2026): 89% of groups link, giving 38,228 linked and 7,626 local topics. A random 50-link spot check found 45 correct; the misses were all one- or two-question oddities ("therm-", "privilege").
+
+Unlinked groups (common for categories like "doctors" or "stadiums") stay as topics with a local ID (`local:<slug>`); unlinked groups with the same normalized answer merge. Wikimedia **refuses** requests whose `User-Agent` lacks contact details (a URL or email), so `link` and `facts` won't start until `PIPELINE_WIKIMEDIA_USER_AGENT` has one. Requests are serial and cached on disk, and `--max-requests N` caps new requests per run (cached ones are free), so a long first run can be split across sessions. Wikidata facts are cached per ID, so re-linking only fetches facts for newly linked topics.
 
 ### Stage 4b: `facts` → dates and places from Wikidata
 For every topic with a QID, fetch its Wikidata entity in bulk (`wbgetentities`, 50 IDs per request, so ~800 requests for the whole corpus, cached on disk) and keep:
