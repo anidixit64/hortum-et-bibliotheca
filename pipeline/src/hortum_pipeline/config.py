@@ -23,6 +23,9 @@ class PipelineSettings(BaseSettings):
     link_min_tossups: int = 1
     link_new_requests: int | None = None
     link_min_score: float = 0.2
+    # Clue clustering (chosen against pipeline/eval/labeled_clues.yaml: pairwise F1 0.76).
+    cluster_threshold: float = 0.6
+    cluster_term_bonus: float = 0.2
     link_min_similarity: float = 0.05
 
     def require_wikimedia_contact(self) -> str:
@@ -46,6 +49,11 @@ class PipelineSettings(BaseSettings):
     @property
     def corpus_path(self) -> Path:
         return self.build_dir / "corpus.db"
+
+    @property
+    def labels_path(self) -> Path:
+        """Hand-labeled clues worth knowing (see pipeline/eval/labeled_clues.yaml)."""
+        return self.overrides_dir.parent / "eval" / "labeled_clues.yaml"
 
     @property
     def tracers_path(self) -> Path:

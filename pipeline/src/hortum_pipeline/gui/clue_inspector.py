@@ -74,9 +74,17 @@ class ClueInspector:
         ):
             self.table.heading(col, text=label)
             self.table.column(col, width=width, anchor="w")
-        self.table.pack(fill="x", padx=12, pady=(0, 12))
+        self.table.pack(fill="x", padx=12, pady=(0, 6))
         self.table.bind("<<TreeviewSelect>>", lambda _e: self._select())
         self._spans: dict[str, tuple[str, str]] = {}
+        self._clue_ids: dict[str, int] = {}
+
+        self.cluster_title = tk.StringVar(
+            value="Select a clue to see the same fact in other questions"
+        )
+        ttk.Label(win, textvariable=self.cluster_title, padding=(12, 0)).pack(anchor="w")
+        self.cluster_list = tk.Listbox(win, height=7, activestyle="none")
+        self.cluster_list.pack(fill="x", padx=12, pady=(2, 12))
 
         if self.tracers:
             box.current(0)
@@ -125,7 +133,7 @@ class ClueInspector:
 
         clues = self.conn.execute(
             "SELECT ordinal, kind, char_start, char_end, position, in_power, word_start, "
-            "word_end, key_terms FROM clues WHERE tossup_id = ? ORDER BY ordinal",
+            "word_end, key_terms, id FROM clues WHERE tossup_id = ? ORDER BY ordinal",
             (tossup_id,),
         ).fetchall()
         self.text.configure(state="normal")
@@ -140,12 +148,14 @@ class ClueInspector:
 
         self.table.delete(*self.table.get_children())
         self._spans.clear()
-        for ordinal, kind, start, end, position, in_power, w0, w1, terms in clues:
+        self._clue_ids.clear()
+        for ordinal, kind, start, end, position, in_power, w0, w1, terms, clue_id in clues:
             tag = f"c{ordinal % len(_SHADES)}" if kind == "clue" else kind
             a, b = f"1.0+{shift(start)}c", f"1.0+{shift(end)}c"
             self.text.tag_add(tag, a, b)
             iid = str(ordinal)
             self._spans[iid] = (a, b)
+            self._clue_ids[iid] = clue_id
             self.table.insert(
                 "",
                 "end",
@@ -167,6 +177,34 @@ class ClueInspector:
             a, b = self._spans[iid]
             self.text.tag_add("selected", a, b)
             self.text.see(a)
+            self._show_cluster(self._clue_ids[iid])
+
+    def _show_cluster(self, clue_id: int) -> None:
+        """Lists how other questions state the same fact (the clue's cluster)."""
+        self.cluster_list.delete(0, "end")
+        try:
+            row = self.conn.execute(
+                "SELECT k.id, k.label, k.n_tossups, k.n_sets FROM clue_cluster_members m "
+                "JOIN clue_clusters k ON k.id = m.cluster_id WHERE m.clue_id = ?",
+                (clue_id,),
+            ).fetchone()
+        except sqlite3.OperationalError:
+            row = None  # the cluster stage hasn't run yet
+        if row is None:
+            self.cluster_title.set(
+                "Not clustered (a giveaway, a note, or the cluster stage hasn't run)"
+            )
+            return
+        cluster_id, label, n_tossups, n_sets = row
+        self.cluster_title.set(
+            f'Same fact elsewhere · cluster "{label}" · {n_tossups} questions in {n_sets} sets'
+        )
+        for (text,) in self.conn.execute(
+            "SELECT c.text FROM clue_cluster_members m JOIN clues c ON c.id = m.clue_id "
+            "WHERE m.cluster_id = ? AND c.id != ? LIMIT 50",
+            (cluster_id, clue_id),
+        ):
+            self.cluster_list.insert("end", text)
 
 
 def open_inspector(corpus_path: Path, tracers_path: Path) -> None:

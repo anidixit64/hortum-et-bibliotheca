@@ -391,6 +391,82 @@ def check_clues(conn: sqlite3.Connection, settings: PipelineSettings) -> list[Ch
     return out
 
 
+def check_cluster(conn: sqlite3.Connection, settings: PipelineSettings) -> list[Check]:
+    out = []
+    topical = _one(conn, "SELECT COUNT(*) FROM clues WHERE kind = 'clue' AND topic_id IS NOT NULL")
+    assigned = _one(conn, "SELECT COUNT(*) FROM clue_cluster_members")
+    out.append(
+        Check(
+            "cluster",
+            "every topical clue in exactly one cluster",
+            assigned == topical,
+            f"{assigned:,} of {topical:,}",
+        )
+    )
+    summed = _one(conn, "SELECT SUM(n_clues) FROM clue_clusters")
+    out.append(
+        Check("cluster", "cluster sizes add up", summed == assigned, f"{summed:,} vs {assigned:,}")
+    )
+    crossed = _one(
+        conn,
+        "SELECT COUNT(*) FROM clue_cluster_members m JOIN clues c ON c.id = m.clue_id "
+        "JOIN clue_clusters k ON k.id = m.cluster_id WHERE c.topic_id != k.topic_id",
+    )
+    out.append(
+        Check("cluster", "clusters never cross topics", crossed == 0, f"{crossed} crossings")
+    )
+    stray = _one(
+        conn,
+        "SELECT COUNT(*) FROM clue_clusters k LEFT JOIN clue_cluster_members m "
+        "ON m.clue_id = k.representative_clue_id AND m.cluster_id = k.id WHERE m.clue_id IS NULL",
+    )
+    out.append(
+        Check(
+            "cluster", "each representative belongs to its cluster", stray == 0, f"{stray} strays"
+        )
+    )
+    if settings.labels_path.is_file():
+        f1, pairs = labeled_pair_f1(conn, settings)
+        out.append(
+            Check(
+                "cluster",
+                "same-fact pairs F1 ≥ 0.70 on labeled topics",
+                f1 >= 0.70,
+                f"F1 {f1:.3f} over {pairs:,} labeled pairs",
+            )
+        )
+    return out
+
+
+def labeled_pair_f1(conn: sqlite3.Connection, settings: PipelineSettings) -> tuple[float, int]:
+    """Pairwise F1: do clues naming the same labeled fact share a cluster, and only those?"""
+    from hortum_pipeline.labels import load
+
+    tp = fp = fn = pairs = 0
+    for topic in load(settings.labels_path):
+        rows = conn.execute(
+            "SELECT c.text, m.cluster_id FROM clues c "
+            "JOIN clue_cluster_members m ON m.clue_id = c.id WHERE c.topic_id = ?",
+            (topic.id,),
+        ).fetchall()
+        tagged = []
+        for text, cluster_id in rows:
+            hits = [i for i, clue in enumerate(topic.clues) if clue.found_in(text)]
+            if len(hits) == 1:
+                tagged.append((hits[0], cluster_id))
+        for a in range(len(tagged)):
+            for b in range(a + 1, len(tagged)):
+                same_fact = tagged[a][0] == tagged[b][0]
+                same_cluster = tagged[a][1] == tagged[b][1]
+                tp += same_fact and same_cluster
+                fp += (not same_fact) and same_cluster
+                fn += same_fact and not same_cluster
+                pairs += 1
+    precision = tp / max(tp + fp, 1)
+    recall = tp / max(tp + fn, 1)
+    return 2 * precision * recall / max(precision + recall, 1e-9), pairs
+
+
 TRACERS_PATH = Path("pipeline/eval/tracers.yaml")
 
 
@@ -421,6 +497,19 @@ def _tracer_actual(conn: sqlite3.Connection, stage: str, tid: str) -> dict[str, 
             (tid,),
         ).fetchone()
         return {"topic": row[0], "title": row[1]} if row else None
+    if stage == "cluster":
+        rows = conn.execute(
+            "SELECT c.ordinal, k.n_tossups, k.label, k.key_terms FROM clues c "
+            "JOIN clue_cluster_members m ON m.clue_id = c.id "
+            "JOIN clue_clusters k ON k.id = m.cluster_id WHERE c.tossup_id = ? ORDER BY c.ordinal",
+            (tid,),
+        ).fetchall()
+        if not rows:
+            return None
+        return {
+            "cluster_questions": {r[0]: r[1] for r in rows},
+            "cluster_terms": {r[0]: [r[2], *json.loads(r[3])] for r in rows},
+        }
     if stage == "clues":
         layout = conn.execute(
             "SELECT power_word FROM question_layout WHERE tossup_id = ?", (tid,)
@@ -451,6 +540,16 @@ def _tracer_mismatches(expect: dict[str, Any], actual: dict[str, Any]) -> list[s
                 if i >= len(texts) or not texts[i].startswith(prefix):
                     got = texts[i][:40] if i < len(texts) else "missing"
                     problems.append(f"clue {i} starts {got!r}, want {prefix!r}")
+        elif key == "cluster_min_questions":
+            for index, minimum in want.items():
+                got = actual["cluster_questions"].get(int(index), 0)
+                if got < minimum:
+                    problems.append(f"clue {index} cluster spans {got} questions, want ≥{minimum}")
+        elif key == "cluster_mentions":
+            for index, terms in want.items():
+                got = [t.lower() for t in actual["cluster_terms"].get(int(index), [])]
+                if not any(term.lower() in got for term in terms):
+                    problems.append(f"clue {index} cluster terms {got[:5]} lack any of {terms}")
         elif key == "key_terms":
             for index, terms in want.items():
                 got = actual["key_terms"].get(int(index), [])
@@ -495,6 +594,7 @@ STAGE_CHECKS: dict[str, list[CheckFn]] = {
     "link": [check_link, check_tracers("link")],
     "facts": [check_facts, check_search],
     "clues": [check_clues, check_tracers("clues")],
+    "cluster": [check_cluster, check_tracers("cluster")],
 }
 TABLE_FOR = {
     "ingest": "tossups",
@@ -503,6 +603,7 @@ TABLE_FOR = {
     "link": "group_links",
     "facts": "topic_facts",
     "clues": "question_layout",
+    "cluster": "clue_clusters",
 }
 
 

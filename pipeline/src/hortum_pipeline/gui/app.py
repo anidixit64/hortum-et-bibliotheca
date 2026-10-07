@@ -26,7 +26,7 @@ def run_with_window(stages: Sequence[Stage], settings: PipelineSettings, runner:
     actions = []
     if "parse-answers" in names:
         actions.append(("Review low-confidence answers", open_review))
-    if "clues" in names:
+    if names & {"clues", "cluster"}:
         actions.append(("Inspect clues", open_clues))
     title = "hortum-pipeline: " + (stages[0].name if len(stages) == 1 else "all stages")
     window = ProgressWindow(root, title, actions)
