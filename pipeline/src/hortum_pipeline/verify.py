@@ -520,7 +520,6 @@ def check_score(conn: sqlite3.Connection, settings: PipelineSettings) -> list[Ch
                 f"precision@5 {p5:.3f}, recall@10 {r10:.3f}",
             )
         )
-        )
     return out
 
 
