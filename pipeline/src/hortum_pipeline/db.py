@@ -21,6 +21,17 @@ def recreate(conn: sqlite3.Connection, ddl: str) -> None:
     conn.executescript(ddl)
 
 
+def record_meta(conn: sqlite3.Connection, stage: str, values: dict[str, object]) -> None:
+    """Stores a stage's run statistics, which verify cross-checks later."""
+    conn.execute("CREATE TABLE IF NOT EXISTS pipeline_meta (stage TEXT, key TEXT, value TEXT)")
+    conn.execute("DELETE FROM pipeline_meta WHERE stage = ?", (stage,))
+    conn.executemany(
+        "INSERT INTO pipeline_meta VALUES (?, ?, ?)",
+        [(stage, key, str(value)) for key, value in values.items()],
+    )
+    conn.commit()
+
+
 def require_table(conn: sqlite3.Connection, table: str, stage: str) -> None:
     row = conn.execute(
         "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)

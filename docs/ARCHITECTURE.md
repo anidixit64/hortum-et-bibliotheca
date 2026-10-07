@@ -539,6 +539,8 @@ The order is chosen so you can **see and use something at the end of every phase
 9. **`facts`:** bulk-fetch Wikidata dates, places and descriptions. *Done when* a sample of historical and geographic topics has sensible dates and coordinates.
 10. **Catalog search:** build the FTS5 trigram index and `GET /search`; add the gateway route. *Done when* `curl 'localhost:8000/api/topics/search?q=socer'` returns association football first, and "Mercury" returns three topics.
 
+**Phase 1 status (October 2026): done.** All 1,318 low-confidence answer lines were reviewed by hand (`pipeline/overrides/answers.jsonl`); 30 stage checks pass (`hortum-pipeline verify`); a 100-question audit gives parse accuracy ≥93.8% and link precision ≥91.9% at 95% confidence (`pipeline/eval/README.md`). Known gap: link coverage, ~10% of questions sit in unlinked topics although an article exists.
+
 ### Phase 2: Clue mining
 11. **Label the evaluation set before writing the scorer.** For ~30 topics across categories and difficulty levels, write down the 5–10 clues you'd want to know (`pipeline/eval/labeled_clues.yaml`). This keeps the scoring honest.
 12. **`clues`:** sentence splitter, positions, word spans, power index, key terms. *Done when* tests on tricky sentences (abbreviations, quoted titles, the `(*)` marker) pass.

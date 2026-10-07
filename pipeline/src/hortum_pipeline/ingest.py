@@ -139,7 +139,8 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
 
     conn = db.connect(settings.corpus_path)
     db.recreate(conn, SCHEMA)
-    reporter.begin("Reading questions", count_lines(source))
+    source_lines = count_lines(source)
+    reporter.begin("Reading questions", source_lines)
 
     kept: dict[str, tuple[str, int]] = {}  # text_hash -> (tossup id, meta_score)
     duplicates: list[tuple[str, str]] = []  # (dropped tossup id, text_hash)
@@ -186,6 +187,11 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
     conn.commit()
 
     total = conn.execute("SELECT COUNT(*) FROM tossups").fetchone()[0]
+    db.record_meta(
+        conn,
+        "ingest",
+        {"source_lines": source_lines, "duplicates": len(duplicates), "skipped": skipped},
+    )
     reporter.stat("Tossups kept", f"{total:,}")
     reporter.stat("Duplicates removed", f"{len(duplicates):,}")
     reporter.stat("Skipped (empty question or answer)", f"{skipped:,}")

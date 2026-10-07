@@ -285,3 +285,18 @@ def test_disambiguated_answer_needs_text_agreement() -> None:
     merged = merge_direct([the_doctor], "doctor", {"doctor": disamb})
     assert all(c.ambiguous for c in merged)
     assert not accept_link(merged[0], settings)
+
+
+def test_title_store_reuses_cached_batches(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from hortum_pipeline.linking import TitleStore
+    from hortum_pipeline.wiki import WIKIPEDIA_API, titles_params
+
+    cache = HttpCache(tmp_path / "http.db")
+    batch = ["soccer", "mercury", "nothing here"]
+    cache.put(WikiClient.cache_key(WIKIPEDIA_API, titles_params(batch)), title_response(batch))
+    store = TitleStore(tmp_path / "titles.db")
+    store.seed_from(cache)
+    assert all(t in store for t in batch)  # a missing page is remembered too
+    hit = store.get("soccer")
+    assert hit is not None and hit.qid == "Q2736"
+    assert store.get("nothing here") is None

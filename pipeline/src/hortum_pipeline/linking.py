@@ -7,11 +7,15 @@ between its intro and the group's own questions, plus bonuses for a direct title
 a matching title. Groups that resolve to the same Wikidata item merge into one topic.
 """
 
+import gzip
 import json
 import re
+import sqlite3
 from collections import defaultdict
 from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, urlsplit
 
 import numpy as np
 from scipy.sparse import csr_matrix
@@ -212,6 +216,49 @@ def accept_link(best: Candidate, settings: PipelineSettings) -> bool:
     return best.score >= settings.link_min_score and best.similarity >= needed
 
 
+class TitleStore:
+    """Direct title lookups kept per title across runs.
+
+    Lookups are batched 20 to a request, and the HTTP cache is keyed by the whole batch, so
+    renaming a few answers would shift every batch and refetch everything. Storing results
+    per title means only titles never seen before are requested.
+    """
+
+    def __init__(self, path: Path) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self.conn = sqlite3.connect(path)
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS titles (requested TEXT PRIMARY KEY, page TEXT)"
+        )
+        self._pages: dict[str, str | None] = dict(self.conn.execute("SELECT * FROM titles"))
+
+    def __contains__(self, title: str) -> bool:
+        return title in self._pages
+
+    def get(self, title: str) -> Candidate | None:
+        page = self._pages.get(title)
+        return Candidate(**json.loads(page)) if page else None
+
+    def put_batch(self, requested: list[str], found: dict[str, Candidate | None]) -> None:
+        rows = []
+        for title in requested:
+            hit = found.get(title)
+            rows.append((title, json.dumps(asdict(hit)) if hit else None))
+        self.conn.executemany("INSERT OR REPLACE INTO titles VALUES (?, ?)", rows)
+        self.conn.commit()
+        self._pages.update(rows)
+
+    def seed_from(self, cache: HttpCache) -> None:
+        """Fills the store once from title-lookup batches already in the HTTP cache."""
+        if self._pages:
+            return
+        for key, body in cache.conn.execute(
+            "SELECT key, body FROM responses WHERE key LIKE '%titles=%'"
+        ):
+            requested = parse_qs(urlsplit(key).query).get("titles", [""])[0].split("|")
+            self.put_batch(requested, parse_title_lookup(json.loads(gzip.decompress(body))))
+
+
 def merge_direct(
     candidates: list[Candidate], display: str, direct: dict[str, Candidate | None]
 ) -> list[Candidate]:
@@ -298,14 +345,17 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
             for title, _bonus in title_lookups(display)
         }
     )
-    batches = [wanted[i : i + TITLE_BATCH] for i in range(0, len(wanted), TITLE_BATCH)]
+    store = TitleStore(settings.http_cache_dir / "wikipedia_titles.db")
+    store.seed_from(client.cache)
+    missing = [t for t in wanted if t not in store]
+    batches = [missing[i : i + TITLE_BATCH] for i in range(0, len(missing), TITLE_BATCH)]
     reporter.begin("Looking up answers as Wikipedia titles", len(batches))
-    direct: dict[str, Candidate | None] = {}
     for batch in batches:
         params = titles_params(batch)
         if allowed(params):
-            direct.update(parse_title_lookup(client.get_json(WIKIPEDIA_API, params)))
+            store.put_batch(batch, parse_title_lookup(client.get_json(WIKIPEDIA_API, params)))
         reporter.advance()
+    direct = {t: store.get(t) for t in wanted if t in store}
     reporter.stat("Answers that are Wikipedia titles", f"{sum(1 for c in direct.values() if c):,}")
 
     # Pass 2: search and score, group by group.
