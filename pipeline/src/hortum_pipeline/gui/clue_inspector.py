@@ -199,12 +199,14 @@ class ClueInspector:
         self.cluster_title.set(
             f'Same fact elsewhere · cluster "{label}" · {n_tossups} questions in {n_sets} sets'
         )
-        for (text,) in self.conn.execute(
-            "SELECT c.text FROM clue_cluster_members m JOIN clues c ON c.id = m.clue_id "
-            "WHERE m.cluster_id = ? AND c.id != ? LIMIT 50",
+        for text, set_name, year, position in self.conn.execute(
+            "SELECT c.text, s.name, s.year, c.position FROM clue_cluster_members m "
+            "JOIN clues c ON c.id = m.clue_id JOIN tossups t ON t.id = c.tossup_id "
+            "JOIN sets s ON s.id = t.set_id WHERE m.cluster_id = ? AND c.id != ? "
+            "ORDER BY s.year DESC LIMIT 50",
             (cluster_id, clue_id),
         ):
-            self.cluster_list.insert("end", text)
+            self.cluster_list.insert("end", f"[{year} · {set_name} · at {position:.0%}]  {text}")
 
 
 def open_inspector(corpus_path: Path, tracers_path: Path) -> None:
