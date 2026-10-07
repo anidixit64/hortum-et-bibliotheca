@@ -48,6 +48,11 @@ tracers:
           1: [Dr. Bledsoe, Jim Trueblood, Mr. Norton]
           2: [Ras the Exhorter, Ras the Destroyer]
           3: [Battle Royale, Battle Royal]
+      score:
+        # Invisible Man's top 10 (October 2026): Dr. Bledsoe, Ras the Exhorter, Sambo,
+        # Battle Royale, Rinehart, Lucius Brockway, Sybil, 1,369 bulbs, Mr. Emerson, Men's Club.
+        # This guard is why scoring weighs frequency over earliness: Ras is in 38 sets.
+        rank_at_most: {1: 3, 2: 3, 3: 6}
 
   - id: 68b2ff0d8940d9f7c563a1a8
     topic: Drosophila melanogaster
@@ -91,3 +96,6 @@ tracers:
           1: [P element, P-element]
           2: [Hox]
           4: [Thomas Hunt Morgan, T. H. Morgan, Alfred Sturtevant]
+      score:
+        # Morgan's fly room ranks first, Hox genes sixth.
+        rank_at_most: {4: 3, 2: 10}

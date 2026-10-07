@@ -26,6 +26,15 @@ class PipelineSettings(BaseSettings):
     # Clue clustering (chosen against pipeline/eval/labeled_clues.yaml: pairwise F1 0.76).
     cluster_threshold: float = 0.6
     cluster_term_bonus: float = 0.2
+    # Clue scoring (see hortum_pipeline/score.py), tuned by a sweep over the labeled clues
+    # with the tracer guard that Invisible Man keeps Ras the Exhorter and the Battle Royal:
+    # precision@5 0.913, recall@10 0.798.
+    score_power_bonus: float = 0.0
+    score_specificity_exponent: float = 0.0
+    score_min_sets: int = 2
+    score_mmr_lambda: float = 0.7
+    score_frequency_mode: str = "sqrt"
+    score_earliness_exponent: float = 0.25
     link_min_similarity: float = 0.05
 
     def require_wikimedia_contact(self) -> str:

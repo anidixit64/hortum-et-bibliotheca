@@ -467,6 +467,63 @@ def labeled_pair_f1(conn: sqlite3.Connection, settings: PipelineSettings) -> tup
     return 2 * precision * recall / max(precision + recall, 1e-9), pairs
 
 
+def check_score(conn: sqlite3.Connection, settings: PipelineSettings) -> list[Check]:
+    out = []
+    clusters = _one(conn, "SELECT COUNT(*) FROM clue_clusters")
+    scored = _one(conn, "SELECT COUNT(*) FROM cluster_scores")
+    out.append(
+        Check("score", "every cluster scored", scored == clusters, f"{scored:,} of {clusters:,}")
+    )
+    bad_rank = _one(
+        conn,
+        "SELECT COUNT(*) FROM (SELECT topic_id, COUNT(rank) n, MAX(rank) m FROM cluster_scores "
+        "WHERE rank IS NOT NULL GROUP BY topic_id) WHERE n > 10 OR m != n",
+    )
+    out.append(
+        Check(
+            "score",
+            "ranks run 1..n with at most 10 per topic",
+            bad_rank == 0,
+            f"{bad_rank} topics malformed",
+        )
+    )
+    ineligible = _one(
+        conn, "SELECT COUNT(*) FROM cluster_scores WHERE rank IS NOT NULL AND eligible = 0"
+    )
+    out.append(
+        Check("score", "only eligible clusters are picked", ineligible == 0, f"{ineligible} picked")
+    )
+    big = _one(conn, "SELECT COUNT(*) FROM topics WHERE n_tossups >= 3")
+    ranked = _one(
+        conn,
+        "SELECT COUNT(DISTINCT s.topic_id) FROM cluster_scores s "
+        "JOIN topics t ON t.id = s.topic_id WHERE s.rank IS NOT NULL AND t.n_tossups >= 3",
+    )
+    share = ranked / max(big, 1)
+    out.append(
+        Check(
+            "score",
+            "≥95% of topics with 3+ questions have picks",
+            share >= 0.95,
+            f"{share:.1%} of {big:,}",
+        )
+    )
+    if settings.labels_path.is_file():
+        from hortum_pipeline.clue_eval import evaluate, summary
+
+        p5, r10 = summary(evaluate(conn, settings.labels_path))
+        out.append(
+            Check(
+                "score",
+                "labeled topics: precision@5 ≥ 0.85 and recall@10 ≥ 0.75",
+                p5 >= 0.85 and r10 >= 0.75,
+                f"precision@5 {p5:.3f}, recall@10 {r10:.3f}",
+            )
+        )
+        )
+    return out
+
+
 TRACERS_PATH = Path("pipeline/eval/tracers.yaml")
 
 
@@ -497,6 +554,13 @@ def _tracer_actual(conn: sqlite3.Connection, stage: str, tid: str) -> dict[str, 
             (tid,),
         ).fetchone()
         return {"topic": row[0], "title": row[1]} if row else None
+    if stage == "score":
+        rows = conn.execute(
+            "SELECT c.ordinal, s.rank FROM clues c JOIN clue_cluster_members m ON m.clue_id = c.id "
+            "JOIN cluster_scores s ON s.cluster_id = m.cluster_id WHERE c.tossup_id = ?",
+            (tid,),
+        ).fetchall()
+        return {"ranks": {r[0]: r[1] for r in rows}} if rows else None
     if stage == "cluster":
         rows = conn.execute(
             "SELECT c.ordinal, k.n_tossups, k.label, k.key_terms FROM clues c "
@@ -540,6 +604,11 @@ def _tracer_mismatches(expect: dict[str, Any], actual: dict[str, Any]) -> list[s
                 if i >= len(texts) or not texts[i].startswith(prefix):
                     got = texts[i][:40] if i < len(texts) else "missing"
                     problems.append(f"clue {i} starts {got!r}, want {prefix!r}")
+        elif key == "rank_at_most":
+            for index, worst in want.items():
+                got = actual["ranks"].get(int(index))
+                if got is None or got > worst:
+                    problems.append(f"clue {index} cluster rank {got}, want ≤{worst}")
         elif key == "cluster_min_questions":
             for index, minimum in want.items():
                 got = actual["cluster_questions"].get(int(index), 0)
@@ -595,6 +664,7 @@ STAGE_CHECKS: dict[str, list[CheckFn]] = {
     "facts": [check_facts, check_search],
     "clues": [check_clues, check_tracers("clues")],
     "cluster": [check_cluster, check_tracers("cluster")],
+    "score": [check_score, check_tracers("score")],
 }
 TABLE_FOR = {
     "ingest": "tossups",
@@ -604,6 +674,7 @@ TABLE_FOR = {
     "facts": "topic_facts",
     "clues": "question_layout",
     "cluster": "clue_clusters",
+    "score": "cluster_scores",
 }
 
 

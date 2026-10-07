@@ -43,6 +43,9 @@ def build_parser() -> argparse.ArgumentParser:
         "review-answers", parents=[gui], help="Open the review window for low-confidence answers"
     )
     sub.add_parser("inspect-clues", parents=[gui], help="Open the clue inspector window")
+    sub.add_parser(
+        "eval-clues", parents=[gui], help="Compare ranked clues with the hand-labeled clues"
+    )
     verify_cmd = sub.add_parser("verify", parents=[gui], help="Check every stage's output")
     verify_cmd.add_argument("stages", nargs="*", help="Only these stages (default: all)")
     return parser
@@ -102,6 +105,14 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "review-answers":
         return _open_review(settings)
+    if args.command == "eval-clues":
+        import sqlite3
+
+        from hortum_pipeline.clue_eval import evaluate, report
+
+        conn = sqlite3.connect(f"file:{settings.corpus_path}?mode=ro", uri=True)
+        print(report(evaluate(conn, settings.labels_path)))
+        return 0
     if args.command == "inspect-clues":
         from hortum_pipeline.gui.clue_inspector import open_inspector
 

@@ -171,17 +171,17 @@ The method was chosen against the labeled clues (`pipeline/eval/labeled_clues.ya
 The goal is clues **common enough to be worth knowing** and **early enough to win the buzz**. For each clue cluster:
 
 ```
-frequency    F = log(1 + distinct_sets)              # common across the circuit, not repeated in one set
-earliness    E = 1 - median(position)                # earlier is better
-             E += 0.15 * share_in_power              # bonus for appearing before (*)
-specificity  S = idf(key_terms across all topics)    # "pointing power": rare elsewhere, so it identifies THIS topic
-impact       = F * E * sqrt(S)
+frequency    F = sqrt(distinct sets)                 # common across the circuit, not repeated in one set
+earliness    E = 1 - median(position) (+ power bonus)
+specificity  S = idf(key terms across all topics)     # stored; weight 0 after tuning
+impact       = F * E ** 0.25 * S ** 0
 ```
 
-- **Filters:** at least 2 distinct sets (relaxed to 1 for topics with fewer than 6 tossups), exclude clusters that are only giveaways, and exclude clusters whose key terms are just the answer's own aliases.
-- **Selection:** take the top K by maximal marginal relevance (MMR) so the 5–10 clues aren't near-duplicates. K = `clamp(5, 10, clusters passing the filters)`.
-- **Heatmap statistics** (stored on each cluster for §8.3): a 10-bin histogram of positions, share in power, counts per difficulty band (middle school 1, high school 2–5, college 6–9, open 10), first and last year seen, and a trend label (`rising`, `steady`, `fading`) from a linear fit of appearances per year.
-- **Tuning:** hand-label "good clues" for ~30 topics across categories and difficulties, then tune the weights and thresholds against them. Keep that file in `pipeline/eval/`. It's the only way to know whether a weight change helped.
+- **Filters:** at least 2 distinct sets (1 for topics with fewer than 6 tossups), and not made only of the topic's own names.
+- **Selection:** up to 10 by maximal marginal relevance (λ = 0.7). Redundancy is measured **relative to the topic's own baseline similarity**: every clue about one novel resembles every other, so raw similarity treated common clues as duplicates of each other.
+- **Heatmap statistics** (stored on each cluster for §8.3): a 10-bin histogram of positions, share in power, counts per difficulty band (unrated, middle school 1, high school 2–5, college 6–9, open 10), first and last year seen, and a trend label (`rising`, `steady`, `fading`): the cluster's share of the topic's most recent third of questions vs the topic's own.
+- **Display label:** the cluster's most common key term found in at most 50 topics, else the representative clue's opening words ("Peace" alone says nothing).
+- **Tuning:** `hortum-pipeline eval-clues` scores the picks against `pipeline/eval/labeled_clues.yaml` (precision@5: share of the top 5 that match a labeled clue; recall@10: share of labeled clues found in the top 10). A sweep chose the weights above (precision@5 0.913, recall@10 0.798), under a tracer guard: *Invisible Man*'s top 10 must include Ras the Exhorter (38 sets, mid-question) and the Battle Royal. The first-guess formula (log frequency, linear earliness) ranked 6-set lead-in trivia above them. A pick matches a label only through its label, key terms, representative and five members, so a big merged cluster isn't credited with every fact its members mention.
 
 ### Stage 8: `relate` → related topics
 "Clues that are answers to their own questions":
