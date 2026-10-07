@@ -161,9 +161,11 @@ On the full corpus (October 2026): 892k clues, 183k giveaways, 3k notes in about
 
 ### Stage 6: `cluster` → the same fact, worded differently
 Different questions phrase one fact many ways ("invited to the McGurk Institute by Max Gottlieb" vs. "his mentor Gottlieb brings him to McGurk"). Within each topic:
-- Embed clues with MiniLM (local, free), and boost similarity when clues share key terms.
-- Run agglomerative clustering with a cosine threshold (tune it, starting around 0.6).
-- The **representative** clue is the medoid, and the cluster's **label** is its most frequent key term.
+- Embed clues with MiniLM (`all-MiniLM-L6-v2` via fastembed, local and free; onnxruntime is pinned below 1.20 on Intel Macs, which newer releases dropped). Embeddings are cached per clue text, so the ~2-hour first run happens once.
+- Similarity = cosine + 0.2 per shared key term, then average-linkage clustering at distance 0.6.
+- The **representative** clue is the medoid, and the cluster's **label** is its most common key term.
+
+The method was chosen against the labeled clues (`pipeline/eval/labeled_clues.yaml`): pairwise F1 on same-fact clue pairs was 0.76 for MiniLM with the term bonus vs 0.60 for the best TF-IDF setting, which rarely groups paraphrases. On the full corpus: 891,754 clues in 434,509 clusters, of which 62,180 recur in 3+ questions; `verify` re-measures F1 on every run (0.761 over 78,456 labeled pairs) and fails below 0.70.
 
 ### Stage 7: `score` → "high-impact" clues
 The goal is clues **common enough to be worth knowing** and **early enough to win the buzz**. For each clue cluster:

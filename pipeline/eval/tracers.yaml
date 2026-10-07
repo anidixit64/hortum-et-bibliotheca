@@ -3,7 +3,9 @@
 # Each stage's expected output for these two questions was checked by hand. `verify`
 # asserts them against the real corpus after each stage, and the unit tests rebuild a
 # tiny corpus from the raw records in tracer_records.ndjson and assert them again.
-# When a later phase adds a stage, add its expectations here.
+# When a later phase adds a stage, add its expectations here. Cluster expectations only
+# hold on the full corpus (a cluster needs other questions to join), so the unit tests
+# stop at the clues stage.
 
 tracers:
   - id: 68fd4029a03782f1b6579154
@@ -38,6 +40,14 @@ tracers:
         key_terms:
           1: ["Jim Trueblood's", "Dr. Bledsoe"]
           3: ["Battle Royale"]
+      cluster:
+        # Checked by eye on the full corpus (October 2026): the expulsion storyline (30
+        # questions), Ras the Exhorter/Destroyer (38), the Battle Royal(e) (20).
+        cluster_min_questions: {1: 15, 2: 20, 3: 10}
+        cluster_mentions:
+          1: [Dr. Bledsoe, Jim Trueblood, Mr. Norton]
+          2: [Ras the Exhorter, Ras the Destroyer]
+          3: [Battle Royale, Battle Royal]
 
   - id: 68b2ff0d8940d9f7c563a1a8
     topic: Drosophila melanogaster
@@ -73,3 +83,11 @@ tracers:
         key_terms:
           2: ["Ed Lewis", "BᐧX-C"]
           4: ["room", "Alfred Sturtevant", "Columbia", "T. H. Morgan"]
+      cluster:
+        # Checked by eye on the full corpus (October 2026): P elements (5 questions), Hox
+        # genes (10), Morgan's fly room (19). Clue 3 (the map unit) stays a singleton.
+        cluster_min_questions: {1: 3, 2: 5, 4: 10}
+        cluster_mentions:
+          1: [P element, P-element]
+          2: [Hox]
+          4: [Thomas Hunt Morgan, T. H. Morgan, Alfred Sturtevant]
