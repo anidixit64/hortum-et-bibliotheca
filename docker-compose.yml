@@ -1,0 +1,64 @@
+name: hortum-et-bibliotheca
+
+x-service-defaults: &service-defaults
+  restart: unless-stopped
+  env_file:
+    - path: .env
+      required: false
+
+services:
+  gateway:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/gateway/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      GATEWAY_CATALOG_URL: http://catalog:8000
+      GATEWAY_CONTENT_URL: http://content:8000
+      GATEWAY_STUDY_URL: http://study:8000
+    depends_on:
+      catalog:
+        condition: service_healthy
+      content:
+        condition: service_healthy
+      study:
+        condition: service_healthy
+
+  catalog:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/catalog/Dockerfile
+    ports:
+      - "8001:8000"
+    environment:
+      CATALOG_CORPUS_PATH: /data/build/corpus.db
+    volumes:
+      - ./data/build:/data/build:ro
+
+  content:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/content/Dockerfile
+    ports:
+      - "8002:8000"
+    environment:
+      CONTENT_DB_PATH: /data/content.db
+      CONTENT_CATALOG_URL: http://catalog:8000
+    volumes:
+      - ./data:/data
+
+  study:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/study/Dockerfile
+    ports:
+      - "8003:8000"
+    environment:
+      STUDY_DB_PATH: /data/study.db
+    volumes:
+      - ./data:/data

@@ -1,0 +1,53 @@
+[project]
+name = "hortum-et-bibliotheca"
+version = "0.1.0"
+description = "Monorepo root for the hortum-et-bibliotheca microservices"
+requires-python = ">=3.12"
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["libs/*", "services/*", "pipeline"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "respx>=0.21",
+    "ruff>=0.6",
+    "mypy>=1.11",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "ASYNC"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["hortum_common", "hortum_pipeline", "gateway", "catalog", "content", "study"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+mypy_path = [
+    "libs/common/src",
+    "pipeline/src",
+    "services/gateway/src",
+    "services/catalog/src",
+    "services/content/src",
+    "services/study/src",
+]
+explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+module = ["sklearn.*", "scipy.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = "--import-mode=importlib"
+asyncio_mode = "auto"
+testpaths = ["libs", "pipeline", "services"]
