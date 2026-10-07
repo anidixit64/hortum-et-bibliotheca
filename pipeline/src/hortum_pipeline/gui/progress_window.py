@@ -70,9 +70,11 @@ class ProgressBar(tk.Canvas):
 
 
 class ProgressWindow:
-    def __init__(self, root: tk.Tk, title: str, on_review: Callable[[], None] | None) -> None:
+    def __init__(
+        self, root: tk.Tk, title: str, actions: list[tuple[str, Callable[[], None]]] | None = None
+    ) -> None:
+        """``actions`` are buttons enabled once the run finishes, e.g. "Inspect clues"."""
         self.root = root
-        self.on_review = on_review
         root.title(title)
         root.minsize(560, 420)
 
@@ -99,11 +101,11 @@ class ProgressWindow:
 
         buttons = ttk.Frame(frame)
         buttons.pack(fill="x", pady=(10, 0))
-        self.review_button = ttk.Button(
-            buttons, text="Review low-confidence answers", command=self._review, state="disabled"
-        )
-        if on_review is not None:
-            self.review_button.pack(side="left")
+        self.action_buttons = []
+        for label, callback in actions or []:
+            button = ttk.Button(buttons, text=label, command=callback, state="disabled")
+            button.pack(side="left", padx=(0, 6))
+            self.action_buttons.append(button)
         self.close_button = ttk.Button(buttons, text="Close", command=self._close)
         self.close_button.pack(side="right")
 
@@ -186,7 +188,8 @@ class ProgressWindow:
                 self.stage_name = "Finished" if self.exit_code == 0 else "Stopped"
                 self.total, self.done = 1, 1
                 if self.exit_code == 0:
-                    self.review_button.configure(state="normal")
+                    for button in self.action_buttons:
+                        button.configure(state="normal")
             else:
                 self.stage_name = "Failed"
                 self._pending_logs.append((f"ERROR: {a}", "red"))
@@ -236,10 +239,6 @@ class ProgressWindow:
             self.awake.hold()
         else:
             self.awake.release()
-
-    def _review(self) -> None:
-        if self.on_review is not None:
-            self.on_review()
 
     def _close(self) -> None:
         self.awake.release()

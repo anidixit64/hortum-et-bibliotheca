@@ -48,6 +48,11 @@ class PipelineSettings(BaseSettings):
         return self.build_dir / "corpus.db"
 
     @property
+    def tracers_path(self) -> Path:
+        """Questions followed through every stage (see pipeline/eval/tracers.yaml)."""
+        return self.overrides_dir.parent / "eval" / "tracers.yaml"
+
+    @property
     def answer_overrides_path(self) -> Path:
         return self.overrides_dir / "answers.jsonl"
 

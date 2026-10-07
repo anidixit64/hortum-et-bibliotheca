@@ -10,6 +10,10 @@ import json
 import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import yaml
 
 from hortum_common.text import normalize
 from hortum_pipeline.config import PipelineSettings
@@ -315,12 +319,182 @@ def check_search(conn: sqlite3.Connection, settings: PipelineSettings) -> list[C
     return out
 
 
+def check_clues(conn: sqlite3.Connection, settings: PipelineSettings) -> list[Check]:
+    out = []
+    n = _one(conn, "SELECT COUNT(*) FROM tossups")
+    laid_out = _one(conn, "SELECT COUNT(*) FROM question_layout")
+    out.append(Check("clues", "every question split", laid_out == n, f"{laid_out:,} of {n:,}"))
+    empty = _one(conn, "SELECT COUNT(*) FROM question_layout WHERE n_clues = 0")
+    out.append(Check("clues", "every question has a clue", empty == 0, f"{empty} without"))
+
+    bad = 0
+    total = 0
+    for clean, start, end, text in conn.execute(
+        "SELECT l.clean_text, c.char_start, c.char_end, c.text "
+        "FROM clues c JOIN question_layout l ON l.tossup_id = c.tossup_id"
+    ):
+        total += 1
+        bad += clean[start:end] != text
+    out.append(
+        Check(
+            "clues",
+            "every clue's span reproduces its text exactly",
+            bad == 0,
+            f"{bad} of {total:,} differ",
+        )
+    )
+
+    marked = _one(conn, "SELECT COUNT(*) FROM tossups WHERE question_text LIKE '%(*)%'")
+    found = _one(conn, "SELECT COUNT(*) FROM question_layout WHERE power_char IS NOT NULL")
+    out.append(
+        Check(
+            "clues",
+            "every power mark located",
+            found == marked,
+            f"{found:,} of {marked:,} marked questions",
+        )
+    )
+
+    with_giveaway = _one(
+        conn, "SELECT COUNT(DISTINCT tossup_id) FROM clues WHERE kind = 'giveaway'"
+    )
+    share = with_giveaway / max(n, 1)
+    out.append(Check("clues", "giveaway found in ≥95% of questions", share >= 0.95, f"{share:.1%}"))
+
+    counts = sorted(
+        r[0]
+        for r in conn.execute("SELECT COUNT(*) FROM clues WHERE kind = 'clue' GROUP BY tossup_id")
+    )
+    median = counts[len(counts) // 2] if counts else 0
+    out.append(
+        Check(
+            "clues",
+            "median clues per question between 3 and 9",
+            3 <= median <= 9,
+            f"median {median}",
+        )
+    )
+    clues = _one(conn, "SELECT COUNT(*) FROM clues WHERE kind = 'clue'")
+    tiny = _one(
+        conn,
+        "SELECT COUNT(*) FROM clues WHERE kind = 'clue' "
+        "AND length(text) - length(replace(text, ' ', '')) < 3",
+    )
+    out.append(
+        Check(
+            "clues",
+            "under 2% of clues are fragments (<4 words)",
+            tiny / max(clues, 1) < 0.02,
+            f"{tiny:,} of {clues:,}",
+        )
+    )
+    return out
+
+
+TRACERS_PATH = Path("pipeline/eval/tracers.yaml")
+
+
+def _tracer_actual(conn: sqlite3.Connection, stage: str, tid: str) -> dict[str, object] | None:
+    """What the corpus holds for one tracer question at one stage."""
+    if stage == "ingest":
+        row = conn.execute("SELECT answer_text FROM tossups WHERE id = ?", (tid,)).fetchone()
+        return {"answer_text": row[0]} if row else None
+    if stage == "parse-answers":
+        row = conn.execute(
+            "SELECT main, accept, prompt, reject FROM answer_parses WHERE tossup_id = ?", (tid,)
+        ).fetchone()
+        if not row:
+            return None
+        texts = [[a["text"] for a in json.loads(col)] for col in row[1:]]
+        return {"main": row[0], "accept": texts[0], "prompt": texts[1], "reject": texts[2]}
+    if stage == "group":
+        row = conn.execute(
+            "SELECT g.norm_key, g.category, g.subcategory FROM tossup_groups tg "
+            "JOIN candidate_groups g ON g.id = tg.group_id WHERE tg.tossup_id = ?",
+            (tid,),
+        ).fetchone()
+        return dict(zip(("norm_key", "category", "subcategory"), row, strict=True)) if row else None
+    if stage == "link":
+        row = conn.execute(
+            "SELECT t.id, t.wikipedia_title FROM tossup_topics tt "
+            "JOIN topics t ON t.id = tt.topic_id WHERE tt.tossup_id = ?",
+            (tid,),
+        ).fetchone()
+        return {"topic": row[0], "title": row[1]} if row else None
+    if stage == "clues":
+        layout = conn.execute(
+            "SELECT power_word FROM question_layout WHERE tossup_id = ?", (tid,)
+        ).fetchone()
+        rows = conn.execute(
+            "SELECT kind, in_power, text, key_terms FROM clues "
+            "WHERE tossup_id = ? ORDER BY ordinal",
+            (tid,),
+        ).fetchall()
+        if not layout:
+            return None
+        return {
+            "power_word": layout[0],
+            "kinds": [r[0] for r in rows],
+            "in_power": [bool(r[1]) for r in rows],
+            "texts": [r[2] for r in rows],
+            "key_terms": {i: json.loads(r[3]) for i, r in enumerate(rows)},
+        }
+    return None
+
+
+def _tracer_mismatches(expect: dict[str, Any], actual: dict[str, Any]) -> list[str]:
+    problems = []
+    for key, want in expect.items():
+        if key == "starts":
+            texts = actual["texts"]
+            for i, prefix in enumerate(want):
+                if i >= len(texts) or not texts[i].startswith(prefix):
+                    got = texts[i][:40] if i < len(texts) else "missing"
+                    problems.append(f"clue {i} starts {got!r}, want {prefix!r}")
+        elif key == "key_terms":
+            for index, terms in want.items():
+                got = actual["key_terms"].get(int(index), [])
+                missing = [t for t in terms if t not in got]
+                if missing:
+                    problems.append(f"clue {index} key terms missing {missing} (got {got})")
+        elif actual.get(key) != want:
+            problems.append(f"{key} = {actual.get(key)!r}, want {want!r}")
+    return problems
+
+
+def check_tracers(stage: str) -> CheckFn:
+    def check(conn: sqlite3.Connection, settings: PipelineSettings) -> list[Check]:
+        if not settings.tracers_path.is_file():
+            return []
+        out = []
+        for tracer in yaml.safe_load(settings.tracers_path.read_text(encoding="utf-8"))["tracers"]:
+            expect = tracer["expect"].get(stage)
+            if expect is None:
+                continue
+            actual = _tracer_actual(conn, stage, tracer["id"])
+            problems = (
+                ["missing from corpus"] if actual is None else _tracer_mismatches(expect, actual)
+            )
+            out.append(
+                Check(
+                    stage,
+                    f"tracer {tracer['topic']} ({tracer['id'][:8]})",
+                    not problems,
+                    "; ".join(problems) or "as expected",
+                )
+            )
+        return out
+
+    return check
+
+
 STAGE_CHECKS: dict[str, list[CheckFn]] = {
-    "ingest": [check_ingest],
-    "parse-answers": [check_parse],
-    "group": [check_group],
-    "link": [check_link],
+    "ingest": [check_ingest, check_tracers("ingest")],
+    "parse-answers": [check_parse, check_tracers("parse-answers")],
+    "group": [check_group, check_tracers("group")],
+    "link": [check_link, check_tracers("link")],
     "facts": [check_facts, check_search],
+    "clues": [check_clues, check_tracers("clues")],
 }
 TABLE_FOR = {
     "ingest": "tossups",
@@ -328,6 +502,7 @@ TABLE_FOR = {
     "group": "tossup_groups",
     "link": "group_links",
     "facts": "topic_facts",
+    "clues": "question_layout",
 }
 
 

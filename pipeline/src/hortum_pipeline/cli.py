@@ -42,6 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser(
         "review-answers", parents=[gui], help="Open the review window for low-confidence answers"
     )
+    sub.add_parser("inspect-clues", parents=[gui], help="Open the clue inspector window")
     verify_cmd = sub.add_parser("verify", parents=[gui], help="Check every stage's output")
     verify_cmd.add_argument("stages", nargs="*", help="Only these stages (default: all)")
     return parser
@@ -101,6 +102,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "review-answers":
         return _open_review(settings)
+    if args.command == "inspect-clues":
+        from hortum_pipeline.gui.clue_inspector import open_inspector
+
+        open_inspector(settings.corpus_path, settings.tracers_path)
+        return 0
     if args.command == "verify":
         results = run_checks(settings, args.stages or None)
         print(format_report(results))
@@ -118,8 +124,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     from hortum_pipeline.gui.app import run_with_window  # Tk is only needed with --gui
 
-    reviewable = any(stage.name == "parse-answers" for stage in stages)
-    return run_with_window(stages, settings, reviewable, run_stages)
+    return run_with_window(stages, settings, run_stages)
 
 
 def _open_review(settings: PipelineSettings) -> int:

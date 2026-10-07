@@ -147,15 +147,17 @@ For every topic with a QID, fetch its Wikidata entity in bulk (`wbgetentities`, 
 - The Wikidata one-line **description**, used as a hover label everywhere a topic is mentioned.
 
 ### Stage 5: `clues` → split questions into clues
-Also record each tossup's `power_word_index` (the word where `(*)` falls), then remove the marker from the text. Use a quiz-aware sentence splitter that handles `St.`, `U.S.`, initials, quoted titles and the `(*)` marker. Sentences with semicolons that run past ~40 words are split again. For every clue, store:
+A quiz-aware splitter: abbreviations ("Dr.", "St.", "No. 9"), initials ("T. H. Morgan", "W.E.B."), and "!"/"?" inside quotations don't end sentences, and the power mark `(*)` is removed before splitting, so "Dr. (\*) Bledsoe" stays one sentence. Sentences over 40 words split again at semicolons. Each piece gets a **kind**: `clue`, `giveaway` (the "For 10 points…" part and anything after it; a mid-sentence giveaway keeps the clue before it), or `note` (moderator notes, "Two answers required."). `question_layout` stores each question's clean text and power position. For every clue:
 
 | Field | Meaning |
 |---|---|
-| `char_start`, `char_end`, `word_start`, `word_end` | Exact span in the question, so buzzer practice can map "you buzzed at word 37" to the clue being read |
-| `position` | `char_start / len(question)`; 0 is the lead-in, 1 is the end |
-| `in_power` | Appears before `(*)` |
-| `is_giveaway` | The final "For 10 points, name this…" sentence |
-| `key_terms` | Named entities, quoted titles and capitalized noun phrases from spaCy, e.g. `Max Gottlieb`, `McGurk Institute`, `Leora Tozer` |
+| `char_start`, `char_end`, `word_start`, `word_end` | Exact span in the clean text, so buzzer practice can map "you buzzed at word 37" to the clue being read |
+| `position` | `char_start / len(text)`; 0 is the lead-in, 1 is the end |
+| `in_power` | Starts before `(*)` |
+| `kind` | clue, giveaway or note |
+| `key_terms` | Capitalized names (allowing "of", "van"...), quoted titles and long numbers, e.g. `T. H. Morgan`, `Battle Royale`, `1,369`. Rule-based for speed and no heavy dependencies; spaCy remains an option if Stage 6 needs lowercase technical terms. |
+
+On the full corpus (October 2026): 892k clues, 183k giveaways, 3k notes in about two minutes; every span reproduces its text exactly, all 114,840 power marks are located, giveaways are found in 97.9% of questions, and 0.16% of clues are fragments.
 
 ### Stage 6: `cluster` → the same fact, worded differently
 Different questions phrase one fact many ways ("invited to the McGurk Institute by Max Gottlieb" vs. "his mentor Gottlieb brings him to McGurk"). Within each topic:
@@ -540,6 +542,9 @@ The order is chosen so you can **see and use something at the end of every phase
 10. **Catalog search:** build the FTS5 trigram index and `GET /search`; add the gateway route. *Done when* `curl 'localhost:8000/api/topics/search?q=socer'` returns association football first, and "Mercury" returns three topics.
 
 **Phase 1 status (October 2026): done.** All 1,318 low-confidence answer lines were reviewed by hand (`pipeline/overrides/answers.jsonl`); 30 stage checks pass (`hortum-pipeline verify`); a 100-question audit gives parse accuracy ≥93.8% and link precision ≥91.9% at 95% confidence (`pipeline/eval/README.md`). Known gap: link coverage, ~10% of questions sit in unlinked topics although an article exists.
+
+### Tracer questions
+From Phase 2 on, two **tracer questions** are followed through every stage (`pipeline/eval/tracers.yaml`): one *Invisible Man* question (power mark right after "Dr.", a mid-sentence giveaway) and one *Drosophila* question (a moderator note, the power mark between initials). Each stage's expected output for them was checked by hand; `verify` asserts it on the real corpus after every stage, and `test_tracers.py` rebuilds a two-question corpus from their raw records and asserts it again. Each new stage adds its expectations there.
 
 ### Phase 2: Clue mining
 11. **Label the evaluation set before writing the scorer.** For ~30 topics across categories and difficulty levels, write down the 5–10 clues you'd want to know (`pipeline/eval/labeled_clues.yaml`). This keeps the scoring honest.

@@ -1,0 +1,75 @@
+# Tracer questions: followed through every pipeline stage.
+#
+# Each stage's expected output for these two questions was checked by hand. `verify`
+# asserts them against the real corpus after each stage, and the unit tests rebuild a
+# tiny corpus from the raw records in tracer_records.ndjson and assert them again.
+# When a later phase adds a stage, add its expectations here.
+
+tracers:
+  - id: 68fd4029a03782f1b6579154
+    topic: Invisible Man
+    why: >-
+      The power mark sits right after an abbreviation ("Dr. (*) Bledsoe"), a quotation
+      ends with a period, and the giveaway is buried mid-sentence ("... occurs in, for 10
+      points, what ..."). A labeled Phase 2 topic.
+    expect:
+      ingest:
+        answer_text: "Invisible Man [reject The Invisible Man which is a different novel]"
+      parse-answers:
+        main: Invisible Man
+        reject: [The Invisible Man]
+      group:
+        norm_key: invisible man
+        category: Literature
+        subcategory: American Literature
+      link:
+        topic: Q1784288
+        title: Invisible Man
+      clues:
+        power_word: 50
+        kinds: [clue, clue, clue, clue, giveaway]
+        in_power: [true, true, false, false, false]
+        starts:
+          - "This novel's protagonist declares himself"
+          - "In this novel, the protagonist leads a rich trustee"
+          - "The unnamed narrator of this novel is sealed underground"
+          - "A \"Battle Royale\" scene occurs in"
+          - "for 10 points, what Ralph Ellison novel"
+        key_terms:
+          1: ["Jim Trueblood's", "Dr. Bledsoe"]
+          3: ["Battle Royale"]
+
+  - id: 68b2ff0d8940d9f7c563a1a8
+    topic: Drosophila melanogaster
+    why: >-
+      Opens with a moderator note, puts the power mark between initials
+      ("T. H. (*) Morgan"), and has a quoted pronunciation guide and unusual Unicode
+      ("BᐧX-C"). A labeled Phase 2 topic.
+    expect:
+      ingest:
+        answer_text: "Drosophila melanogaster [or D. melanogaster or fruit fly; prompt on fly]"
+      parse-answers:
+        main: Drosophila melanogaster
+        accept: [D. melanogaster, fruit fly]
+        prompt: [fly]
+      group:
+        norm_key: drosophila melanogaster
+        category: Science
+        subcategory: Biology
+      link:
+        topic: Q130888
+        title: Drosophila melanogaster
+      clues:
+        power_word: 60
+        kinds: [note, clue, clue, clue, clue, giveaway]
+        in_power: [true, true, true, true, true, false]
+        starts:
+          - "NOTE TO MODERATOR:"
+          - "Mutagenesis in this organism can be done using P elements."
+          - "Ed Lewis mapped this organism's"
+          - "A scientist who studied this organism names the unit"
+          - "Alfred Sturtevant"
+          - "For 10 points, name this insect"
+        key_terms:
+          2: ["Ed Lewis", "BᐧX-C"]
+          4: ["room", "Alfred Sturtevant", "Columbia", "T. H. Morgan"]
