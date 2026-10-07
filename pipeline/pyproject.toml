@@ -7,6 +7,7 @@ dependencies = [
     "hortum-common",
     "httpx>=0.27",
     "pydantic-settings>=2.4",
+    "pyyaml>=6.0",
     "rapidfuzz>=3.9",
     "scikit-learn>=1.5",
 ]

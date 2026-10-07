@@ -1,0 +1,464 @@
+# Clues worth knowing, per topic: facts that come up across sets and can win a buzz
+# before the giveaway. Phase 2's clue scoring is judged against this file.
+#
+# Drafted by Claude from each topic's questions (October 2026); correct anything wrong.
+# A labeled clue counts as found when any of its `match` terms appears (whole word, any
+# case) in one of the topic's top-ranked clue clusters. Terms are matched only against
+# that topic's own clues, so moderately generic words are fine.
+#
+# Topics: 30, spread across categories, each with at least 15 questions.
+
+topics:
+  # ---- Literature ----------------------------------------------------------------
+  - id: Q1784288
+    name: Invisible Man
+    clues:
+      - {fact: "hurt in a boiler explosion at Liberty Paints (Lucius Brockway)", match: [Liberty Paints, Brockway, boiler]}
+      - {fact: "lives underground lit by 1,369 light bulbs, stealing power from Monopolated Light & Power", match: ["1,369", "1369", Monopolated, light bulbs]}
+      - {fact: "blindfolded Battle Royal boxing match", match: [Battle Royal, Battle Royale, blindfolded]}
+      - {fact: "Jim Trueblood's story horrifies the trustee Mr. Norton", match: [Trueblood, Norton]}
+      - {fact: "expelled by Dr. Bledsoe, sent north with sealed letters", match: [Bledsoe]}
+      - {fact: "joins the Brotherhood under Brother Jack", match: [Brotherhood, Brother Jack]}
+      - {fact: "Ras the Exhorter/Destroyer leads the Harlem riot", match: [Ras]}
+      - {fact: "Tod Clifton is shot after selling Sambo dolls", match: [Tod Clifton, Clifton, Sambo]}
+      - {fact: "mistaken for Rinehart", match: [Rinehart]}
+
+  - id: Q38337
+    name: Alexandre Dumas
+    clues:
+      - {fact: "The Count of Monte Cristo: Edmond Dantès escapes the Château d'If", match: [Monte Cristo, Dantes, Dantès, Chateau d'If, Château d'If]}
+      - {fact: "Mercédès, Fernand, Danglars and Villefort are Dantès's targets", match: [Mercedes, Mercédès, Fernand, Danglars, Villefort]}
+      - {fact: "Abbé Faria, the fellow prisoner", match: [Faria]}
+      - {fact: "The Three Musketeers: Athos, Porthos, Aramis and d'Artagnan", match: [Athos, Porthos, Aramis, Artagnan]}
+      - {fact: "Milady de Winter, branded with a fleur-de-lis", match: [de Winter, fleur-de-lis]}
+      - {fact: "The Man in the Iron Mask / Vicomte de Bragelonne: Philippe, twin of Louis XIV", match: [Iron Mask, Bragelonne, Philippe]}
+      - {fact: "The Black Tulip: Cornelius van Baerle's tulip contest", match: [Black Tulip, Cornelius, tulip]}
+      - {fact: "ghostwriter Auguste Maquet", match: [Maquet]}
+
+  - id: Q7724
+    name: August Strindberg
+    clues:
+      - {fact: "Miss Julie: Jean, the cook Kristin, the razor, the decapitated finch", match: [Miss Julie, Julie, Kristin, Christine, razor]}
+      - {fact: "A Dream Play: the daughter of Indra (Agnes) descends to Earth", match: [Dream Play, Indra]}
+      - {fact: "The Ghost Sonata: the Student Arkenholz, Hummel, the milkmaid, the Mummy", match: [Ghost Sonata, Arkenholz, Hummel, milkmaid, Mummy]}
+      - {fact: "The Father: Laura and the Captain", match: [The Father, Laura, Captain]}
+      - {fact: "The Dance of Death: Edgar and Alice in an island fortress", match: [Dance of Death, Edgar, Alice, Kurt]}
+      - {fact: "The Red Room: Arvid Falk at Berns Salonger", match: [Red Room, Arvid Falk, Berns]}
+      - {fact: "The Stronger: Mrs. X and Mrs. Y", match: [The Stronger, Mrs. X]}
+
+  - id: Q7992653
+    name: When Lilacs Last in the Dooryard Bloom'd
+    clues:
+      - {fact: "the gray-brown hermit thrush warbling in the swamp", match: [thrush, gray-brown, hermit, warbling]}
+      - {fact: "the great star early droop'd in the western sky", match: [great star, droop'd]}
+      - {fact: "the carol: 'Come lovely and soothing death'", match: [soothing death, lovely and soothing]}
+      - {fact: "the coffin passing through lanes and streets", match: [coffin]}
+      - {fact: "'what shall I hang on the chamber walls?'", match: [chamber walls]}
+      - {fact: "the knowledge of death and the thought of death as companions", match: [knowledge of death, thought of death]}
+      - {fact: "the fragrant pines and cedars dusk and dim", match: [pines, cedars]}
+      - {fact: "an elegy for Lincoln, like 'O Captain! My Captain!'", match: [Lincoln, O Captain]}
+      - {fact: "the lilac bush with heart-shaped leaves", match: [heart-shaped]}
+
+  - id: Q16867
+    name: Edgar Allan Poe
+    clues:
+      - {fact: "The Tell-Tale Heart: the vulture eye, the body under the floorboards", match: [Tell-Tale, vulture, floorboards, watch enveloped]}
+      - {fact: "The Raven: 'Nevermore', the bust of Pallas, balm in Gilead", match: [Raven, Nevermore, Pallas, Gilead]}
+      - {fact: "The Cask of Amontillado: Montresor walls up Fortunato", match: [Amontillado, Montresor, Fortunato]}
+      - {fact: "The Masque of the Red Death: Prince Prospero's ball", match: [Red Death, Prospero]}
+      - {fact: "The Black Cat: the gallows-shaped white mark", match: [Black Cat, gallows, Pluto]}
+      - {fact: "Hop-Frog: the dwarf, Trippetta, the orangutan costumes", match: [Hop-Frog, Trippetta, orangutans]}
+      - {fact: "Ulalume: 'the dim lake of Auber', Astarte", match: [Ulalume, Auber, Astarte]}
+      - {fact: "essays: the 'heresy of the Didactic', a long poem is a contradiction in terms", match: [Didactic, Philosophy of Composition, Poetic Principle, long poem]}
+      - {fact: "Dupin detective stories", match: [Dupin, Purloined, Rue Morgue]}
+      - {fact: "attacked Longfellow for plagiarism ('Outis')", match: [Longfellow, Outis]}
+
+  # ---- History -------------------------------------------------------------------
+  - id: Q205204
+    name: Women's suffrage
+    clues:
+      - {fact: "Emily Davison runs in front of the King's horse", match: [Davison, King's horse]}
+      - {fact: "the Cat and Mouse Act against hunger strikers", match: [Cat and Mouse, hunger strike, force-feeding]}
+      - {fact: "Alice Paul's Silent Sentinels picket the White House", match: [Silent Sentinels, Alice Paul, National Woman's Party]}
+      - {fact: "the Night of Terror at Occoquan", match: [Night of Terror, Occoquan]}
+      - {fact: "the Declaration of Sentiments at Seneca Falls", match: [Seneca Falls, Declaration of Sentiments, Cady Stanton]}
+      - {fact: "Minor v. Happersett", match: [Happersett]}
+      - {fact: "Harry T. Burn's deciding vote in Tennessee", match: [Harry T. Burn, Harry Burn]}
+      - {fact: "Wyoming grants it first (1869)", match: [Wyoming]}
+      - {fact: "NAWSA and Carrie Chapman Catt", match: [NAWSA, Chapman Catt]}
+      - {fact: "Emmeline Pankhurst and the WSPU", match: [Pankhurst, WSPU]}
+      - {fact: "the Rokeby Venus slashed", match: [Rokeby, Velazquez, slashed]}
+
+  - id: Q42305
+    name: Richard I of England
+    clues:
+      - {fact: "builds Château Gaillard despite a 'rain of blood'", match: [Gaillard, rain of blood]}
+      - {fact: "captured by Leopold of Austria and ransomed by Henry VI", match: [Leopold, ransom, Henry VI]}
+      - {fact: "defeats Saladin at Arsuf on the Third Crusade", match: [Arsuf, Saladin, Third Crusade]}
+      - {fact: "conquers Cyprus from Isaac Komnenos", match: [Cyprus, Komnenos]}
+      - {fact: "anti-Jewish riots at his coronation", match: [Jews, Jewish, coronation]}
+      - {fact: "killed by a crossbow bolt at Châlus-Chabrol", match: [crossbow, Chalus, Châlus, Chabrol]}
+      - {fact: "suspected in the death of Conrad of Montferrat", match: [Montferrat]}
+      - {fact: "rebels against his father Henry II with Philip Augustus", match: [Henry II, Philip Augustus]}
+      - {fact: "'born in a rank which recognizes no superior but God'", match: [no superior but God]}
+
+  - id: Q9916
+    name: Dwight D. Eisenhower
+    clues:
+      - {fact: "warns of the military-industrial complex in his farewell address", match: [military-industrial, Military Industrial, farewell address]}
+      - {fact: "the 'Chance for Peace' / 'cross of iron' speech", match: [Chance for Peace, cross of iron]}
+      - {fact: "the Federal Aid Highway Act, inspired by the 1919 convoy", match: [Highway, Interstate, convoy]}
+      - {fact: "sends the 101st Airborne to Little Rock against Orval Faubus", match: [Little Rock, 101st Airborne, Faubus]}
+      - {fact: "Operation Ajax ousts Mossadegh", match: [Ajax, Mossadegh, Mosaddegh]}
+      - {fact: "Atoms for Peace", match: [Atoms for Peace]}
+      - {fact: "defeats Adlai Stevenson twice", match: [Stevenson, Adlai]}
+      - {fact: "commands Operation Overlord", match: [Overlord, D-Day, Normandy]}
+      - {fact: "the Sherman Adams vicuña coat scandal", match: [Sherman Adams, vicuna]}
+      - {fact: "proposes Open Skies", match: [Open Skies]}
+
+  - id: Q8409
+    name: Alexander the Great
+    clues:
+      - {fact: "victories at the Granicus, Issus and Gaugamela", match: [Granicus, Issus, Gaugamela]}
+      - {fact: "defeats Porus at the Hydaspes", match: [Porus, Hydaspes]}
+      - {fact: "besieges Tyre with a causeway", match: [Tyre, causeway]}
+      - {fact: "the Diadochi divide his empire", match: [Diadochi, Antipater, Antigonus]}
+      - {fact: "his companion Hephaestion", match: [Hephaestion]}
+      - {fact: "his horse Bucephalus", match: [Bucephalus]}
+      - {fact: "cuts the Gordian knot", match: [Gordian]}
+      - {fact: "son of Philip II, who is killed by Pausanias; fights at Chaeronea", match: [Pausanias, Chaeronea, Philip II]}
+      - {fact: "the Susa weddings and the mutiny at Opis", match: [Susa, Opis]}
+      - {fact: "the Alexander Romance and the Alexander Sarcophagus", match: [Romance, Sarcophagus, Nectanebo]}
+
+  - id: Q4918
+    name: Mediterranean Sea
+    clues:
+      - {fact: "Braudel's history ('mountains come first')", match: [Braudel, mountains come first]}
+      - {fact: "Horden and Purcell's The Corrupting Sea", match: [Corrupting Sea, Horden, Purcell]}
+      - {fact: "its deepest point, the Calypso Deep", match: [Calypso Deep]}
+      - {fact: "the Battle of Lepanto (1571)", match: [Lepanto]}
+      - {fact: "the Strait of Gibraltar", match: [Gibraltar]}
+      - {fact: "islands: Sicily, Sardinia, Cyprus, Crete, Malta and Gozo", match: [Sicily, Sardinia, Cyprus, Crete, Malta, Gozo]}
+      - {fact: "the Messinian salinity crisis / remnant of the Tethys", match: [Messinian, Tethys]}
+      - {fact: "maquis and garrigue shrubland", match: [maquis, garrigue]}
+      - {fact: "the Uluburun shipwreck and the Antikythera mechanism", match: [Uluburun, Antikythera]}
+      - {fact: "David Abulafia's The Great Sea", match: [Abulafia, Great Sea]}
+
+  # ---- Science -------------------------------------------------------------------
+  - id: Q8074
+    name: Cloud
+    clues:
+      - {fact: "the Bergeron process", match: [Bergeron]}
+      - {fact: "cloud seeding with silver iodide", match: [silver iodide, seeding]}
+      - {fact: "Luke Howard's classification (after Lamarck)", match: [Luke Howard, Lamarck]}
+      - {fact: "noctilucent and nacreous (polar stratospheric) types", match: [noctilucent, nacreous, polar stratospheric]}
+      - {fact: "mammatus and the cumulonimbus anvil", match: [mammatus, anvil, cumulonimbus]}
+      - {fact: "Kelvin-Helmholtz billows", match: [Kelvin-Helmholtz]}
+      - {fact: "contrails", match: [contrails, contrail]}
+      - {fact: "lenticular and pileus types", match: [lenticular, pileus]}
+      - {fact: "Wordsworth's 'I wandered lonely as a cloud' ('that inward eye')", match: [inward eye, wandered lonely, daffodils]}
+      - {fact: "Kalidasa's Meghaduta (The Cloud Messenger)", match: [Kalidasa, Meghaduta, Cloud Messenger]}
+      - {fact: "condensation nuclei (John Aitken)", match: [condensation nuclei, nucleation, Aitken]}
+
+  - id: Q660
+    name: Magnesium
+    clues:
+      - {fact: "Grignard reagents", match: [Grignard]}
+      - {fact: "the Schlenk equilibrium", match: [Schlenk]}
+      - {fact: "reduces titanium tetrachloride in the Kroll process", match: [Kroll]}
+      - {fact: "produced by the Pidgeon process", match: [Pidgeon]}
+      - {fact: "magnesium sulfate treats eclampsia", match: [eclampsia, pre-eclampsia]}
+      - {fact: "blocks NMDA receptors", match: [NMDA]}
+      - {fact: "at the center of chlorophyll", match: [chlorophyll, porphyrin]}
+      - {fact: "pinacol coupling", match: [pinacol]}
+      - {fact: "CorA transporter", match: [CorA]}
+      - {fact: "MgB2, magnesium diboride superconductor", match: [diboride]}
+      - {fact: "Epsom salt / kieserite", match: [Epsom, kieserite]}
+
+  - id: Q208465
+    name: Buffer solution
+    clues:
+      - {fact: "the Henderson-Hasselbalch equation", match: [Henderson, Hasselbalch, Hasselbach]}
+      - {fact: "the bicarbonate / carbonic acid system in blood", match: [bicarbonate, carbonic acid]}
+      - {fact: "Norman Good's buffers: HEPES, Tricine, Bicine, MOPS", match: [Norman Good, HEPES, Tricine, Bicine, MOPS]}
+      - {fact: "Tris, TBE and TAE for electrophoresis", match: [Tris, TBE, TAE]}
+      - {fact: "buffer capacity (beta)", match: [buffer capacity, capacity]}
+      - {fact: "the common ion effect", match: [common ion, common-ion]}
+      - {fact: "intracellular phosphate buffer", match: [H2PO4, dihydrogen phosphate]}
+      - {fact: "cacodylate buffer for electron microscopy", match: [cacodylate]}
+
+  - id: Q101017
+    name: Distillation
+    clues:
+      - {fact: "the McCabe-Thiele method", match: [McCabe, Thiele]}
+      - {fact: "the Fenske equation", match: [Fenske]}
+      - {fact: "theoretical plates", match: [theoretical plates]}
+      - {fact: "azeotropes can't be separated", match: [azeotrope, azeotropes, azeotropic]}
+      - {fact: "Raoult's law", match: [Raoult]}
+      - {fact: "reflux", match: [reflux]}
+      - {fact: "the Kugelrohr", match: [Kugelrohr]}
+      - {fact: "fractional and vacuum varieties", match: [fractional, vacuum]}
+      - {fact: "'pig' and 'cow' adapters, the Perkin triangle", match: [pig, cow, Perkin triangle]}
+      - {fact: "light key and heavy key components", match: [light key, heavy key]}
+      - {fact: "Raschig rings", match: [Raschig]}
+
+  - id: Q130888
+    name: Drosophila melanogaster
+    clues:
+      - {fact: "T. H. Morgan's white-eyed mutant and sex linkage", match: [Morgan, white-eyed, white eyes, sex-linked]}
+      - {fact: "polytene chromosomes in the salivary glands", match: [polytene, salivary]}
+      - {fact: "Antennapedia and other homeotic (Hox) mutants", match: [Antennapedia, Antenna-pedia, homeotic, Hox]}
+      - {fact: "bicoid, hunchback and nanos maternal-effect genes", match: [bicoid, hunchback, nanos]}
+      - {fact: "the Toll pathway", match: [Toll]}
+      - {fact: "P elements and hybrid dysgenesis", match: [P element, dysgenesis]}
+      - {fact: "Nüsslein-Volhard and Wieschaus (1995 Nobel)", match: [Volhard, Wieschaus]}
+      - {fact: "period gene and circadian rhythm (Konopka and Benzer)", match: [circadian, Konopka, Benzer]}
+      - {fact: "sevenless and the R7 photoreceptor", match: [sevenless, R7]}
+      - {fact: "vestigial wings and ebony bodies", match: [vestigial, ebony]}
+      - {fact: "balancer chromosomes", match: [balancer]}
+      - {fact: "Dscam's thousands of isoforms", match: [Dscam, DSCAM]}
+
+  # ---- Fine Arts -----------------------------------------------------------------
+  - id: Q151580
+    name: Alexander Calder
+    clues:
+      - {fact: "invented mobiles (named by Duchamp)", match: [mobile, mobiles, Duchamp]}
+      - {fact: "stabiles", match: [stabile, stabiles]}
+      - {fact: "Calder's Circus at the Whitney", match: [Circus, acrobats, lion tamer]}
+      - {fact: "Mercury Fountain for the 1937 Paris Expo (Almadén)", match: [Mercury Fountain, Almaden, Almadén]}
+      - {fact: "Flamingo in Chicago's Federal Plaza, in 'Calder red'", match: [Flamingo, Federal Plaza, Kluczynski]}
+      - {fact: "Mountains and Clouds in the Hart Senate building", match: [Mountains and Clouds, Hart Senate]}
+      - {fact: "the National Gallery East Wing mobile", match: [East Wing]}
+      - {fact: ".125 at JFK Airport", match: [".125", JFK]}
+      - {fact: "La Grande Vitesse in Grand Rapids", match: [Grand Rapids, Grande Vitesse]}
+      - {fact: "Acoustic Ceiling in Caracas", match: [Acoustic Ceiling, Caracas, Venezuela]}
+      - {fact: "sets for Satie's Socrate", match: [Socrate, Satie]}
+
+  - id: Q208208
+    name: Vienna Secession
+    clues:
+      - {fact: "Klimt: Beethoven Frieze (Typhon), Faculty Paintings, Goldfish", match: [Klimt, Beethoven Frieze, Typhon, Faculty Paintings, Goldfish]}
+      - {fact: "Olbrich's Secession Building", match: [Olbrich, Secession Building]}
+      - {fact: "the magazine Ver Sacrum", match: [Ver Sacrum]}
+      - {fact: "Koloman Moser, Josef Hoffmann and the Wiener Werkstätte", match: [Moser, Hoffmann, Werkstätte, Werkstatte]}
+      - {fact: "the Palais Stoclet in Brussels", match: [Stoclet]}
+      - {fact: "Egon Schiele and Wally Neuzil", match: [Schiele, Wally]}
+      - {fact: "Otto Wagner's Majolica House and Karlsplatz pavilions", match: [Otto Wagner, Majolica, Karlsplatz, sunflowers]}
+      - {fact: "motto 'To every age its art, to art its freedom'", match: [To every age, its freedom]}
+      - {fact: "Kokoschka", match: [Kokoschka]}
+      - {fact: "Viennese Actionism (Nitsch, Valie Export)", match: [Actionism, Nitsch, Valie Export]}
+
+  - id: Q1492
+    name: Barcelona
+    clues:
+      - {fact: "Gaudí's Sagrada Família (Nativity and Passion façades)", match: [Sagrada, Nativity, Passion]}
+      - {fact: "Park Güell's mosaic lizard 'El Drac' and trencadís bench", match: [Guell, Güell, El Drac, trencadis, trencadís, lizard, salamander]}
+      - {fact: "Casa Batlló and the Block of Discord", match: [Batllo, Batlló, Block of Discord, dragon]}
+      - {fact: "Casa Milà (La Pedrera)", match: [Mila, Milà, Pedrera]}
+      - {fact: "Casa Vicens", match: [Vicens]}
+      - {fact: "Mies van der Rohe's Barcelona Pavilion (onyx wall, Kolbe's Alba)", match: [Pavilion, Mies, Kolbe, onyx]}
+      - {fact: "the Tragic Week of 1909", match: [Tragic Week]}
+      - {fact: "Orwell's Homage to Catalonia and the 1937 May Days", match: [Homage to Catalonia, May Days, working class was in the saddle]}
+      - {fact: "La Rambla and the Gothic Quarter", match: [Rambla, Gothic Quarter]}
+      - {fact: "Rodoreda's The Time of the Doves", match: [Time of the Doves, Rodoreda, Quimet]}
+      - {fact: "superilles (superblocks)", match: [Superilles, superblocks]}
+
+  - id: Q39427
+    name: Surrealism
+    clues:
+      - {fact: "André Breton's manifesto and 'pure psychic automatism'", match: [Breton, Manifesto, automatism]}
+      - {fact: "the exquisite corpse game", match: [exquisite corpse]}
+      - {fact: "Magritte's The Treachery of Images ('this is not a pipe')", match: [Magritte, Treachery of Images, not a pipe]}
+      - {fact: "Dalí: The Persistence of Memory, The Burning Giraffe, Swans Reflecting Elephants", match: [Dali, Dalí, Persistence of Memory, Burning Giraffe, Swans Reflecting Elephants]}
+      - {fact: "Max Ernst's The Elephant Celebes", match: [Ernst, Celebes]}
+      - {fact: "Meret Oppenheim's fur-covered teacup", match: [Oppenheim, teacup, fur-covered]}
+      - {fact: "Yves Tanguy", match: [Tanguy]}
+      - {fact: "Hans Bellmer's dolls", match: [Bellmer, doll]}
+      - {fact: "Claude Cahun's self-portraits", match: [Cahun]}
+      - {fact: "Paul Éluard's Capital of Pain", match: [Eluard, Éluard, Capital of Pain]}
+      - {fact: "Dorothea Tanning", match: [Tanning]}
+      - {fact: "Man Ray", match: [Man Ray]}
+
+  # ---- Mythology -----------------------------------------------------------------
+  - id: Q11378
+    name: Shiva
+    clues:
+      - {fact: "dances as Nataraja on the dwarf Apasmara, ringed by flames (tandava)", match: [Nataraja, Apasmara, tandava, lord of dance]}
+      - {fact: "rides the bull Nandi", match: [Nandi]}
+      - {fact: "drinks the halahala poison at the churning of the ocean; blue throat", match: [halahala, Halahala, blue throat, Nilakantha, churning]}
+      - {fact: "his third eye burns Kama", match: [third eye, Kama]}
+      - {fact: "husband of Parvati; gives Ganesha an elephant head", match: [Parvati, Ganesha, elephant]}
+      - {fact: "Kartikeya loses the race for the mango", match: [Kartikeya, Murugan, mango]}
+      - {fact: "worshipped as the lingam", match: [lingam, linga, phallic]}
+      - {fact: "wields the trishula", match: [trishula, trident]}
+      - {fact: "Daksha's sacrifice and Sati", match: [Daksha, Sati]}
+      - {fact: "cuts off Brahma's fifth head (Bhairava)", match: [fifth head, Bhairava]}
+      - {fact: "identified with the Vedic Rudra", match: [Rudra]}
+      - {fact: "crescent moon and the Ganges in his hair", match: [crescent moon, Ganga, Ganges]}
+      - {fact: "the destroyer in the Trimurti", match: [Trimurti, destroyer]}
+
+  - id: Q66016
+    name: Muses
+    clues:
+      - {fact: "daughters of Zeus and Mnemosyne", match: [Mnemosyne]}
+      - {fact: "turn the Pierides into magpies after a singing contest", match: [Pierides, Pierus, Pieros, magpies]}
+      - {fact: "blind Thamyris", match: [Thamyris]}
+      - {fact: "live on Mount Helicon; the Hippocrene and Aganippe springs", match: [Helicon, Hippocrene, Aganippe]}
+      - {fact: "Calliope, mother of Orpheus", match: [Calliope, Orpheus]}
+      - {fact: "the nine: Clio, Thalia, Terpsichore, Urania and the rest", match: [Clio, Thalia, Terpsichore, Urania, Erato, Euterpe, Melpomene, Polyhymnia]}
+      - {fact: "older triads: Aoide, Melete, Mneme / Nete, Mese, Hypate", match: [Aoide, Melete, Nete, Mese, Hypate]}
+      - {fact: "invoked at the start of Hesiod's Theogony", match: [Hesiod, Theogony]}
+      - {fact: "Mount Parnassus", match: [Parnassus]}
+      - {fact: "judge Apollo's contest with Marsyas", match: [Marsyas]}
+      - {fact: "de Chirico's The Disquieting Muses, Brancusi's Sleeping Muse", match: [Disquieting, de Chirico, Brancusi]}
+
+  # ---- Religion ------------------------------------------------------------------
+  - id: Q854997
+    name: Bhikkhu
+    clues:
+      - {fact: "governed by the Vinaya (Vinaya Pitaka)", match: [Vinaya]}
+      - {fact: "Upali recited the rules", match: [Upali]}
+      - {fact: "no food after noon", match: [noon]}
+      - {fact: "the Sangha, third of the Three Jewels", match: [Sangha, Three Jewels]}
+      - {fact: "the Vassa rains retreat and Kathina robe offering", match: [Vassa, Kathina]}
+      - {fact: "the kasaya robe", match: [kasaya, robe]}
+      - {fact: "novices are samaneras", match: [samanera, sramanera, novice]}
+      - {fact: "parajika offenses mean expulsion", match: [parajika]}
+      - {fact: "self-mummification (sokushinbutsu)", match: [sokushinbutsu, self-mummify]}
+      - {fact: "the geshe degree", match: [geshe]}
+      - {fact: "Akutagawa's 'The Nose'", match: [Nose, Akutagawa]}
+
+  - id: Q3465
+    name: Jinn
+    clues:
+      - {fact: "made from smokeless fire", match: [smokeless fire]}
+      - {fact: "Iblis refuses to bow to Adam", match: [Iblis, bow]}
+      - {fact: "the 72nd surah is named for them", match: [seventy-second, 72nd, surah, sura]}
+      - {fact: "Solomon commands them; they learn of his death when worms gnaw his staff", match: [Solomon, staff, Suleyman]}
+      - {fact: "types: ifrit, marid, ghul", match: [ifrit, marid, ghul]}
+      - {fact: "The Fisherman and the Jinni (the sealed vessel, the colored fish)", match: [fisherman, sealed, fish]}
+      - {fact: "The Merchant and the Jinni (the date stone)", match: [merchant, date]}
+      - {fact: "Shahryar and Shah Zaman meet the woman with the rings", match: [signet rings, rings, Shahryar]}
+      - {fact: "Aladdin's lamp", match: [Aladdin, lamp]}
+      - {fact: "the Throne Verse wards them off", match: [Throne Verse]}
+
+  # ---- Philosophy ----------------------------------------------------------------
+  - id: Q193034
+    name: Leviathan (Hobbes book)
+    clues:
+      - {fact: "life is 'nasty, brutish, and short'", match: [brutish]}
+      - {fact: "the war of all against all", match: [war of all against all, every man against every man, bellum]}
+      - {fact: "the state of nature", match: [state of nature]}
+      - {fact: "the frontispiece giant made of people (Abraham Bosse), with a quote from Job", match: [frontispiece, Bosse, Job]}
+      - {fact: "the Kingdom of Darkness section", match: [Kingdom of Darkness]}
+      - {fact: "competition, diffidence and glory cause conflict", match: [diffidence]}
+      - {fact: "the Foole's objection", match: [Foole]}
+      - {fact: "imagination is 'decaying sense'", match: [decaying sense]}
+      - {fact: "the laws of nature", match: [laws of nature, law of nature]}
+      - {fact: "named for a sea monster", match: [sea-monster, sea monster]}
+      - {fact: "vital and voluntary motion", match: [vital, voluntary]}
+
+  - id: Q4604
+    name: Confucius
+    clues:
+      - {fact: "the Analects", match: [Analects]}
+      - {fact: "the Silver Rule ('what you do not wish for yourself')", match: [Silver Rule, do not wish]}
+      - {fact: "'a transmitter, not an innovator'", match: [transmitter]}
+      - {fact: "asks only about people after the stables burn", match: [stables, stable]}
+      - {fact: "the rectification of names", match: [rectification of names]}
+      - {fact: "followers Mencius and Xunzi", match: [Mencius, Xunzi]}
+      - {fact: "the Five Relationships", match: [five relationships]}
+      - {fact: "ren and li; the junzi", match: [ren, junzi]}
+      - {fact: "Herbert Fingarette's 'The Secular as Sacred'", match: [Fingarette]}
+      - {fact: "the virtuous ruler is like the North Star", match: [North Star, Pole Star]}
+      - {fact: "the Great Learning and Zhu Xi", match: [Great Learning, Zhu Xi, investigation of things]}
+      - {fact: "condemns the Ji family's eight rows of dancers", match: [eight rows]}
+
+  # ---- Social Science ------------------------------------------------------------
+  - id: Q235089
+    name: Stanford prison experiment
+    clues:
+      - {fact: "run by Philip Zimbardo; later The Lucifer Effect", match: [Zimbardo, Lucifer Effect]}
+      - {fact: "Christina Maslach gets it stopped", match: [Maslach]}
+      - {fact: "the guard 'John Wayne' (Dave Eshelman), channeling Cool Hand Luke", match: [John Wayne, Eshelman, Eshleman, Cool Hand Luke]}
+      - {fact: "prisoner 8612 (Doug Korpi) breaks down", match: ["8612", Korpi]}
+      - {fact: "prisoner 416 is locked in 'the hole'", match: ["416", closet]}
+      - {fact: "held in the basement of Jordan Hall", match: [Jordan Hall]}
+      - {fact: "ended after six days", match: [six days]}
+      - {fact: "compared to Abu Ghraib", match: [Abu Ghraib]}
+      - {fact: "deindividuation; mirrored sunglasses", match: [deindividuation, sunglasses]}
+      - {fact: "the documentary Quiet Rage", match: [Quiet Rage]}
+      - {fact: "consultant Carlo Prescott", match: [Prescott]}
+      - {fact: "replicated in Reicher and Haslam's BBC Prison Study", match: [Reicher, Haslam]}
+
+  - id: Q43637
+    name: Monopoly
+    clues:
+      - {fact: "profit is maximized where marginal revenue equals marginal cost", match: [marginal revenue, marginal cost]}
+      - {fact: "causes deadweight loss", match: [deadweight]}
+      - {fact: "the Lerner index equals 1", match: [Lerner]}
+      - {fact: "a Herfindahl-Hirschman index of 10,000", match: [Herfindahl]}
+      - {fact: "the Coase conjecture for durable goods", match: [Coase]}
+      - {fact: "natural monopoly from economies of scale", match: [natural monopoly, natural monopolies, economies of scale]}
+      - {fact: "price discrimination", match: [price discrimination]}
+      - {fact: "Ramsey-Boiteux pricing", match: [Ramsey, Boiteux]}
+      - {fact: "monopsony (Joan Robinson; company towns)", match: [monopsony, Joan Robinson, company towns]}
+      - {fact: "antitrust law and Standard Oil", match: [antitrust, anti-trust, Standard Oil, Sherman]}
+      - {fact: "limit pricing and contestable markets", match: [limit pricing, contestable]}
+      - {fact: "Baran and Sweezy's Monopoly Capital", match: [Baran, Sweezy]}
+
+  # ---- Geography -----------------------------------------------------------------
+  - id: Q51
+    name: Antarctica
+    clues:
+      - {fact: "Amundsen reaches the South Pole first (Fram)", match: [Amundsen, Fram]}
+      - {fact: "Scott's Terra Nova expedition; Oates 'may be some time'", match: [Terra Nova, Oates, some time]}
+      - {fact: "Shackleton's Endurance and the boat to South Georgia", match: [Shackleton, Endurance, South Georgia]}
+      - {fact: "Lake Vostok", match: [Vostok]}
+      - {fact: "McMurdo Station on Ross Island", match: [McMurdo, Ross Island, Ross Ice Shelf]}
+      - {fact: "Mount Erebus and Air New Zealand Flight 901", match: [Erebus, Flight 901]}
+      - {fact: "Vinson Massif in the Ellsworth Mountains", match: [Vinson, Ellsworth]}
+      - {fact: "the Dry Valleys: Don Juan Pond, Lake Vanda, Blood Falls", match: [Dry Valleys, Don Juan Pond, Vanda, Blood Falls]}
+      - {fact: "the Antarctic Treaty and territorial claims", match: [Antarctic Treaty]}
+      - {fact: "the Drake Passage", match: [Drake Passage]}
+      - {fact: "Rogozov's self-appendectomy", match: [Rogozov, appendectomy]}
+      - {fact: "Byrd's Little America", match: [Byrd, Little America]}
+      - {fact: "Mawson's expedition and Ninnis's death", match: [Mawson, Ninnis]}
+      - {fact: "first sighted by Bellingshausen", match: [Bellingshausen]}
+      - {fact: "emperor and Adélie penguins", match: [penguins, Adelie, Adélie, emperor penguin]}
+
+  - id: Q5428
+    name: Siberia
+    clues:
+      - {fact: "Yermak defeats Kuchum at Qashliq (Battle of Chuvash Cape)", match: [Yermak, Kuchum, Qashliq, Chuvash]}
+      - {fact: "financed by the Stroganov family", match: [Stroganov]}
+      - {fact: "the Trans-Siberian Railway (Witte)", match: [Trans-Siberian, Witte]}
+      - {fact: "Lake Baikal and its nerpa seals", match: [Baikal, nerpa]}
+      - {fact: "the yasak fur tax", match: [yasak]}
+      - {fact: "the Treaty of Nerchinsk", match: [Nerchinsk]}
+      - {fact: "the Sakha Republic (Yakutia)", match: [Sakha, Yakut, Yakutia]}
+      - {fact: "the Buryats; Ulan-Ude", match: [Buryat, Ulan-Ude]}
+      - {fact: "the Chukchi", match: [Chukchi]}
+      - {fact: "katorga and exile", match: [katorga, gulag, exile]}
+      - {fact: "Birobidzhan, the Jewish Autonomous Oblast", match: [Birobidzhan]}
+      - {fact: "Kamchatka's Valley of Geysers", match: [Kamchatka, Valley of Geysers]}
+      - {fact: "the Tunguska event", match: [Tunguska]}
+      - {fact: "the Yenisei river", match: [Yenisei]}
+
+  # ---- Pop Culture ---------------------------------------------------------------
+  - id: Q5383
+    name: David Bowie
+    clues:
+      - {fact: "Ziggy Stardust and the Spiders from Mars; 'Starman'", match: [Ziggy, Spiders from Mars, Starman]}
+      - {fact: "Major Tom: 'Space Oddity' and 'Ashes to Ashes'", match: [Major Tom, Space Oddity, Ashes to Ashes]}
+      - {fact: "the Berlin Trilogy with Brian Eno", match: [Berlin, Eno]}
+      - {fact: "Blackstar and 'Lazarus', released two days before his death", match: [Blackstar, Lazarus]}
+      - {fact: "personas: the Thin White Duke, Aladdin Sane, Halloween Jack", match: [Thin White Duke, Aladdin Sane, Halloween Jack]}
+      - {fact: "'The Laughing Gnome'", match: [Laughing Gnome]}
+      - {fact: "'Let's Dance' ('put on your red shoes')", match: [Let's Dance, red shoes]}
+      - {fact: "'Life on Mars?'", match: [Life on Mars]}
+      - {fact: "'Under Pressure' with Queen", match: [Under Pressure]}
+      - {fact: "films: Labyrinth (Jareth), The Man Who Fell to Earth, The Hunger", match: [Labyrinth, Jareth, Man Who Fell]}
+      - {fact: "the permanently dilated pupil", match: [pupil, anisocoria]}
+      - {fact: "'Dancing in the Street' with Mick Jagger", match: [Jagger, Dancing in the Street]}
+      - {fact: "wrote 'All the Young Dudes' for Mott the Hoople", match: [Young Dudes, Mott the Hoople]}
