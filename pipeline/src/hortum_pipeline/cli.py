@@ -3,6 +3,7 @@ import sys
 from collections.abc import Sequence
 
 from hortum_pipeline.config import PipelineSettings
+from hortum_pipeline.power import KeepAwake
 from hortum_pipeline.progress import ConsoleReporter, Reporter
 from hortum_pipeline.stages import STAGES, STAGES_BY_NAME, Stage
 
@@ -89,7 +90,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         stages = (STAGES_BY_NAME[args.command],)
 
     if not args.gui:
-        return run_stages(stages, settings, ConsoleReporter())
+        with KeepAwake():  # a sleeping Mac pauses every web request
+            return run_stages(stages, settings, ConsoleReporter())
 
     from hortum_pipeline.gui.app import run_with_window  # Tk is only needed with --gui
 

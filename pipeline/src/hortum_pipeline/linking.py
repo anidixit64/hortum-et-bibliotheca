@@ -1,9 +1,10 @@
 """Stage 4: link candidate groups to Wikipedia/Wikidata, then build topics.
 
-For each group, one Wikipedia request returns the top search hits with their intro
-text and Wikidata ID. Each hit is scored by TF-IDF similarity between its intro and
-the group's own questions, plus bonuses when its title matches the answer. Groups that
-resolve to the same Wikidata item merge into one topic.
+First every answer is looked up directly as a Wikipedia title, following redirects
+("Soccer" -> "Association football"); then, per group, a search returns the top hits
+with their intro text and Wikidata ID. Each candidate is scored by TF-IDF similarity
+between its intro and the group's own questions, plus bonuses for a direct title hit or
+a matching title. Groups that resolve to the same Wikidata item merge into one topic.
 """
 
 import json
@@ -21,7 +22,14 @@ from hortum_common.text import normalize
 from hortum_pipeline import db, topics
 from hortum_pipeline.config import PipelineSettings
 from hortum_pipeline.progress import Reporter
-from hortum_pipeline.wiki import WIKIPEDIA_API, HttpCache, WikiClient, search_params
+from hortum_pipeline.wiki import (
+    TITLE_BATCH,
+    WIKIPEDIA_API,
+    HttpCache,
+    WikiClient,
+    search_params,
+    titles_params,
+)
 
 SCHEMA = """
 DROP TABLE IF EXISTS group_links;
@@ -37,6 +45,8 @@ CREATE TABLE group_links (
 """
 
 _SEARCH_SYNTAX = re.compile(r'["~*?\\:]|^[-!+]+')
+_BAD_TITLE = re.compile(r"[#<>\[\]|{}]")
+_ARTICLE = re.compile(r"^(?:the|a|an)\s+", re.I)
 _PAREN = re.compile(r"\s*\([^()]*\)\s*$")
 
 
@@ -51,6 +61,7 @@ class Candidate:
     score: float = 0.0
     exact_title: bool = False
     from_hint: bool = False  # found only by the second, category-hinted search
+    direct_bonus: float = 0.0  # set when the answer itself is this page's title or redirect
 
 
 def search_query(display_name: str, hint: str = "") -> str:
@@ -82,6 +93,47 @@ _CATEGORY_HINTS = {
 def search_hint(category: str, subcategory: str) -> str:
     """A word that steers a second search toward the right sense: "The Republic philosophy"."""
     return _HINTS.get(subcategory) or _CATEGORY_HINTS.get(category, "")
+
+
+def title_lookups(display_name: str) -> list[tuple[str, float]]:
+    """Titles to look up for an answer, with the bonus a hit earns.
+
+    "the moon" is also tried as "Moon": quiz answers add "the" freely. The full form earns
+    more, so "The Republic" (Plato's book) beats "Republic" when the text agrees.
+    """
+    title = " ".join(display_name.strip("“”\"' ").split())
+    if not title or len(title) > 250 or _BAD_TITLE.search(title):
+        return []
+    lookups = [(title, 0.35)]
+    bare = _ARTICLE.sub("", title)
+    if bare != title and bare:
+        lookups.append((bare, 0.30))
+    return lookups
+
+
+def parse_title_lookup(response: dict[str, Any]) -> dict[str, Candidate | None]:
+    """Maps each requested title to its page (after normalizing and redirects), if any."""
+    query = response.get("query") or {}
+    normalized = {n["from"]: n["to"] for n in query.get("normalized", [])}
+    redirects = {r["from"]: r["to"] for r in query.get("redirects", [])}
+    pages = {}
+    for page in query.get("pages", []):
+        if page.get("missing") or page.get("invalid"):
+            continue
+        props = page.get("pageprops") or {}
+        pages[page["title"]] = Candidate(
+            title=page["title"],
+            qid=props.get("wikibase_item"),
+            extract=page.get("extract", ""),
+            rank=0,
+            disambiguation="disambiguation" in props,
+        )
+    out: dict[str, Candidate | None] = {}
+    for requested in {*normalized, *redirects, *pages}:
+        title = normalized.get(requested, requested)
+        title = redirects.get(title, title)
+        out[requested] = pages.get(title)
+    return out
 
 
 def parse_candidates(response: dict[str, Any]) -> list[Candidate]:
@@ -120,8 +172,10 @@ def score_candidates(
     sims = (vectors @ group_vector.T).toarray().ravel()
     for cand, sim in zip(usable, sims, strict=True):
         title = normalize(_PAREN.sub("", cand.title), singularize=True)
-        cand.exact_title = title in names
-        if cand.exact_title:
+        cand.exact_title = title in names or cand.direct_bonus > 0
+        if cand.direct_bonus:
+            bonus = cand.direct_bonus
+        elif cand.exact_title:
             # A plain title ("Snake", not "Snake (zodiac)") is Wikipedia's main article.
             bonus = 0.25 if "(" in cand.title else 0.30
         elif title in alternates or any(len(n) > 3 and (n in title or title in n) for n in names):
@@ -144,11 +198,31 @@ def accept_link(best: Candidate, settings: PipelineSettings) -> bool:
     An exact match on Wikipedia's main article (no parenthetical) needs none: a single stray
     question ("Napoleon Bonaparte" in a literature set) gives too little text to compare.
     """
-    if best.exact_title:
+    if best.direct_bonus:
+        needed = 0.0  # the answer is literally this page's title or a redirect to it
+    elif best.exact_title:
         needed = 0.0 if "(" not in best.title else settings.link_min_similarity / 5
     else:
         needed = settings.link_min_similarity
     return best.score >= settings.link_min_score and best.similarity >= needed
+
+
+def merge_direct(
+    candidates: list[Candidate], display: str, direct: dict[str, Candidate | None]
+) -> list[Candidate]:
+    """Adds direct title hits to the search results, marking any already there."""
+    by_title = {c.title: c for c in candidates}
+    for lookup, bonus in title_lookups(display):
+        hit = direct.get(lookup)
+        if hit is None or hit.disambiguation or not hit.qid:
+            continue
+        target = by_title.get(hit.title)
+        if target is None:
+            target = Candidate(hit.title, hit.qid, hit.extract, 0, False)
+            by_title[hit.title] = target
+            candidates = [*candidates, target]
+        target.direct_bonus = max(target.direct_bonus, bonus)
+    return candidates
 
 
 def needs_second_search(scored: list[Candidate], n_tossups: int) -> bool:
@@ -193,8 +267,6 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
         "FROM candidate_groups ORDER BY n_tossups DESC, id"
     ).fetchall()
     client = make_client(settings, user_agent)
-    reporter.begin("Linking to Wikipedia", len(groups))
-    counts = {"linked": 0, "no_match": 0, "skipped": 0}
 
     def allowed(params: dict[str, Any]) -> bool:
         return (
@@ -202,6 +274,29 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
             or client.network_requests < settings.link_new_requests
             or client.is_cached(WIKIPEDIA_API, params)
         )
+
+    # Pass 1: every answer as a direct title lookup, batched.
+    wanted = sorted(
+        {
+            title
+            for _gid, display, n, _c, _s in groups
+            if n >= settings.link_min_tossups
+            for title, _bonus in title_lookups(display)
+        }
+    )
+    batches = [wanted[i : i + TITLE_BATCH] for i in range(0, len(wanted), TITLE_BATCH)]
+    reporter.begin("Looking up answers as Wikipedia titles", len(batches))
+    direct: dict[str, Candidate | None] = {}
+    for batch in batches:
+        params = titles_params(batch)
+        if allowed(params):
+            direct.update(parse_title_lookup(client.get_json(WIKIPEDIA_API, params)))
+        reporter.advance()
+    reporter.stat("Answers that are Wikipedia titles", f"{sum(1 for c in direct.values() if c):,}")
+
+    # Pass 2: search and score, group by group.
+    reporter.begin("Linking to Wikipedia", len(groups))
+    counts = {"linked": 0, "no_match": 0, "skipped": 0}
 
     for i, (group_id, display, n_tossups, category, subcategory) in enumerate(groups, start=1):
         params = search_params(search_query(display))
@@ -214,11 +309,13 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
         else:
             vector = l2_normalize(csr_matrix(matrix[members[group_id]].sum(axis=0)))
             candidates = parse_candidates(client.get_json(WIKIPEDIA_API, params))
+            candidates = merge_direct(candidates, display, direct)
             scored = score_candidates(
                 vector, candidates, names[group_id], vectorizer, frozenset(alternates[group_id])
             )
             hint = search_hint(category, subcategory)
-            if hint and needs_second_search(scored, n_tossups):
+            direct_win = bool(scored and scored[0].direct_bonus)
+            if hint and not direct_win and needs_second_search(scored, n_tossups):
                 params2 = search_params(search_query(display, hint))
                 if allowed(params2):
                     seen = {c.title for c in candidates}

@@ -22,6 +22,9 @@ TOPICS = [
     ("Q40556", "Mercury (mythology)", "Mythology", "Roman god", 3, ["mercury", "hermes"]),
     ("Q15869", "Freddie Mercury", "Fine Arts", "singer", 4, ["freddie mercury"]),
     ("Q41", "Social science", "Social Science", "fields", 30, ["social science", "society"]),
+    # France's answer lines underline "Republic" in "French Republic".
+    ("Q142", "France", "Fine Arts", "country", 263, ["france", "required:republic"]),
+    ("Q123397", "Republic (Plato)", "Philosophy", "dialogue", 47, ["republic"]),
 ]
 
 
@@ -33,15 +36,18 @@ def corpus(tmp_path: Path) -> Path:
         """
         CREATE TABLE topics (id TEXT PRIMARY KEY, display_name TEXT, primary_category TEXT,
                              description TEXT, n_tossups INTEGER);
-        CREATE TABLE topic_aliases (topic_id TEXT, alias_search TEXT);
+        CREATE TABLE topic_aliases (topic_id TEXT, alias_search TEXT, source TEXT);
         CREATE VIRTUAL TABLE topic_aliases_fts USING fts5(
             alias_search, topic_id UNINDEXED, tokenize = 'trigram');
         """
     )
     for tid, name, cat, desc, n, aliases in TOPICS:
         conn.execute("INSERT INTO topics VALUES (?, ?, ?, ?, ?)", (tid, name, cat, desc, n))
-        for alias in aliases:
-            conn.execute("INSERT INTO topic_aliases VALUES (?, ?)", (tid, alias))
+        for i, alias in enumerate(aliases):
+            source = "title" if i == 0 else "accept"
+            if alias.startswith("required:"):
+                alias, source = alias.removeprefix("required:"), "required"
+            conn.execute("INSERT INTO topic_aliases VALUES (?, ?, ?)", (tid, alias, source))
             conn.execute("INSERT INTO topic_aliases_fts VALUES (?, ?)", (alias, tid))
     conn.commit()
     return path
@@ -76,3 +82,7 @@ def test_short_query_uses_prefix_match(corpus: Path) -> None:
 def test_503_until_corpus_is_built(tmp_path: Path) -> None:
     client = TestClient(build_app(Settings(corpus_path=tmp_path / "missing.db")))
     assert client.get("/search", params={"q": "x"}).status_code == 503
+
+
+def test_underlined_fragment_ranks_below_a_main_title(corpus: Path) -> None:
+    assert search(corpus, "the republic")[0]["name"] == "Republic (Plato)"

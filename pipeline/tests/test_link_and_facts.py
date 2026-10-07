@@ -73,8 +73,34 @@ SPARQL = {
 }
 
 
+# Direct title lookups: "Soccer" redirects; "Mercury" is a disambiguation page.
+TITLES = {
+    "Soccer": ("Association football", "Q2736", "Sport played in the World Cup by two teams."),
+    "Mercury": ("Mercury", None, "Mercury may refer to"),
+}
+
+
+def title_response(requested: list[str]) -> dict:
+    normalized, redirects, pages = [], [], []
+    for title in requested:
+        canonical = title[0].upper() + title[1:]
+        if canonical != title:
+            normalized.append({"from": title, "to": canonical})
+        if canonical not in TITLES:
+            pages.append({"title": canonical, "missing": True})
+            continue
+        target, qid, extract = TITLES[canonical]
+        if target != canonical:
+            redirects.append({"from": canonical, "to": target})
+        props = {"wikibase_item": qid} if qid else {"disambiguation": ""}
+        pages.append({"title": target, "extract": extract, "pageprops": props})
+    return {"query": {"normalized": normalized, "redirects": redirects, "pages": pages}}
+
+
 def handler(request: httpx.Request) -> httpx.Response:
     params = parse_qs(urlparse(str(request.url)).query)
+    if "titles" in params:
+        return httpx.Response(200, json=title_response(params["titles"][0].split("|")))
     if "gsrsearch" in params:
         pages = SEARCH.get(params["gsrsearch"][0], [])
         return httpx.Response(200, json={"query": {"pages": pages}} if pages else {})
@@ -190,3 +216,57 @@ def test_search_hint_follows_subcategory_then_category() -> None:
     assert search_hint("Philosophy", "Philosophy") == "philosophy"
     assert search_hint("Pop Culture", "Movies") == ""
     assert search_query("The Republic", "philosophy") == "the republic philosophy"
+
+
+def test_redirect_beats_a_search_hit_about_the_question(
+    settings: PipelineSettings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A soccer question set in a novel shouldn't link the answer to the novel."""
+    novel = page(1, "The Silent Cry", "Q1", "Novel in which this sport is played in the World Cup.")
+    monkeypatch.setitem(SEARCH, "soccer", [novel])
+    settings = settings.model_copy(update={"wikimedia_user_agent": UA})
+
+    def fake_client(s: PipelineSettings, agent: str) -> WikiClient:
+        cache = HttpCache(s.http_cache_dir / "redirect.db")
+        return WikiClient(cache, agent, min_interval=0, transport=httpx.MockTransport(handler))
+
+    monkeypatch.setattr(linking, "make_client", fake_client)
+    for stage in (ingest, answer_stage, grouping, linking):
+        stage.run(settings, NullReporter())
+    conn = sqlite3.connect(settings.corpus_path)
+    assert topic_of(conn, "t2") == "Q2736"
+
+
+def test_title_lookups_try_without_leading_article() -> None:
+    from hortum_pipeline.linking import title_lookups
+
+    assert title_lookups("the moon") == [("the moon", 0.35), ("moon", 0.30)]
+    assert title_lookups("“Get Back”") == [("Get Back", 0.35)]
+    assert title_lookups("a|b") == []
+
+
+def test_disambiguation_pages_are_not_direct_hits() -> None:
+    from hortum_pipeline.linking import parse_title_lookup
+
+    hits = parse_title_lookup(title_response(["mercury", "soccer", "nothing here"]))
+    assert hits["mercury"] is not None and hits["mercury"].disambiguation
+    assert hits["soccer"] is not None and hits["soccer"].qid == "Q2736"
+    assert hits["nothing here"] is None
+
+
+def test_facts_rerun_reuses_per_id_store(
+    linked: PipelineSettings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    facts.run(linked, NullReporter())
+
+    def offline_client(s: PipelineSettings, agent: str) -> WikiClient:
+        def no_network(request: httpx.Request) -> httpx.Response:
+            raise AssertionError(f"unexpected request {request.url}")
+
+        cache = HttpCache(s.http_cache_dir / "empty.db")  # a cold HTTP cache
+        return WikiClient(cache, agent, transport=httpx.MockTransport(no_network))
+
+    monkeypatch.setattr(facts, "make_client", offline_client)
+    facts.run(linked, NullReporter())
+    conn = sqlite3.connect(linked.corpus_path)
+    assert conn.execute("SELECT COUNT(*) FROM topic_facts WHERE topic_id='Q7243'").fetchone()[0] == 2

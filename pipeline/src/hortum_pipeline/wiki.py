@@ -139,5 +139,26 @@ def search_params(query: str, limit: int = 5) -> dict[str, Any]:
     }
 
 
+TITLE_BATCH = 20  # the most pages the API returns intro extracts for in one request
+
+
+def titles_params(titles: list[str]) -> dict[str, Any]:
+    """Looks titles up directly, following redirects ("Soccer" -> "Association football")."""
+    return {
+        "action": "query",
+        "format": "json",
+        "formatversion": "2",
+        "titles": "|".join(titles),
+        "redirects": "1",
+        "prop": "extracts|pageprops",
+        "exintro": "1",
+        "explaintext": "1",
+        "exchars": "1200",
+        "exlimit": str(TITLE_BATCH),
+        "ppprop": "wikibase_item|disambiguation",
+        "maxlag": "5",
+    }
+
+
 def sparql_params(query: str) -> dict[str, Any]:
     return {"query": " ".join(query.split()), "format": "json"}

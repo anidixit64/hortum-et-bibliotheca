@@ -8,6 +8,7 @@ import json
 import re
 import sqlite3
 from collections.abc import Iterator, Sequence
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -143,74 +144,126 @@ def make_client(settings: PipelineSettings, user_agent: str) -> WikiClient:
     )
 
 
+class FactsStore:
+    """Facts per Wikidata ID, kept across runs: re-linking only fetches IDs not seen before.
+
+    (The HTTP cache alone isn't enough: batches are keyed by their exact list of IDs, so a
+    changed topic list would change every batch.)
+    """
+
+    def __init__(self, path: Path) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self.conn = sqlite3.connect(path)
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS facts (qid TEXT PRIMARY KEY, description TEXT, "
+            "aliases TEXT NOT NULL, dates TEXT NOT NULL, places TEXT NOT NULL)"
+        )
+        self.known = {r[0] for r in self.conn.execute("SELECT qid FROM facts")}
+
+    def put_batch(
+        self,
+        qids: Sequence[str],
+        labels: dict[str, Any],
+        dates: dict[str, Any],
+        places: dict[str, Any],
+    ) -> None:
+        descriptions, aliases = parse_labels(labels)
+        by_qid: dict[str, dict[str, list[Any]]] = {q: {"dates": [], "places": []} for q in qids}
+        for kind, rows in (("dates", parse_dates(dates)), ("places", parse_places(places))):
+            for qid, prop, value in rows:
+                if qid in by_qid:
+                    by_qid[qid][kind].append([prop, value])
+        self.conn.executemany(
+            "INSERT OR REPLACE INTO facts VALUES (?, ?, ?, ?, ?)",
+            [
+                (
+                    q,
+                    descriptions.get(q),
+                    json.dumps(sorted(aliases.get(q, set()))),
+                    json.dumps(by_qid[q]["dates"]),
+                    json.dumps(by_qid[q]["places"]),
+                )
+                for q in qids
+            ],
+        )
+        self.conn.commit()
+        self.known.update(qids)
+
+    def rows(self) -> Iterator[tuple[str, str | None, list[str], list[Any], list[Any]]]:
+        for qid, desc, aliases, dates, places in self.conn.execute("SELECT * FROM facts"):
+            yield qid, desc, json.loads(aliases), json.loads(dates), json.loads(places)
+
+
 def run(settings: PipelineSettings, reporter: Reporter) -> None:
     user_agent = settings.require_wikimedia_contact()
     conn = db.connect(settings.corpus_path)
     db.require_table(conn, "topics", "link")
     db.recreate(conn, SCHEMA)
     client = make_client(settings, user_agent)
+    store = FactsStore(settings.http_cache_dir / "wikidata_facts.db")
 
     topic_of: dict[str, str] = dict(
         conn.execute("SELECT wikidata_qid, id FROM topics WHERE wikidata_qid IS NOT NULL")
     )
-    qids = sorted(topic_of)
-    batches = [qids[i : i + BATCH] for i in range(0, len(qids), BATCH)]
-    reporter.begin("Fetching Wikidata facts", len(batches))
-    n_dates = n_places = n_aliases = 0
-    skipped = failed = 0
-    for batch in batches:
-        cache_only = (
-            settings.link_new_requests is not None
-            and client.network_requests >= settings.link_new_requests
-        )
-        try:
-            labels = client.get_json(
-                WIKIDATA_SPARQL, sparql_params(labels_query(batch)), cache_only=cache_only
-            )
-            dates = client.get_json(
-                WIKIDATA_SPARQL, sparql_params(dates_query(batch)), cache_only=cache_only
-            )
-            places = client.get_json(
-                WIKIDATA_SPARQL, sparql_params(places_query(batch)), cache_only=cache_only
-            )
-        except NotCached:
-            skipped += 1
-            reporter.advance()
-            continue
-        except (httpx.HTTPError, RuntimeError) as exc:
-            # One slow or failing batch shouldn't sink the run; a re-run retries it.
-            failed += 1
-            reporter.log(
-                f"batch starting {batch[0]} failed ({type(exc).__name__}); will retry next run"
-            )
-            reporter.advance()
-            continue
+    # Earlier runs cached whole batches; replaying the same batches fills the per-ID store.
+    all_qids = sorted(topic_of)
+    replay = [all_qids[i : i + BATCH] for i in range(0, len(all_qids), BATCH)]
+    missing = sorted(q for q in topic_of if q not in store.known)
+    fresh = [missing[i : i + BATCH] for i in range(0, len(missing), BATCH)]
 
-        descriptions, aliases = parse_labels(labels)
-        conn.executemany(
-            "UPDATE topics SET description = ? WHERE wikidata_qid = ?",
-            [(d, q) for q, d in descriptions.items()],
-        )
-        n_aliases += _add_aliases(conn, topic_of, aliases)
-        for kind, rows in (("date", parse_dates(dates)), ("place", parse_places(places))):
+    reporter.begin("Fetching Wikidata facts", len(replay) + len(fresh))
+    skipped = failed = 0
+    for phase, batches in (("replay", replay), ("fresh", fresh)):
+        for batch in batches:
+            reporter.advance()
+            todo = [q for q in batch if q not in store.known]
+            if not todo:
+                continue
+            cache_only = phase == "replay" or (
+                settings.link_new_requests is not None
+                and client.network_requests >= settings.link_new_requests
+            )
+            try:
+                responses = [
+                    client.get_json(
+                        WIKIDATA_SPARQL, sparql_params(make(batch)), cache_only=cache_only
+                    )
+                    for make in (labels_query, dates_query, places_query)
+                ]
+            except NotCached:
+                skipped += phase == "fresh"
+                continue
+            except (httpx.HTTPError, RuntimeError) as exc:
+                # One slow or failing batch shouldn't sink the run; a re-run retries it.
+                failed += 1
+                reporter.log(f"batch at {batch[0]} failed ({type(exc).__name__}); retried next run")
+                continue
+            store.put_batch(batch, *responses)
+
+    n_dates = n_places = n_aliases = 0
+    for qid, description, aliases, dates, places in store.rows():
+        if qid not in topic_of:
+            continue
+        topic_id = topic_of[qid]
+        if description:
+            conn.execute("UPDATE topics SET description = ? WHERE id = ?", (description, topic_id))
+        n_aliases += _add_aliases(conn, topic_of, {qid: set(aliases)})
+        for kind, rows in (("date", dates), ("place", places)):
             conn.executemany(
                 "INSERT INTO topic_facts VALUES (?, ?, ?, ?)",
-                [(topic_of[q], kind, prop, json.dumps(value)) for q, prop, value in rows],
+                [(topic_id, kind, prop, json.dumps(value)) for prop, value in rows],
             )
-            if kind == "date":
-                n_dates += len(rows)
-            else:
-                n_places += len(rows)
-        conn.commit()
-        reporter.advance()
+        n_dates += len(dates)
+        n_places += len(places)
 
     topics.rebuild_search_index(conn)
     conn.commit()
     reporter.stat(
         "Dates / places / Wikidata aliases", f"{n_dates:,} / {n_places:,} / {n_aliases:,}"
     )
-    if skipped or failed:
-        reporter.stat("Batches left for a later run", f"{skipped + failed:,}")
+    left = len([q for q in topic_of if q not in store.known])
+    if left or failed:
+        reporter.stat("Topics left for a later run", f"{left:,}")
     conn.close()
 
 

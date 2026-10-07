@@ -11,6 +11,9 @@ from hortum_common.text import normalize
 
 _CANDIDATES = 400
 _POPULAR = math.log1p(300)  # a topic with ~300 questions gets the full popularity boost
+# How much to trust an alias by where it came from. Underlined fragments are the weakest:
+# "French <u>Republic</u>" makes "republic" an alias of France.
+_SOURCE_WEIGHT = {"title": 1.0, "main": 1.0, "wikidata": 0.97, "accept": 0.93, "required": 0.85}
 
 
 class SearchResult(BaseModel):
@@ -42,24 +45,28 @@ class SearchIndex:
         with self._connect() as conn:
             if len(needle) >= 3:
                 rows = conn.execute(
-                    "SELECT topic_id, alias_search FROM topic_aliases_fts "
-                    "WHERE topic_aliases_fts MATCH ? ORDER BY bm25(topic_aliases_fts) LIMIT ?",
+                    "SELECT f.topic_id, f.alias_search, a.source FROM ("
+                    "  SELECT topic_id, alias_search FROM topic_aliases_fts"
+                    "  WHERE topic_aliases_fts MATCH ? ORDER BY bm25(topic_aliases_fts) LIMIT ?"
+                    ") f JOIN topic_aliases a"
+                    "  ON a.topic_id = f.topic_id AND a.alias_search = f.alias_search",
                     (_trigram_query(needle), _CANDIDATES),
                 ).fetchall()
             else:  # trigrams need three characters; fall back to a prefix match
                 rows = conn.execute(
-                    "SELECT topic_id, alias_search FROM topic_aliases "
+                    "SELECT topic_id, alias_search, source FROM topic_aliases "
                     "WHERE alias_search LIKE ? LIMIT ?",
                     (needle + "%", _CANDIDATES),
                 ).fetchall()
 
             best: dict[str, tuple[float, str]] = {}
-            for topic_id, alias in rows:
+            for topic_id, alias, source in rows:
                 similarity = fuzz.WRatio(needle, alias) / 100
                 if alias == needle:
                     similarity += 0.15
                 elif alias.startswith(needle):
                     similarity += 0.05
+                similarity *= _SOURCE_WEIGHT.get(source, 0.9)
                 if similarity > best.get(topic_id, (0.0, ""))[0]:
                     best[topic_id] = (similarity, alias)
             if not best:
