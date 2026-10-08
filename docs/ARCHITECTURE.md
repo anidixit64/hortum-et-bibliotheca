@@ -186,12 +186,36 @@ impact       = F * E ** 0.25 * S ** 0 * (1 + 0.3 * L)
 - **Tuning:** `hortum-pipeline eval-clues` scores the picks against `pipeline/eval/labeled_clues.yaml` (precision@5: share of the top 5 that match a labeled clue; recall@10: share of labeled clues found in the top 10). A sweep chose the weights above (precision@5 0.913, recall@10 0.798, before the last-line bonus and before the whole giveaway sentence was excluded from clues), under a tracer guard: *Invisible Man*'s top 10 must include Ras the Exhorter (38 sets, mid-question) and the Battle Royal. The first-guess formula (log frequency, linear earliness) ranked 6-set lead-in trivia above them. A pick matches a label only through its label, key terms, representative and five members, so a big merged cluster isn't credited with every fact its members mention.
 
 ### Stage 8: `relate` → related topics
-"Clues that are answers to their own questions":
-- Build an Aho-Corasick automaton over every topic alias (dropping aliases shorter than 4 characters, aliases shared by several topics, and stop-like aliases such as "water").
-- Scan every clue. Each hit is a directed edge `topic A's clue mentions topic B`.
-- Score edges by `log(1 + mentions) * log(1 + B's tossup count)`, merge in reverse edges at a lower weight, and keep the top ~12. Store **which clue** created each edge, so the page can say *why* two topics are related.
+"Clues that are answers to their own questions." Every clue and giveaway is scanned for other topics' names; each hit is a directed mention *topic A's question names topic B*, stored with its span (`clue_mentions`) so the page can link the clue text. This is how soccer's page links to FIFA and the FIFA World Cup.
 
-This is also how soccer's page links to FIFA, the World Cup, Pelé and so on.
+Matching is token-based and longest-first ("FIFA World Cup" isn't also "World Cup"). The hard part is names that mean something else in context, and every rule below exists because a real link went wrong without it:
+
+- **Which names:** main answers, Wikipedia titles and Wikidata aliases, plus accepted/required answer parts seen in more than one answer line. Soccer accepts "What We Think" once; *Midnight's Children* requires "main characters" once. A name must have 4+ characters and not be a bare number ("1984"). It can't start with an article or end in a function word ("existence of"). A lowercase name found in more than 300 topics' questions is a generic phrase ("18th century") and is dropped.
+- **Capitalization:** a capitalized name must appear capitalized ("What is your name?" isn't the film *Your Name*). It can't sit inside a longer name ("Dr. **Bledsoe**" isn't the NFL quarterback, "Alfred **Sturtevant**" isn't Aaron Paul's birth name). A one-word name must be capitalized in most of its mid-sentence uses across the corpus, which drops "water" and "power".
+- **Strong vs weak names:**
+  - **Strong names** match anywhere: an all-caps one-word title ("FIFA"), the topic's own lowercase name ("Calvin cycle"), or a capitalized multi-word alias.
+  - **Weak names** count only when both topics share a category: other one-word names ("Sybil" in *Invisible Man* isn't Sybil Fawlty) and lowercase Wikidata extras ("black man").
+- **Shared names:**
+  - **Multi-word names** go to the owner in the question's category: "Battle Royale" in a literature question is the battle royal, not the film. Among several such owners, the one whose own name it is wins ("Calvin cycle", which photosynthesis also accepts). Next comes the topic whose Wikipedia title it is; otherwise the name is skipped.
+  - **One-word names** go to the in-category owner only when it's that topic's own name: "the Brotherhood" yes, but not "Columbia" claimed by the space shuttle in a biology question. Otherwise only an all-caps title keeps it ("FIFA").
+- **Scoring:** `log(1 + questions of A naming B) * idf(B) + 0.5 * log(1 + questions of B naming A) * idf(A)`, where `idf(X) = log(topics / topics whose questions name X)`. A topic needs 2+ questions of support (1 for topics with fewer than 6 questions) and keeps its top 12. A **hub** (named in more than 150 topics' questions: countries, "American", "World War II") must appear in at least 3 of the topic's questions and a quarter of them. Without that rule, "American" sat in 319 topics' lists.
+- **Why:** each link stores an example clue, preferring a real clue from the most commonly asked cluster over the giveaway.
+
+On the full corpus (October 2026): 652k mentions and 291k links. 99.9% of topics with 10+ questions have related topics. `verify` checks:
+- every mention span reads as its name
+- no self-links
+- every link's example clue names the pair
+- 14 hand-checked links are present (soccer → FIFA and the World Cup, Dumas → *Monte Cristo*, …)
+- 9 known wrong links stay absent (the film, the quarterback, the space shuttle, …)
+- the tracers
+
+**Audits of 40 random top-5 links:**
+- An intermediate version scored 38/40. Its two errors led to the answer-line weight rule.
+- The final version scores 39/40, i.e. precision ≥ 89% at 95% confidence. The one miss is *The Rime of the Ancient Mariner* → *Wedding*, from "the Wedding-Guest".
+
+Known gaps:
+- **A one-word surname in the same category can still mean someone else:** "Huxley" in *Axon* is Andrew, not Thomas Henry.
+- **Skipping shared one-word names costs a few true links,** such as Ganges → Yamuna.
 
 ### Stage 9: `confuse` → "don't confuse with"
 Collect candidate pairs from four free signals, score them, and keep the top 5 per topic, each with its evidence:
@@ -234,7 +258,8 @@ clues(id, tossup_id, topic_id, ordinal, text, char_start, char_end, word_start, 
 clue_clusters(id, topic_id, label, key_terms JSON, representative_clue_id,
               n_tossups, n_sets, median_position, share_in_power, share_last_line, specificity, impact, rank /* NULL if not top-K */,
               position_hist JSON, difficulty_hist JSON, first_year, last_year, trend)
-topic_links(src_topic_id, dst_topic_id, score, n_mentions, example_clue_id)
+clue_mentions(clue_id, topic_id, mentioned_topic_id, alias, char_start, char_end)
+related_topics(topic_id, related_topic_id, rank, score, n_questions, n_reverse, example_clue_id)
 topic_facts(topic_id, kind /* date|place|description */, property, value JSON /* time+precision | lat,lon,label | text */)
 confusions(topic_id, other_topic_id, reason /* reject|prompt|same_name|clue_overlap|lookalike */, score, evidence JSON)
 topic_snapshots(topic_id PRIMARY KEY, json, pipeline_version)

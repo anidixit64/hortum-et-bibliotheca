@@ -9,6 +9,7 @@ from hortum_pipeline import (
     grouping,
     ingest,
     linking,
+    relate,
     score,
 )
 from hortum_pipeline.config import PipelineSettings
@@ -40,7 +41,7 @@ STAGES: tuple[Stage, ...] = (
     Stage("clues", "Split questions into clues with positions and key terms", 2, clues.run),
     Stage("cluster", "Cluster clues that state the same fact", 2, cluster.run),
     Stage("score", "Score clue clusters for impact and heatmap statistics", 2, score.run),
-    Stage("relate", "Find related topics mentioned in clues", phase=2),
+    Stage("relate", "Find related topics mentioned in clues", 2, relate.run),
     Stage("confuse", "Find commonly confused topics", phase=2),
     Stage("snapshot", "Write one denormalized snapshot row per topic", phase=2),
 )

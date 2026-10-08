@@ -8,6 +8,7 @@ change that breaks them is caught immediately.
 
 import json
 import sqlite3
+from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -18,6 +19,7 @@ import yaml
 from hortum_common.text import normalize
 from hortum_pipeline.config import PipelineSettings
 from hortum_pipeline.overrides import OverrideStore
+from hortum_pipeline.relate import tokenize
 
 
 @dataclass
@@ -526,6 +528,128 @@ def check_score(conn: sqlite3.Connection, settings: PipelineSettings) -> list[Ch
 TRACERS_PATH = Path("pipeline/eval/tracers.yaml")
 
 
+# (topic, related topic) pairs checked by hand on the full corpus (October 2026).
+GOLDEN_RELATED: list[tuple[str, str, str]] = [
+    ("Q2736", "Q253414", "soccer -> FIFA"),
+    ("Q2736", "Q19317", "soccer -> FIFA World Cup"),
+    ("Q11982", "Q220389", "photosynthesis -> Calvin cycle"),
+    ("Q11982", "Q422516", "photosynthesis -> RuBisCO"),
+    ("Q38337", "Q191838", "Dumas -> The Count of Monte Cristo"),
+    ("Q38337", "Q140527", "Dumas -> The Three Musketeers"),
+    ("Q517", "Q48314", "Napoleon -> Battle of Waterloo"),
+    ("Q517", "Q134114", "Napoleon -> Battle of Austerlitz"),
+    ("Q5593", "Q910199", "Picasso -> Les Demoiselles d'Avignon"),
+    ("Q5593", "Q153793", "Picasso -> Georges Braque"),
+    ("Q5089", "Q45403", "Ganges -> Brahmaputra"),
+    ("Q254", "Q192039", "Mozart -> Don Giovanni"),
+    ("Q6534", "Q179885", "French Revolution -> Jacobins"),
+    ("Q6534", "Q44197", "French Revolution -> Robespierre"),
+]
+# Wrong links seen while building the stage, each the result of a name meaning something
+# else in context. None may come back.
+FORBIDDEN_RELATED: list[tuple[str, str, str]] = [
+    ("Q1784288", "Q864592", "Invisible Man -/-> Battle Royale (film)"),
+    ("Q1784288", "Q927434", 'Invisible Man -/-> Drew Bledsoe ("Dr. Bledsoe")'),
+    ("Q1784288", "Q1766182", "Invisible Man -/-> Sybil Fawlty"),
+    ("Q1784288", "Q21697406", 'Invisible Man -/-> Your Name ("What is your name?")'),
+    ("Q1784288", "Q817393", 'Invisible Man -/-> Black people ("black man")'),
+    ("Q2736", "Q1133063", "soccer -/-> Pele (deity)"),
+    ("Q130888", "Q302491", 'Drosophila -/-> Aaron Paul ("Alfred Sturtevant")'),
+    ("Q130888", "Q54383", 'Drosophila -/-> Space Shuttle Columbia ("at Columbia")'),
+    ("Q38337", "Q36008", 'Dumas -/-> Mercedes-Benz ("Mercedes")'),
+]
+
+
+def check_relate(conn: sqlite3.Connection, settings: PipelineSettings) -> list[Check]:
+    out = []
+    bad_spans = 0
+    for text, start, end, alias in conn.execute(
+        "SELECT c.text, m.char_start, m.char_end, m.alias FROM clue_mentions m "
+        "JOIN clues c ON c.id = m.clue_id"
+    ):
+        if " ".join(t.key for t in tokenize(text[start:end])) != alias:
+            bad_spans += 1
+    mentions = _one(conn, "SELECT COUNT(*) FROM clue_mentions")
+    out.append(
+        Check(
+            "relate",
+            "every mention span reads as its name",
+            bad_spans == 0,
+            f"{bad_spans} of {mentions:,} differ",
+        )
+    )
+    self_links = _one(
+        conn,
+        "SELECT (SELECT COUNT(*) FROM related_topics WHERE topic_id = related_topic_id) + "
+        "(SELECT COUNT(*) FROM clue_mentions WHERE topic_id = mentioned_topic_id)",
+    )
+    out.append(Check("relate", "no topic relates to itself", self_links == 0, f"{self_links}"))
+    bad_rank = _one(
+        conn,
+        "SELECT COUNT(*) FROM (SELECT topic_id, COUNT(*) n, MAX(rank) m FROM related_topics "
+        "GROUP BY topic_id) WHERE n > ? OR m != n",
+        settings.relate_top,
+    )
+    out.append(
+        Check(
+            "relate",
+            f"ranks run 1..n with at most {settings.relate_top} per topic",
+            bad_rank == 0,
+            f"{bad_rank} topics malformed",
+        )
+    )
+    unexplained = _one(
+        conn,
+        "SELECT COUNT(*) FROM related_topics r WHERE NOT EXISTS (SELECT 1 FROM clue_mentions m "
+        "WHERE m.clue_id = r.example_clue_id AND ((m.topic_id = r.topic_id AND "
+        "m.mentioned_topic_id = r.related_topic_id) OR (m.topic_id = r.related_topic_id AND "
+        "m.mentioned_topic_id = r.topic_id)))",
+    )
+    out.append(
+        Check(
+            "relate",
+            "every link's example clue names the pair",
+            unexplained == 0,
+            f"{unexplained} without",
+        )
+    )
+    big = _one(conn, "SELECT COUNT(*) FROM topics WHERE n_tossups >= 10")
+    covered = _one(
+        conn,
+        "SELECT COUNT(DISTINCT r.topic_id) FROM related_topics r JOIN topics t "
+        "ON t.id = r.topic_id WHERE t.n_tossups >= 10",
+    )
+    share = covered / max(big, 1)
+    out.append(
+        Check(
+            "relate",
+            "≥95% of topics with 10+ questions have related topics",
+            share >= 0.95,
+            f"{share:.1%} of {big:,}",
+        )
+    )
+    pairs = set(conn.execute("SELECT topic_id, related_topic_id FROM related_topics"))
+    missing = [why for a, b, why in GOLDEN_RELATED if (a, b) not in pairs]
+    out.append(
+        Check(
+            "relate",
+            f"hand-checked links present ({len(GOLDEN_RELATED)})",
+            not missing,
+            "; ".join(missing) or "all present",
+        )
+    )
+    wrong = [why for a, b, why in FORBIDDEN_RELATED if (a, b) in pairs]
+    out.append(
+        Check(
+            "relate",
+            f"known wrong links absent ({len(FORBIDDEN_RELATED)})",
+            not wrong,
+            "; ".join(wrong) or "none present",
+        )
+    )
+    return out
+
+
 def _tracer_actual(conn: sqlite3.Connection, stage: str, tid: str) -> dict[str, object] | None:
     """What the corpus holds for one tracer question at one stage."""
     if stage == "ingest":
@@ -553,6 +677,27 @@ def _tracer_actual(conn: sqlite3.Connection, stage: str, tid: str) -> dict[str, 
             (tid,),
         ).fetchone()
         return {"topic": row[0], "title": row[1]} if row else None
+    if stage == "relate":
+        rows = conn.execute(
+            "SELECT c.ordinal, m.mentioned_topic_id, c.topic_id FROM clue_mentions m "
+            "JOIN clues c ON c.id = m.clue_id WHERE c.tossup_id = ?",
+            (tid,),
+        ).fetchall()
+        topic = conn.execute(
+            "SELECT topic_id FROM tossup_topics WHERE tossup_id = ?", (tid,)
+        ).fetchone()
+        if not topic:
+            return None
+        mentions: dict[int, list[str]] = defaultdict(list)
+        for ordinal, other, _ in rows:
+            mentions[ordinal].append(other)
+        related = [
+            r[0]
+            for r in conn.execute(
+                "SELECT related_topic_id FROM related_topics WHERE topic_id = ?", (topic[0],)
+            )
+        ]
+        return {"mentions": {k: sorted(v) for k, v in mentions.items()}, "related": related}
     if stage == "score":
         rows = conn.execute(
             "SELECT c.ordinal, s.rank FROM clues c JOIN clue_cluster_members m ON m.clue_id = c.id "
@@ -618,6 +763,19 @@ def _tracer_mismatches(expect: dict[str, Any], actual: dict[str, Any]) -> list[s
                 got = [t.lower() for t in actual["cluster_terms"].get(int(index), [])]
                 if not any(term.lower() in got for term in terms):
                     problems.append(f"clue {index} cluster terms {got[:5]} lack any of {terms}")
+        elif key == "mentions":
+            got = actual["mentions"]
+            want_map = {int(k): sorted(v) for k, v in want.items()}
+            if got != want_map:
+                problems.append(f"mentions {got}, want {want_map}")
+        elif key == "related_includes":
+            absent = [t for t in want if t not in actual["related"]]
+            if absent:
+                problems.append(f"related topics lack {absent}")
+        elif key == "related_excludes":
+            present = [t for t in want if t in actual["related"]]
+            if present:
+                problems.append(f"related topics wrongly include {present}")
         elif key == "key_terms":
             for index, terms in want.items():
                 got = actual["key_terms"].get(int(index), [])
@@ -664,6 +822,7 @@ STAGE_CHECKS: dict[str, list[CheckFn]] = {
     "clues": [check_clues, check_tracers("clues")],
     "cluster": [check_cluster, check_tracers("cluster")],
     "score": [check_score, check_tracers("score")],
+    "relate": [check_relate, check_tracers("relate")],
 }
 TABLE_FOR = {
     "ingest": "tossups",
@@ -674,6 +833,7 @@ TABLE_FOR = {
     "clues": "question_layout",
     "cluster": "clue_clusters",
     "score": "cluster_scores",
+    "relate": "related_topics",
 }
 
 

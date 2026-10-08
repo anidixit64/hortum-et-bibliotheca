@@ -36,6 +36,12 @@ class PipelineSettings(BaseSettings):
     score_frequency_mode: str = "sqrt"
     score_earliness_exponent: float = 0.25
     score_last_line_bonus: float = 0.3
+    relate_min_cap_share: float = 0.7  # one-word names must be capitalized this often
+    relate_reverse_weight: float = 0.5
+    relate_max_alias_topics: int = 300  # lowercase names found more widely are generic
+    relate_min_questions: int = 2
+    relate_top: int = 12
+    relate_hub_topics: int = 150  # topics named this widely must earn their place
     link_min_similarity: float = 0.05
 
     def require_wikimedia_contact(self) -> str:

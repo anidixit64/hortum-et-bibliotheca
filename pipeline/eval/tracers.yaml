@@ -51,6 +51,13 @@ tracers:
         # Paints. The Battle Royale isn't this question's clue: here it sits in the giveaway
         # sentence. Ras (36 sets, mid-question) is why frequency outweighs earliness.
         rank_at_most: {1: 3, 2: 3}
+      relate:
+        # The giveaway names Ralph Ellison and the Battle Royale; clue 2 the Brotherhood.
+        # "Battle Royale" here is the battle royal, not the Japanese film: a literature
+        # question settles which topic a shared name means.
+        mentions: {2: [local:brotherhood], 3: [Q299965, Q3241463]}
+        related_includes: [Q299965, Q3241463, local:brotherhood]
+        related_excludes: [Q864592, Q927434]
 
   - id: 68b2ff0d8940d9f7c563a1a8
     topic: Drosophila melanogaster
@@ -97,3 +104,10 @@ tracers:
       score:
         # Morgan's fly room ranks first, Hox genes sixth.
         rank_at_most: {4: 3, 2: 10}
+      relate:
+        # "Hox genes" in clue 2, "T. H. Morgan" in clue 4 and "model organism" in the
+        # giveaway. "at Columbia" in clue 4 must not name the space shuttle, which claims
+        # "Columbia" only as a side alias.
+        mentions: {2: [Q253149], 4: [Q177681], 5: [Q213907]}
+        related_includes: [Q177681, Q213907]
+        related_excludes: [Q54383]
