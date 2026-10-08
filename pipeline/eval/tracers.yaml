@@ -46,11 +46,11 @@ tracers:
           1: [Dr. Bledsoe, Jim Trueblood, Mr. Norton]
           2: [Ras the Exhorter, Ras the Destroyer]
       score:
-        # Invisible Man's 17 picks (October 2026), most-asked first: Ras the Exhorter (36
-        # sets), Dr. Bledsoe (30), Battle Royale (19), Sambo, 1,369 bulbs, Liberty Paints,
-        # Rinehart, Lucius Brockway, Sybil, ... The Battle Royale isn't this question's clue
-        # any more: here it sits in the giveaway sentence.
-        rank_at_most: {1: 2, 2: 1}
+        # Invisible Man's top 10 (October 2026): Ras the Exhorter, Dr. Bledsoe, Battle
+        # Royale, Sambo, Rinehart, Lucius Brockway, 1,369 bulbs, Sybil, Mr. Emerson, Liberty
+        # Paints. The Battle Royale isn't this question's clue: here it sits in the giveaway
+        # sentence. Ras (36 sets, mid-question) is why frequency outweighs earliness.
+        rank_at_most: {1: 3, 2: 3}
 
   - id: 68b2ff0d8940d9f7c563a1a8
     topic: Drosophila melanogaster
@@ -95,5 +95,5 @@ tracers:
           2: [Hox]
           4: [Thomas Hunt Morgan, T. H. Morgan, Alfred Sturtevant]
       score:
-        # Morgan's fly room (19 sets) ranks first, Hox genes (10) fifth, of 13 picks.
-        rank_at_most: {4: 1, 2: 5}
+        # Morgan's fly room ranks first, Hox genes sixth.
+        rank_at_most: {4: 3, 2: 10}

@@ -1,16 +1,23 @@
-"""Stage 7: rank each topic's clue clusters and pick its most common clues.
+"""Stage 7: rank each topic's clue clusters and pick its high-impact clues.
 
-Clues are picked in order of how often they're asked: the number of distinct sets a
-cluster appears in, then the number of questions, then the earlier median position. Only
-clues above the giveaway count; the giveaway sentence itself is never a clue (see clues.py).
+A high-impact clue is common enough to be worth knowing and early enough to win the buzz:
 
-A topic gets 10 picks, rising to 20 for the most-asked topics (10 at 10 questions or fewer,
-15 at about 32, 20 at 100 or more). Clusters seen in fewer than ``min_sets`` sets (one set
-for small topics) or made only of the topic's own names are left out.
+    frequency    F = sqrt(distinct sets)      (or log(1 + sets))
+    earliness    E = 1 - median position + power_bonus * share before the power mark
+    specificity  S = how rarely the cluster's key terms appear in *other* topics (0..1)
+    last line    L = share of the cluster's clues in the last line before the giveaway
+    impact       = F * E ** earliness_exponent * S ** specificity_exponent * (1 + bonus * L)
 
-Heatmap statistics are stored for every cluster: position histogram, difficulty bands,
-years and a rising/steady/fading trend. ``impact`` keeps the earlier earliness-weighted
-score (sqrt(sets) * earliness ** 0.25) for display; it no longer decides the picks.
+The last line before the giveaway carries the well-known clues; its small bonus keeps the
+picks from being only niche lead-in facts.
+
+The tuned weights (see config.py) lean on frequency: a clue in 38 sets at mid-question
+("Ras the Exhorter") must outrank one in 6 sets near the start.
+
+Clusters seen in fewer than ``min_sets`` sets (one set for small topics) or made only of
+the topic's own names are left out; from the rest, up to 10 are picked by maximal marginal
+relevance so the picks aren't near-duplicates. Heatmap statistics are stored for every
+cluster: position histogram, difficulty bands, years and a rising/steady/fading trend.
 """
 
 import json
@@ -23,6 +30,7 @@ import numpy as np
 
 from hortum_common.text import normalize
 from hortum_pipeline import db
+from hortum_pipeline.cluster import EmbeddingCache, text_key
 from hortum_pipeline.config import PipelineSettings
 from hortum_pipeline.progress import Reporter
 
@@ -34,10 +42,11 @@ CREATE TABLE cluster_scores (
     n_sets INTEGER NOT NULL,
     median_position REAL NOT NULL,
     share_in_power REAL NOT NULL,
+    share_last_line REAL NOT NULL,   -- share of clues in the last line before the giveaway
     specificity REAL NOT NULL,
     impact REAL NOT NULL,
     eligible INTEGER NOT NULL,
-    rank INTEGER,                    -- 1..20 for the picked clues, else NULL
+    rank INTEGER,                    -- 1..10 for the picked clues, else NULL
     display_label TEXT NOT NULL,     -- a specific name, or the clue's opening words
     position_hist TEXT NOT NULL,     -- JSON: 10 bins from lead-in to end
     difficulty_hist TEXT NOT NULL,   -- JSON: {unrated, middle_school, high_school, college, open}
@@ -48,7 +57,7 @@ CREATE TABLE cluster_scores (
 CREATE INDEX cluster_scores_topic ON cluster_scores(topic_id, rank);
 """
 
-TOP_MIN, TOP_MAX = 10, 20
+TOP_MIN, TOP_MAX = 5, 10
 
 
 @dataclass
@@ -59,10 +68,10 @@ class ClusterStats:
     key_terms: list[str]
     positions: list[float] = field(default_factory=list)
     in_power: list[int] = field(default_factory=list)
+    last_line: list[int] = field(default_factory=list)
     difficulties: list[int] = field(default_factory=list)
     years: list[int] = field(default_factory=list)
     sets: set[str] = field(default_factory=set)
-    tossups: set[str] = field(default_factory=set)
 
     @property
     def median_position(self) -> float:
@@ -72,14 +81,20 @@ class ClusterStats:
     def share_in_power(self) -> float:
         return sum(self.in_power) / len(self.in_power)
 
+    @property
+    def share_last_line(self) -> float:
+        return sum(self.last_line) / len(self.last_line) if self.last_line else 0.0
+
 
 @dataclass(frozen=True)
 class Weights:
     power_bonus: float = 0.0
     specificity_exponent: float = 0.0
     min_sets: int = 2
+    mmr_lambda: float = 0.7
     frequency_mode: str = "sqrt"  # "log": log(1 + sets); "sqrt": sqrt(sets) rewards common clues
     earliness_exponent: float = 0.25  # below 1 softens the penalty for mid-question clues
+    last_line_bonus: float = 0.0  # extra weight for clues in the last line before the giveaway
 
 
 _VAGUE_TOPICS = 50  # a term found in more topics than this is too generic to be a label
@@ -146,6 +161,7 @@ def impact(stats: ClusterStats, spec: float, weights: Weights) -> float:
         frequency
         * max(earliness, 0.0) ** weights.earliness_exponent
         * spec**weights.specificity_exponent
+        * (1.0 + weights.last_line_bonus * stats.share_last_line)
     )
 
 
@@ -154,20 +170,39 @@ def is_self_reference(terms: list[str], aliases: set[str]) -> bool:
     return bool(terms) and all(normalize(t) in aliases for t in terms[:3])
 
 
-def pick_count(n_tossups: int) -> int:
-    """10 picks for a topic asked 10 times or fewer, 20 for one asked 100+ times."""
-    if n_tossups <= 10:
-        return TOP_MIN
-    return min(TOP_MAX, round(TOP_MIN + 10 * math.log10(n_tossups / 10)))
+def pick(
+    candidates: list[tuple[int, float]], vectors: dict[int, np.ndarray], weights: Weights
+) -> list[int]:
+    """Maximal marginal relevance: high impact, but not near-duplicates of earlier picks.
 
+    Redundancy is measured against the topic's own baseline: every clue about one novel
+    resembles every other (same characters, same setting), so raw similarity would treat
+    "Ras the Exhorter" as a duplicate of "Dr. Bledsoe" and skip the topic's most-asked clues.
+    Only pairs more alike than the topic's typical pair count as duplicates.
+    """
+    if not candidates:
+        return []
+    k = max(TOP_MIN, min(TOP_MAX, len(candidates)))
+    top = max(score for _, score in candidates) or 1.0
+    ids = [cid for cid, _ in candidates]
+    index = {cid: i for i, cid in enumerate(ids)}
+    matrix = np.stack([vectors[cid] for cid in ids])
+    sims = matrix @ matrix.T
+    n = len(ids)
+    baseline = float((sims.sum() - np.trace(sims)) / (n * (n - 1))) if n > 1 else 0.0
+    chosen: list[int] = []
+    pool = dict(candidates)
+    while pool and len(chosen) < k:
 
-def pick(candidates: list[ClusterStats], n_tossups: int) -> list[int]:
-    """The most common clusters first: most sets, then most questions, then earliest."""
-    ordered = sorted(
-        candidates,
-        key=lambda c: (-len(c.sets), -len(c.tossups), c.median_position, c.cluster_id),
-    )
-    return [c.cluster_id for c in ordered[: pick_count(n_tossups)]]
+        def mmr(cid: int) -> float:
+            raw = max((float(sims[index[cid], index[c]]) for c in chosen), default=baseline)
+            redundancy = max(0.0, (raw - baseline) / max(1.0 - baseline, 1e-6))
+            return weights.mmr_lambda * pool[cid] / top - (1 - weights.mmr_lambda) * redundancy
+
+        best = max(pool, key=mmr)
+        chosen.append(best)
+        del pool[best]
+    return chosen
 
 
 def load_stats(conn: sqlite3.Connection) -> dict[str, list[ClusterStats]]:
@@ -177,19 +212,22 @@ def load_stats(conn: sqlite3.Connection) -> dict[str, list[ClusterStats]]:
         "JOIN clues c ON c.id = k.representative_clue_id"
     ):
         clusters[cid] = ClusterStats(cid, topic_id, rep, json.loads(terms))
-    for cid, position, in_power, difficulty, year, set_id, tossup_id in conn.execute(
-        "SELECT m.cluster_id, c.position, c.in_power, t.difficulty, s.year, t.set_id, t.id "
+    for cid, position, in_power, last_line, difficulty, year, set_id in conn.execute(
+        "SELECT m.cluster_id, c.position, c.in_power, c.ordinal = l.last_ordinal, "
+        "t.difficulty, s.year, t.set_id "
         "FROM clue_cluster_members m JOIN clues c ON c.id = m.clue_id "
+        "JOIN (SELECT tossup_id, MAX(ordinal) AS last_ordinal FROM clues "
+        "      WHERE kind = 'clue' GROUP BY tossup_id) l ON l.tossup_id = c.tossup_id "
         "JOIN tossups t ON t.id = c.tossup_id JOIN sets s ON s.id = t.set_id"
     ):
         stats = clusters[cid]
         stats.positions.append(position)
         stats.in_power.append(in_power)
+        stats.last_line.append(last_line)
         stats.difficulties.append(difficulty or 0)
         if year:
             stats.years.append(year)
         stats.sets.add(set_id)
-        stats.tossups.add(tossup_id)
     by_topic: dict[str, list[ClusterStats]] = defaultdict(list)
     for stats in clusters.values():
         by_topic[stats.topic_id].append(stats)
@@ -204,8 +242,10 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
         settings.score_power_bonus,
         settings.score_specificity_exponent,
         settings.score_min_sets,
+        settings.score_mmr_lambda,
         settings.score_frequency_mode,
         settings.score_earliness_exponent,
+        settings.score_last_line_bonus,
     )
 
     reporter.begin("Gathering cluster statistics", None)
@@ -224,6 +264,8 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
         "JOIN sets s ON s.id = t.set_id WHERE s.year IS NOT NULL"
     ):
         topic_years[topic_id].append(year)
+    cache = EmbeddingCache(settings.data_dir / "cache" / "embeddings" / "minilm.db")
+
     reporter.begin("Scoring clusters", len(by_topic))
     rows: list[tuple[object, ...]] = []
     ranked_topics = 0
@@ -237,16 +279,21 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
                 stats.key_terms, aliases[topic_id]
             )
             scored.append((stats, spec, value, eligible))
-        candidates = [stats for stats, _, _, eligible in scored if eligible]
-        ranks = {
-            cid: r for r, cid in enumerate(pick(candidates, topic_size.get(topic_id, 0)), start=1)
-        }
+        candidates = sorted(
+            ((s.cluster_id, v) for s, _, v, ok in scored if ok), key=lambda x: -x[1]
+        )[:60]
+        vectors = {}
+        if candidates:
+            reps = {s.cluster_id: s.representative for s, *_ in scored}
+            matrix = cache.get([text_key(reps[cid]) for cid, _ in candidates])
+            vectors = {cid: matrix[i] for i, (cid, _) in enumerate(candidates)}
+        ranks = {cid: r for r, cid in enumerate(pick(candidates, vectors, weights), start=1)}
         ranked_topics += bool(ranks)
         for stats, spec, value, eligible in scored:
             bands = Counter(difficulty_band(d) for d in stats.difficulties)
             rows.append(
                 (stats.cluster_id, topic_id, len(stats.sets), stats.median_position,
-                 stats.share_in_power, spec, value, int(eligible), ranks.get(stats.cluster_id),
+                 stats.share_in_power, stats.share_last_line, spec, value, int(eligible), ranks.get(stats.cluster_id),
                  display_label(stats, topic_freq),
                  json.dumps(position_hist(stats.positions)), json.dumps(dict(bands)),
                  min(stats.years, default=None), max(stats.years, default=None),
@@ -254,9 +301,9 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
             )  # fmt: skip
         reporter.advance()
         if len(rows) > 50_000:
-            conn.executemany(f"INSERT INTO cluster_scores VALUES ({','.join('?' * 15)})", rows)
+            conn.executemany(f"INSERT INTO cluster_scores VALUES ({','.join('?' * 16)})", rows)
             rows.clear()
-    conn.executemany(f"INSERT INTO cluster_scores VALUES ({','.join('?' * 15)})", rows)
+    conn.executemany(f"INSERT INTO cluster_scores VALUES ({','.join('?' * 16)})", rows)
     conn.commit()
     reporter.stat("Topics with ranked clues", f"{ranked_topics:,} of {len(by_topic):,}")
     picked = conn.execute("SELECT COUNT(*) FROM cluster_scores WHERE rank IS NOT NULL").fetchone()[

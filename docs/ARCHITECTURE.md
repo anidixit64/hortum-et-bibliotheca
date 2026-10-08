@@ -167,15 +167,23 @@ Different questions phrase one fact many ways ("invited to the McGurk Institute 
 
 The method was chosen against the labeled clues (`pipeline/eval/labeled_clues.yaml`): pairwise F1 on same-fact clue pairs was 0.76 for MiniLM with the term bonus vs 0.60 for the best TF-IDF setting, which rarely groups paraphrases. On the full corpus: 868,752 clues in 424,000 clusters, of which 60,420 recur in 3+ questions; `verify` re-measures F1 on every run (0.755 over 73,849 labeled pairs) and fails below 0.70.
 
-### Stage 7: `score` → the most common clues
-Clues are picked **in order of how often they're asked**: distinct sets a cluster appears in (common across the circuit, not repeated in one set), then distinct questions, then earlier median position. Clues in the giveaway sentence never count (Stage 5 marks the whole sentence as giveaway).
+### Stage 7: `score` → "high-impact" clues
+The goal is clues **common enough to be worth knowing** and **early enough to win the buzz**. For each clue cluster:
 
-- **How many:** 10 per topic, rising with how often the topic is asked: `10 + 10 * log10(n_tossups / 10)`, clamped to 10–20 (15 at about 32 questions, 20 at 100+). Fewer when fewer clusters qualify.
+```
+frequency    F = sqrt(distinct sets)                 # common across the circuit, not repeated in one set
+earliness    E = 1 - median(position) (+ power bonus)
+last line    L = share of clues in the last line before the giveaway
+specificity  S = idf(key terms across all topics)     # stored; weight 0 after tuning
+impact       = F * E ** 0.25 * S ** 0 * (1 + 0.3 * L)
+```
+
+- **Last-line bonus:** the line just before the giveaway holds the well-known clues, so a small bonus keeps the picks from being only niche lead-in facts. Sweeping 0 / 0.1 / 0.2 / 0.3 / 0.5, 0.3 scored best on the labels (precision@5 0.940, recall@10 0.788) and moved last-line picks from 20% to 22%. For topics asked 3+ times, picks split 36% lead-in, 42% middle and 21% last line. 96% of those topics have a last-line clue in their top 10, and none has a top 10 that is all lead-ins. Last-line picks average 4.2 sets, lead-in picks 2.3.
 - **Filters:** at least 2 distinct sets (1 for topics with fewer than 6 tossups), and not made only of the topic's own names.
-- **Stored but not used for picking:** `impact = sqrt(sets) * (1 - median position) ** 0.25` and key-term specificity, kept for display and later tuning.
+- **Selection:** up to 10 by maximal marginal relevance (λ = 0.7). Redundancy is measured **relative to the topic's own baseline similarity**: every clue about one novel resembles every other, so raw similarity treated common clues as duplicates of each other.
 - **Heatmap statistics** (stored on each cluster for §8.3): a 10-bin histogram of positions, share in power, counts per difficulty band (unrated, middle school 1, high school 2–5, college 6–9, open 10), first and last year seen, and a trend label (`rising`, `steady`, `fading`): the cluster's share of the topic's most recent third of questions vs the topic's own.
 - **Display label:** the cluster's most common key term found in at most 50 topics, else the representative clue's opening words ("Peace" alone says nothing).
-- **Checking:** `hortum-pipeline eval-clues` scores the picks against `pipeline/eval/labeled_clues.yaml` (precision@5: share of the top 5 that match a labeled clue; recall@10: share of labeled clues found in the top 10). Frequency order scores precision@5 0.927 and recall@10 0.842, above the earlier earliness-weighted formula with MMR de-duplication (0.913, 0.798). A pick matches a label only through its label, key terms, representative and five members, so a big merged cluster isn't credited with every fact its members mention. Known cost of dropping MMR: when clustering splits one fact in two ("Ras the Exhorter" and "Ras"), both can be picked.
+- **Tuning:** `hortum-pipeline eval-clues` scores the picks against `pipeline/eval/labeled_clues.yaml` (precision@5: share of the top 5 that match a labeled clue; recall@10: share of labeled clues found in the top 10). A sweep chose the weights above (precision@5 0.913, recall@10 0.798, before the last-line bonus and before the whole giveaway sentence was excluded from clues), under a tracer guard: *Invisible Man*'s top 10 must include Ras the Exhorter (38 sets, mid-question) and the Battle Royal. The first-guess formula (log frequency, linear earliness) ranked 6-set lead-in trivia above them. A pick matches a label only through its label, key terms, representative and five members, so a big merged cluster isn't credited with every fact its members mention.
 
 ### Stage 8: `relate` → related topics
 "Clues that are answers to their own questions":
@@ -224,7 +232,7 @@ topic_aliases_fts  -- FTS5, tokenize='trigram' over alias_search: typo-tolerant 
 clues(id, tossup_id, topic_id, ordinal, text, char_start, char_end, word_start, word_end,
       position, in_power, is_giveaway, key_terms JSON, cluster_id)
 clue_clusters(id, topic_id, label, key_terms JSON, representative_clue_id,
-              n_tossups, n_sets, median_position, share_in_power, specificity, impact, rank /* 1..20, NULL if not picked */,
+              n_tossups, n_sets, median_position, share_in_power, share_last_line, specificity, impact, rank /* NULL if not top-K */,
               position_hist JSON, difficulty_hist JSON, first_year, last_year, trend)
 topic_links(src_topic_id, dst_topic_id, score, n_mentions, example_clue_id)
 topic_facts(topic_id, kind /* date|place|description */, property, value JSON /* time+precision | lat,lon,label | text */)
@@ -546,7 +554,7 @@ From Phase 2 on, two **tracer questions** are followed through every stage (`pip
 11. **Label the evaluation set before writing the scorer.** For ~30 topics across categories and difficulty levels, write down the 5–10 clues you'd want to know (`pipeline/eval/labeled_clues.yaml`). This keeps the scoring honest.
 12. **`clues`:** sentence splitter, positions, word spans, power index, key terms. *Done when* tests on tricky sentences (abbreviations, quoted titles, the `(*)` marker) pass.
 13. **`cluster`:** embeddings plus agglomerative clustering. *Done when* clusters for 5 well-known topics look like "one fact per cluster" when printed.
-14. **`score`:** frequency order, filters, and heatmap statistics. Write `hortum-pipeline eval` to report precision@5 against step 11, then tune the weights. *Done when* precision@5 stops improving (aim for ≥0.6 and look at the misses).
+14. **`score`:** impact formula, filters, MMR, and heatmap statistics. Write `hortum-pipeline eval` to report precision@5 against step 11, then tune the weights. *Done when* precision@5 stops improving (aim for ≥0.6 and look at the misses).
 15. **`relate`** and **`confuse`.** *Done when* soccer relates to FIFA and the World Cup, and Mercury's three topics list each other as confusions.
 16. **`snapshot`**, plus the catalog's `GET /topics/{id}`, `GET /topics/{id}/tossups` and `GET /practice/next`. *Done when* one request returns a complete topic core in milliseconds.
 
