@@ -42,6 +42,14 @@ class PipelineSettings(BaseSettings):
     relate_min_questions: int = 2
     relate_top: int = 12
     relate_hub_topics: int = 150  # topics named this widely must earn their place
+    confuse_top: int = 5
+    confuse_reject_weight: float = 1.0
+    confuse_same_name_weight: float = 1.0
+    confuse_lookalike_weight: float = 0.5
+    confuse_same_name_max_owners: int = 8  # names shared more widely are generic
+    confuse_same_name_min_questions: int = 2  # both topics asked at least this often
+    confuse_lookalike_min_questions: int = 3
+    confuse_lookalike_min_similarity: float = 0.6  # clue centroids must be this alike
     link_min_similarity: float = 0.05
 
     def require_wikimedia_contact(self) -> str:

@@ -5,6 +5,7 @@ from hortum_pipeline import (
     answer_stage,
     clues,
     cluster,
+    confuse,
     facts,
     grouping,
     ingest,
@@ -42,7 +43,7 @@ STAGES: tuple[Stage, ...] = (
     Stage("cluster", "Cluster clues that state the same fact", 2, cluster.run),
     Stage("score", "Score clue clusters for impact and heatmap statistics", 2, score.run),
     Stage("relate", "Find related topics mentioned in clues", 2, relate.run),
-    Stage("confuse", "Find commonly confused topics", phase=2),
+    Stage("confuse", "Find commonly confused topics", 2, confuse.run),
     Stage("snapshot", "Write one denormalized snapshot row per topic", phase=2),
 )
 

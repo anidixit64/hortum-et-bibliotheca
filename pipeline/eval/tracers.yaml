@@ -58,6 +58,10 @@ tracers:
         mentions: {2: [local:brotherhood], 3: [Q299965, Q3241463]}
         related_includes: [Q299965, Q3241463, local:brotherhood]
         related_excludes: [Q864592, Q927434]
+      confuse:
+        # This question rejects "The Invisible Man" (H. G. Wells's novel), as 31 others do;
+        # both topics are also titled "Invisible Man".
+        confusions_include: [Q1539509]
 
   - id: 68b2ff0d8940d9f7c563a1a8
     topic: Drosophila melanogaster
@@ -111,3 +115,6 @@ tracers:
         mentions: {2: [Q253149], 4: [Q177681], 5: [Q213907]}
         related_includes: [Q177681, Q213907]
         related_excludes: [Q54383]
+      confuse:
+        # The answer line only prompts on "fly", and no other topic is named Drosophila.
+        confusions: []

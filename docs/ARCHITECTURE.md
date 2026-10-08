@@ -218,14 +218,33 @@ Known gaps:
 - **Skipping shared one-word names costs a few true links,** such as Ganges → Yamuna.
 
 ### Stage 9: `confuse` → "don't confuse with"
-Collect candidate pairs from four free signals, score them, and keep the top 5 per topic, each with its evidence:
+Candidate pairs come from three signals. Confusion is symmetric, so each topic keeps its top 5 pairs, each with its evidence:
 
 | Signal | How | Example |
 |---|---|---|
-| **Answer-line rejects and prompts** | Run the alias automaton over `reject` and `prompt` strings from Stage 2; a hit on another topic is a confusion edge | `do not accept "United Kingdom"` on an England question |
-| **Same name** | Topics that share a normalized alias but resolved to different QIDs | Mercury (planet / element / god) |
-| **Clue overlap** | Cosine similarity between topics' clue-embedding centroids within a category, above a threshold, excluding pairs that are already "related" | Two novels by the same author with overlapping character clues |
-| **Look-alike names** | Edit distance between aliases within a category | Similar surnames among composers |
+| **Answer-line rejects** | A reject entry that *is* another topic's name, or a name covering at least half the entry. The question's own topic never counts as rejected, which settles shared names. | mitosis ↔ meiosis, soccer ↔ American football, *Invisible Man* ↔ Wells's *The Invisible Man* (31 rejects) |
+| **Same name** | Titles that are the same name once the parenthetical goes. Both topics need 2+ questions, and at most 8 topics may share the name. | Mercury (planet / element / god), Narcissus (myth / plant), *Vertigo* (film / condition) |
+| **Look-alike names** | A letter or two apart in the same category, *and* clue centroids at least 0.6 alike. Names differing only in digits don't count. | Iran ↔ Iraq, North ↔ South Dakota, alkane ↔ alkene, Henry I ↔ Henry II |
+
+`score = log(1 + rejects, either way) + 1.0 * same name + 0.5 * look-alike`.
+
+**What was tried and dropped, with evidence:**
+- **Prompts.** They mostly name broader terms ("primates" for monkeys, "fly" for *Drosophila*), which is hierarchy, not confusion.
+- **Aliases as "same name".** Answer lines accept near-synonyms ("boiling" for vaporization) and parts of overlapping answers ("Allende" for the 1973 coup). They also group main answers under events named after them ("Joseph Smith" under his killing). 4 of the 6 errors in a 40-pair audit came from this.
+- **Look-alike names without the similarity gate.** About half were unrelated pairs: shale/whale (0.23), leaf/lead (0.33), poker/*Joker* (0.33). Real look-alikes score 0.73–0.86.
+- **Clue overlap on its own.** A topic's nearest neighbors by clue centroid are siblings, not confusions: Poe → Shakespeare 0.93, electron → photon 0.94, Austria → Italy 0.89. Those scores sit above the 99th percentile of same-category pairs (0.81), so no threshold separates confusions from siblings.
+
+On the full corpus (October 2026): 3,410 rejects name another topic, plus 400 same-name pairs and 176 look-alike pairs (of 282 similar names). That gives 4,798 confusion links over 3,701 topics; most topics have nothing confusable, so that is expected. The stage runs in about 2½ minutes.
+
+**Audits of 40 random pairs:**
+- **First version:** 34/40.
+- **Final version:** 37/40, so precision ≥ 80% at 95% confidence. The three misses are two duplicate topics left over from Phase 1 (*making tea*, *infinite*) and one odd answer-line reject.
+
+`verify` checks:
+- every pair's evidence supports its reasons
+- 18 hand-checked pairs are present both ways
+- 7 known wrong pairs stay absent
+- the tracers
 
 ### Stage 10: `snapshot` → one row per topic
 Denormalize everything the page needs from the corpus into `topic_snapshots(topic_id, json, pipeline_version)`. **The catalog's topic endpoint is a single primary-key read with no joins.**
@@ -261,7 +280,7 @@ clue_clusters(id, topic_id, label, key_terms JSON, representative_clue_id,
 clue_mentions(clue_id, topic_id, mentioned_topic_id, alias, char_start, char_end)
 related_topics(topic_id, related_topic_id, rank, score, n_questions, n_reverse, example_clue_id)
 topic_facts(topic_id, kind /* date|place|description */, property, value JSON /* time+precision | lat,lon,label | text */)
-confusions(topic_id, other_topic_id, reason /* reject|prompt|same_name|clue_overlap|lookalike */, score, evidence JSON)
+confusions(topic_id, other_topic_id, rank, score, reasons JSON /* reject|same_name|lookalike */, evidence JSON)
 topic_snapshots(topic_id PRIMARY KEY, json, pipeline_version)
 ```
 
@@ -502,7 +521,7 @@ From `topic_facts` (Stage 4b), for the topic **and its related topics**, so you 
 
 From the `confusions` table (Stage 9), up to 5 per topic. For each one:
 
-- **Why they're confusable:** the reason (answer-line reject, same name, overlapping clues, look-alike name) and its evidence, e.g. the actual `do not accept` text.
+- **Why they're confusable:** the reason (answer-line reject, same name, look-alike name) and its evidence, e.g. the actual `do not accept` text.
 - **Distinguishing clues**, computed for free: the other topic's top clues that this topic never uses, and vice versa. That's usually enough to tell them apart.
 - **An optional one-line tip** ("planet clues talk about orbits and the precession of its perihelion; element clues talk about amalgams and thermometers") from the light LLM request, cached like everything else.
 - One-click links to the other topic's page and to a mixed **practice round** with tossups from both, which is the fastest way to stop mixing them up.

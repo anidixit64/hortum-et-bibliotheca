@@ -18,6 +18,7 @@ import yaml
 
 from hortum_common.text import normalize
 from hortum_pipeline.config import PipelineSettings
+from hortum_pipeline.confuse import base_name, is_lookalike
 from hortum_pipeline.overrides import OverrideStore
 from hortum_pipeline.relate import tokenize
 
@@ -650,6 +651,107 @@ def check_relate(conn: sqlite3.Connection, settings: PipelineSettings) -> list[C
     return out
 
 
+# Confusions checked by hand on the full corpus (October 2026), one per kind of signal.
+GOLDEN_CONFUSIONS: list[tuple[str, str, str]] = [
+    ("Q308", "Q925", "Mercury: planet <-> element (same name)"),
+    ("Q308", "local:mercury", "Mercury: planet <-> god (same name)"),
+    ("Q925", "local:mercury", "Mercury: element <-> god (same name)"),
+    ("Q179256", "Q29465", "Narcissus: myth <-> plant (same name)"),
+    ("Q1784288", "Q1539509", "Invisible Man <-> The Invisible Man (reject)"),
+    ("Q14763008", "Q16424695", "mitosis <-> meiosis (reject)"),
+    ("Q296", "Q40599", "Monet <-> Manet (reject)"),
+    ("Q2736", "Q41323", "soccer <-> American football (reject)"),
+    ("Q79925", "Q18343", "dark matter <-> dark energy (reject)"),
+    ("Q40864", "Q427", "Oort cloud <-> Kuiper belt (reject)"),
+    ("Q38337", "Q169150", "Dumas <-> Dumas fils (reject)"),
+    ("Q3099714", "Q8619", "Justin <-> Pierre Trudeau (reject)"),
+    ("Q1049", "Q958", "Sudan <-> South Sudan (reject)"),
+    ("Q794", "Q796", "Iran <-> Iraq (look-alike)"),
+    ("Q1211", "Q1207", "South <-> North Dakota (look-alike)"),
+    ("Q41581", "Q81406", "alkane <-> alkene (look-alike)"),
+    ("Q13082", "Q11429", "nuclear fusion <-> fission (reject, look-alike)"),
+    ("Q240679", "Q122248", "Hercules <-> Heracles (reject, look-alike)"),
+]
+# Pairs an earlier version produced, each from a signal that was too loose. None may return.
+FORBIDDEN_CONFUSIONS: list[tuple[str, str, str]] = [
+    ("Q47102", "Q5247467", "Joseph Smith <-/-> his killing (main answer, not a homonym)"),
+    ("Q1049", "Q117716414", "Sudan <-/-> Sudanese civil war (main answer, not a homonym)"),
+    ("Q440", "Q856670", "Allende <-/-> 1973 coup (required part, not a homonym)"),
+    ("Q6452502", "Q41716", "vaporization <-/-> boiling (accepted synonym)"),
+    ("Q751300", "Q1865281", "shale <-/-> whale (look-alike, unrelated clues)"),
+    ("Q33971", "Q708", "leaf <-/-> lead (look-alike, unrelated clues)"),
+    ("Q39847", "Q38971", "1870s <-/-> 1890s (differ only in digits)"),
+]
+
+
+def check_confuse(conn: sqlite3.Connection, settings: PipelineSettings) -> list[Check]:
+    out = []
+    self_pairs = _one(conn, "SELECT COUNT(*) FROM confusions WHERE topic_id = other_topic_id")
+    out.append(
+        Check("confuse", "no topic is confused with itself", self_pairs == 0, f"{self_pairs}")
+    )
+    bad_rank = _one(
+        conn,
+        "SELECT COUNT(*) FROM (SELECT topic_id, COUNT(*) n, MAX(rank) m FROM confusions "
+        "GROUP BY topic_id) WHERE n > ? OR m != n",
+        settings.confuse_top,
+    )
+    out.append(
+        Check(
+            "confuse",
+            f"ranks run 1..n with at most {settings.confuse_top} per topic",
+            bad_rank == 0,
+            f"{bad_rank} topics malformed",
+        )
+    )
+    names = dict(conn.execute("SELECT id, display_name FROM topics"))
+    questions: dict[str, set[str]] = defaultdict(set)
+    for tossup_id, topic_id in conn.execute("SELECT tossup_id, topic_id FROM tossup_topics"):
+        questions[tossup_id].add(topic_id)
+    unsupported = 0
+    for a, b, reasons, evidence in conn.execute(
+        "SELECT topic_id, other_topic_id, reasons, evidence FROM confusions"
+    ):
+        why, ev = json.loads(reasons), json.loads(evidence)
+        ok = bool(why)
+        if "reject" in why:
+            ok &= all(questions[e["tossup_id"]] & {a, b} for e in ev["reject"])
+        if "same_name" in why:
+            ok &= base_name(names[a]) == base_name(names[b]) == ev["same_name"]
+        if "lookalike" in why:
+            ok &= is_lookalike(base_name(names[a]), base_name(names[b]))
+        unsupported += not ok
+    total = _one(conn, "SELECT COUNT(*) FROM confusions")
+    out.append(
+        Check(
+            "confuse",
+            "every confusion's evidence supports its reasons",
+            unsupported == 0,
+            f"{unsupported} of {total:,} unsupported",
+        )
+    )
+    pairs = set(conn.execute("SELECT topic_id, other_topic_id FROM confusions"))
+    missing = [why for a, b, why in GOLDEN_CONFUSIONS if (a, b) not in pairs or (b, a) not in pairs]
+    out.append(
+        Check(
+            "confuse",
+            f"hand-checked confusions present both ways ({len(GOLDEN_CONFUSIONS)})",
+            not missing,
+            "; ".join(missing) or "all present",
+        )
+    )
+    wrong = [why for a, b, why in FORBIDDEN_CONFUSIONS if (a, b) in pairs or (b, a) in pairs]
+    out.append(
+        Check(
+            "confuse",
+            f"known wrong confusions absent ({len(FORBIDDEN_CONFUSIONS)})",
+            not wrong,
+            "; ".join(wrong) or "none present",
+        )
+    )
+    return out
+
+
 def _tracer_actual(conn: sqlite3.Connection, stage: str, tid: str) -> dict[str, object] | None:
     """What the corpus holds for one tracer question at one stage."""
     if stage == "ingest":
@@ -677,6 +779,16 @@ def _tracer_actual(conn: sqlite3.Connection, stage: str, tid: str) -> dict[str, 
             (tid,),
         ).fetchone()
         return {"topic": row[0], "title": row[1]} if row else None
+    if stage == "confuse":
+        topic = conn.execute(
+            "SELECT topic_id FROM tossup_topics WHERE tossup_id = ?", (tid,)
+        ).fetchone()
+        if not topic:
+            return None
+        others = conn.execute(
+            "SELECT other_topic_id FROM confusions WHERE topic_id = ? ORDER BY rank", (topic[0],)
+        ).fetchall()
+        return {"confusions": [o[0] for o in others]}
     if stage == "relate":
         rows = conn.execute(
             "SELECT c.ordinal, m.mentioned_topic_id, c.topic_id FROM clue_mentions m "
@@ -772,6 +884,10 @@ def _tracer_mismatches(expect: dict[str, Any], actual: dict[str, Any]) -> list[s
             absent = [t for t in want if t not in actual["related"]]
             if absent:
                 problems.append(f"related topics lack {absent}")
+        elif key == "confusions_include":
+            absent = [t for t in want if t not in actual["confusions"]]
+            if absent:
+                problems.append(f"confusions lack {absent} (got {actual['confusions']})")
         elif key == "related_excludes":
             present = [t for t in want if t in actual["related"]]
             if present:
@@ -823,6 +939,7 @@ STAGE_CHECKS: dict[str, list[CheckFn]] = {
     "cluster": [check_cluster, check_tracers("cluster")],
     "score": [check_score, check_tracers("score")],
     "relate": [check_relate, check_tracers("relate")],
+    "confuse": [check_confuse, check_tracers("confuse")],
 }
 TABLE_FOR = {
     "ingest": "tossups",
@@ -834,6 +951,7 @@ TABLE_FOR = {
     "cluster": "clue_clusters",
     "score": "cluster_scores",
     "relate": "related_topics",
+    "confuse": "confusions",
 }
 
 

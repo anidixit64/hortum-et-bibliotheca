@@ -229,9 +229,13 @@ class AliasMatcher:
         return True
 
     def find(
-        self, tokens: list[Token], category: str | None = None
+        self, tokens: list[Token], category: str | None = None, exclude: str | None = None
     ) -> list[tuple[str, str, int, int]]:
-        """(alias, topic id, char start, char end) for each hit, left to right."""
+        """(alias, topic id, char start, char end) for each hit, left to right.
+
+        ``exclude`` drops one topic from every name's owners first: a rejected answer is
+        never the question's own topic.
+        """
         hits = []
         i = 0
         while i < len(tokens):
@@ -244,7 +248,8 @@ class AliasMatcher:
                 if key in self.aliases:
                     found.append((key, j))
             for key, j in reversed(found):  # longest first
-                alias = self.choose(self.aliases[key], category)
+                owners = [o for o in self.aliases[key] if o.topic_id != exclude]
+                alias = self.choose(owners, category) if owners else None
                 if alias and self._fits(alias, tokens, i, j, category):
                     hits.append((key, alias.topic_id, tokens[i].start, tokens[j].end))
                     i = j
