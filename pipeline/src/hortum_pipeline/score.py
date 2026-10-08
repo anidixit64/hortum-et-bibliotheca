@@ -293,7 +293,8 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
             bands = Counter(difficulty_band(d) for d in stats.difficulties)
             rows.append(
                 (stats.cluster_id, topic_id, len(stats.sets), stats.median_position,
-                 stats.share_in_power, stats.share_last_line, spec, value, int(eligible), ranks.get(stats.cluster_id),
+                 stats.share_in_power, stats.share_last_line, spec, value, int(eligible),
+                 ranks.get(stats.cluster_id),
                  display_label(stats, topic_freq),
                  json.dumps(position_hist(stats.positions)), json.dumps(dict(bands)),
                  min(stats.years, default=None), max(stats.years, default=None),
