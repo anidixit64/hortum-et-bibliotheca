@@ -26,7 +26,30 @@ Ayer": the right article is a candidate but scores under the bar without a title
 Two parse misses come from source HTML with no space between a tag and the next word
 ("MississippiRiver").
 
-## Stage checks
+## Phase 2 acceptance audit (`phase2_audit.json`)
+
+A fixed random sample of 30 topic pages (seed 20261008, drawn from the 4,094 topics asked
+10+ times), read from the records the catalog serves and judged by hand.
+
+```sh
+uv run python pipeline/eval/audit_phase2.py sample   # reprint the pages
+uv run python pipeline/eval/audit_phase2.py score    # recompute the bounds below
+```
+
+| Measure | Result | 95% lower bound |
+|---|---|---|
+| Top-5 clue correct (real, specific, labeled right, not a repeat) | 142 / 150 | 90.6% |
+| Top-5 related topic correct (related, and the right topic for the name) | 135 / 144 | 89.3% |
+| Confusion sensible | 8 / 8 | 68.8% |
+| Page usable as a whole | 27 / 30 | 76.1% |
+
+**Where the errors come from:**
+- **Clues (8 misses):**
+  - Four labels are pronunciation guides or fragments: "FAIN-boss", "Q-plus" and "RYE-zee" come from guides without quotation marks, and "in China." and "and that" are fragments.
+  - Three picks repeat a higher pick under another label: "Snow Queen" twice, Geiger and Marsden twice, the Asch experiment twice.
+- **Related topics (9 misses):** a name resolved to the wrong topic of that name. Examples: Porter's Laura links to Petrarch's, the Barabas of *The Jew of Malta* to the biblical Barabbas, and the poem "Harlem" to the neighborhood.
+- **Pages (3 failures):** two come from Phase 1. Plant and polynomial "roots" were merged into one topic, and *Richard III* questions were linked to the 1995 film. The third is *The Jew of Malta*, with four wrong related topics.
+
 
 `uv run hortum-pipeline verify` runs every stage's checks (they also run automatically
 after each stage; a failure stops the pipeline). See `hortum_pipeline/verify.py`.
