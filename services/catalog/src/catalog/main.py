@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from catalog import routes
 from catalog.config import Settings, get_settings
 from catalog.search import SearchIndex
+from catalog.topics import TopicStore
 from hortum_common import create_app
 
 
@@ -13,6 +14,7 @@ def build_app(settings: Settings) -> FastAPI:
 
     app = create_app(settings, [routes.router], readiness_checks=[corpus_present])
     app.state.search_index = SearchIndex(settings.corpus_path)
+    app.state.topic_store = TopicStore(settings.corpus_path)
     return app
 
 

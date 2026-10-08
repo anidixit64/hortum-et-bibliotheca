@@ -12,6 +12,7 @@ from hortum_pipeline import (
     linking,
     relate,
     score,
+    snapshot,
 )
 from hortum_pipeline.config import PipelineSettings
 from hortum_pipeline.progress import Reporter
@@ -44,7 +45,7 @@ STAGES: tuple[Stage, ...] = (
     Stage("score", "Score clue clusters for impact and heatmap statistics", 2, score.run),
     Stage("relate", "Find related topics mentioned in clues", 2, relate.run),
     Stage("confuse", "Find commonly confused topics", 2, confuse.run),
-    Stage("snapshot", "Write one denormalized snapshot row per topic", phase=2),
+    Stage("snapshot", "Write one ready-made JSON record per topic", 2, snapshot.run),
 )
 
 STAGES_BY_NAME = {stage.name: stage for stage in STAGES}

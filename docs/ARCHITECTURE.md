@@ -247,7 +247,33 @@ On the full corpus (October 2026): 3,410 rejects name another topic, plus 400 sa
 - the tracers
 
 ### Stage 10: `snapshot` → one row per topic
-Denormalize everything the page needs from the corpus into `topic_snapshots(topic_id, json, pipeline_version)`. **The catalog's topic endpoint is a single primary-key read with no joins.**
+Denormalize everything the page needs from the corpus into `topic_snapshots(topic_id, json, schema_version)`. **The catalog's topic endpoint is a single primary-key read with no joins.** Every topic gets a record, even one asked once: search can find any answer, so every answer has a page. Topics asked fewer than 3 times are marked `thin` so the page can say "rarely asked".
+
+The record holds:
+- **`topic`:** id, slug, name, Wikidata/Wikipedia ids, description, category and stats. Display aliases are Wikipedia and Wikidata names plus capitalized answer-line names seen twice. Answer lines also accept descriptions like "main character", which aren't names.
+- **`clues`:** the ranked picks, each with a label, text, up to 3 example wordings from other sets, set and question counts, impact and the heatmap.
+  - **The card's text and examples name its label.** A big cluster can hold a neighboring fact ("Ras the Exhorter" merged with Brotherhood clues), so wordings that contain every content word of the label come first, then the newest.
+- **`related`:** each link with a plain-language "why" and its example clue.
+- **`confusions`:** reasons, evidence, and distinguishing clues. Those are each side's top clue labels that the other side doesn't share: Wells's *The Invisible Man* offers "Griffin, Thomas Marvel, Port Burdock".
+- **`timeline`:** the most precise Wikidata date per property, for the topic and its related topics.
+- **`map`:** places with coordinates.
+- **`tossup_ids`:** newest first.
+
+Generated sections (summary, story, clue write-ups, theme) live in the content service and are merged in by the gateway.
+
+On the full corpus (October 2026):
+- **Records:** 45,523, of which 32,143 are thin. They total about 390 MB, averaging 8.5 KB, and are built in about 3 minutes.
+- **Checks:** `verify` confirms:
+  - every topic has a current record whose counts match the source tables
+  - clue cards name their labels
+  - no record is over 200 KB
+  - a page read is fast (p95 under 5 ms)
+  - the tracers' final pages
+
+Catalog endpoints, also reachable through the gateway at `/api/catalog/...`:
+- **`GET /topics/{id-or-slug}`:** the stored JSON, served without re-parsing.
+- **`GET /topics/{id}/tossups?limit=&offset=`:** questions newest first, with clean text, power position, answer and clue spans.
+- **`GET /practice/next?topic=&category=&difficulty_min=&difficulty_max=&exclude=`:** a random matching question that skips ones already seen.
 
 ---
 
@@ -281,7 +307,7 @@ clue_mentions(clue_id, topic_id, mentioned_topic_id, alias, char_start, char_end
 related_topics(topic_id, related_topic_id, rank, score, n_questions, n_reverse, example_clue_id)
 topic_facts(topic_id, kind /* date|place|description */, property, value JSON /* time+precision | lat,lon,label | text */)
 confusions(topic_id, other_topic_id, rank, score, reasons JSON /* reject|same_name|lookalike */, evidence JSON)
-topic_snapshots(topic_id PRIMARY KEY, json, pipeline_version)
+topic_snapshots(topic_id PRIMARY KEY, json, schema_version)
 ```
 
 ### `content.db` (writable, owned by content)
@@ -486,7 +512,7 @@ Real tossups are revealed word by word, like a moderator reading. You buzz, answ
   - Your personal markers on the clue heatmap (§8.3).
   - Your stats on the topic page: accuracy, median buzz position, and how that's trending.
   - **Flashcards:** a wrong buzz, or a correct one that came after the topic's top clues had already been read, creates `missed` cards for the clues you passed (§8.2).
-- **Endpoints:** catalog serves the tossups (`GET /topics/{id}/tossups`, `GET /practice/next?category=&difficulty=`) and study records the attempts (`POST /buzzes`).
+- **Endpoints:** catalog serves the tossups (`GET /topics/{id}/tossups`, `GET /practice/next?topic=&category=&difficulty_min=&difficulty_max=&exclude=`; each question carries clue spans so a buzz can be tied to the clue being read) and study records the attempts (`POST /buzzes`).
 
 ### 8.2 Flashcards with spaced repetition
 

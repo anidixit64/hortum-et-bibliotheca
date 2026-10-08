@@ -62,6 +62,14 @@ tracers:
         # This question rejects "The Invisible Man" (H. G. Wells's novel), as 31 others do;
         # both topics are also titled "Invisible Man".
         confusions_include: [Q1539509]
+      snapshot:
+        # The final page: its top clues, Ellison and the battle royal as related topics,
+        # Wells's novel as a confusion, and this question among its 52.
+        n_tossups: 52
+        clue_labels_include: [Ras the Exhorter, Dr. Bledsoe, Battle Royale]
+        related_includes: [Q299965, Q3241463]
+        confusions_include: [Q1539509]
+        has_question: true
 
   - id: 68b2ff0d8940d9f7c563a1a8
     topic: Drosophila melanogaster
@@ -118,3 +126,10 @@ tracers:
       confuse:
         # The answer line only prompts on "fly", and no other topic is named Drosophila.
         confusions: []
+      snapshot:
+        # Morgan first, Hox genes among the clues and related topics, nothing confusable.
+        n_tossups: 27
+        clue_labels_include: [Thomas Hunt Morgan, Hox]
+        related_includes: [Q177681, Q253149]
+        confusions: []
+        has_question: true

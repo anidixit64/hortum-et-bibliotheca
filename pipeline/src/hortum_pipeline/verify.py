@@ -8,7 +8,8 @@ change that breaks them is caught immediately.
 
 import json
 import sqlite3
-from collections import defaultdict
+import time
+from collections import Counter, defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,6 +22,7 @@ from hortum_pipeline.config import PipelineSettings
 from hortum_pipeline.confuse import base_name, is_lookalike
 from hortum_pipeline.overrides import OverrideStore
 from hortum_pipeline.relate import tokenize
+from hortum_pipeline.snapshot import SCHEMA_VERSION, names_label
 
 
 @dataclass
@@ -249,6 +251,10 @@ def check_link(conn: sqlite3.Connection, settings: PipelineSettings) -> list[Che
             f"{hits}/{len(GOLDEN_LINKS)}" + (f"; misses: {'; '.join(misses)}" if misses else ""),
         )
     )
+    shared = _one(
+        conn, "SELECT COUNT(*) FROM (SELECT slug FROM topics GROUP BY slug HAVING COUNT(*) > 1)"
+    )
+    out.append(Check("link", "every topic has its own slug", shared == 0, f"{shared} shared"))
     return out
 
 
@@ -752,6 +758,80 @@ def check_confuse(conn: sqlite3.Connection, settings: PipelineSettings) -> list[
     return out
 
 
+def check_snapshot(conn: sqlite3.Connection, settings: PipelineSettings) -> list[Check]:
+    out = []
+    n_topics = _one(conn, "SELECT COUNT(*) FROM topics")
+    current = _one(
+        conn, "SELECT COUNT(*) FROM topic_snapshots WHERE schema_version = ?", SCHEMA_VERSION
+    )
+    out.append(
+        Check(
+            "snapshot",
+            "every topic has a current record",
+            current == n_topics,
+            f"{current:,} of {n_topics:,}",
+        )
+    )
+    want = {
+        "clues": dict(conn.execute(
+            "SELECT topic_id, COUNT(*) FROM cluster_scores WHERE rank IS NOT NULL GROUP BY 1")),
+        "related": dict(conn.execute("SELECT topic_id, COUNT(*) FROM related_topics GROUP BY 1")),
+        "confusions": dict(conn.execute("SELECT topic_id, COUNT(*) FROM confusions GROUP BY 1")),
+        "tossup_ids": dict(conn.execute("SELECT topic_id, COUNT(*) FROM tossup_topics GROUP BY 1")),
+    }  # fmt: skip
+    mismatched: Counter[str] = Counter()
+    cards = named = 0
+    largest = 0
+    for topic_id, raw in conn.execute("SELECT topic_id, json FROM topic_snapshots"):
+        largest = max(largest, len(raw))
+        record = json.loads(raw)
+        for key, counts in want.items():
+            if len(record[key]) != counts.get(topic_id, 0):
+                mismatched[key] += 1
+        for clue in record["clues"]:
+            cards += 1
+            named += names_label(clue["text"], clue["label"])
+    out.append(
+        Check(
+            "snapshot",
+            "clues, related, confusions and questions match their tables",
+            not mismatched,
+            ", ".join(f"{k}: {v} topics" for k, v in mismatched.items()) or "all match",
+        )
+    )
+    share = named / max(cards, 1)
+    out.append(
+        Check(
+            "snapshot",
+            "≥95% of clue cards name their label",
+            share >= 0.95,
+            f"{share:.1%} of {cards:,}",
+        )
+    )
+    out.append(
+        Check(
+            "snapshot",
+            "no record over 200 KB",
+            largest <= 200_000,
+            f"largest {largest / 1000:.0f} KB",
+        )
+    )
+    ids = [
+        r[0]
+        for r in conn.execute("SELECT topic_id FROM topic_snapshots ORDER BY random() LIMIT 500")
+    ]
+    times = []
+    for topic_id in ids:
+        start = time.perf_counter()
+        conn.execute("SELECT json FROM topic_snapshots WHERE topic_id = ?", (topic_id,)).fetchone()
+        times.append(time.perf_counter() - start)
+    p95 = sorted(times)[int(len(times) * 0.95)] * 1000 if times else 0.0
+    out.append(
+        Check("snapshot", "a page is one fast read (p95 < 5 ms)", p95 < 5, f"p95 {p95:.2f} ms")
+    )
+    return out
+
+
 def _tracer_actual(conn: sqlite3.Connection, stage: str, tid: str) -> dict[str, object] | None:
     """What the corpus holds for one tracer question at one stage."""
     if stage == "ingest":
@@ -779,6 +859,26 @@ def _tracer_actual(conn: sqlite3.Connection, stage: str, tid: str) -> dict[str, 
             (tid,),
         ).fetchone()
         return {"topic": row[0], "title": row[1]} if row else None
+    if stage == "snapshot":
+        topic = conn.execute(
+            "SELECT topic_id FROM tossup_topics WHERE tossup_id = ?", (tid,)
+        ).fetchone()
+        raw = (
+            topic
+            and conn.execute(
+                "SELECT json FROM topic_snapshots WHERE topic_id = ?", (topic[0],)
+            ).fetchone()
+        )
+        if not raw:
+            return None
+        record = json.loads(raw[0])
+        return {
+            "n_tossups": record["topic"]["stats"]["n_tossups"],
+            "clue_labels": [c["label"] for c in record["clues"]],
+            "related": [r["id"] for r in record["related"]],
+            "confusions": [c["id"] for c in record["confusions"]],
+            "has_question": tid in record["tossup_ids"],
+        }
     if stage == "confuse":
         topic = conn.execute(
             "SELECT topic_id FROM tossup_topics WHERE tossup_id = ?", (tid,)
@@ -884,6 +984,10 @@ def _tracer_mismatches(expect: dict[str, Any], actual: dict[str, Any]) -> list[s
             absent = [t for t in want if t not in actual["related"]]
             if absent:
                 problems.append(f"related topics lack {absent}")
+        elif key == "clue_labels_include":
+            absent = [t for t in want if t not in actual["clue_labels"]]
+            if absent:
+                problems.append(f"clue labels lack {absent} (got {actual['clue_labels']})")
         elif key == "confusions_include":
             absent = [t for t in want if t not in actual["confusions"]]
             if absent:
@@ -940,6 +1044,7 @@ STAGE_CHECKS: dict[str, list[CheckFn]] = {
     "score": [check_score, check_tracers("score")],
     "relate": [check_relate, check_tracers("relate")],
     "confuse": [check_confuse, check_tracers("confuse")],
+    "snapshot": [check_snapshot, check_tracers("snapshot")],
 }
 TABLE_FOR = {
     "ingest": "tossups",
@@ -952,6 +1057,7 @@ TABLE_FOR = {
     "score": "cluster_scores",
     "relate": "related_topics",
     "confuse": "confusions",
+    "snapshot": "topic_snapshots",
 }
 
 

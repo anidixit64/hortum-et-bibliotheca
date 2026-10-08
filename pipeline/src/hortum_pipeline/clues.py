@@ -191,15 +191,16 @@ def _split_long(text: str, start: int, end: int) -> Iterator[tuple[int, int]]:
     yield cursor, end
 
 
-_PRONUNCIATION = re.compile(r"\(\s*[\"“][^)]*\)")
+# A pronunciation guide in parentheses or brackets: ("STUR-tuh-vant"), ["oh-oh-cyte"].
+_PRONUNCIATION = re.compile(r"[(\[]\s*[\"“][^)\]]*[)\]]")
 
 
 def key_terms(text: str) -> list[str]:
-    text = _PRONUNCIATION.sub(" ", text)  # ("STUR-tuh-vant") is how to say it, not a term
+    text = _PRONUNCIATION.sub(" ", text)  # how to say a word, not a term
     terms: list[str] = []
     for match in _QUOTED.finditer(text):
-        if text[: match.start()].rstrip().endswith("("):
-            continue  # a pronunciation guide: ("STUR-tuh-vant")
+        if text[: match.start()].rstrip().endswith(("(", "[")):
+            continue  # a pronunciation guide the pattern above missed
         terms.append(match.group(1).strip())
     for match in _CAPITALIZED.finditer(text):
         term = match.group().rstrip(".")

@@ -100,3 +100,9 @@ def test_key_terms() -> None:
     )
     assert terms == ["room", "Alfred Sturtevant", "Columbia", "T. H. Morgan", "1,369"]
     assert key_terms("Mutagenesis in this organism uses P elements.") == []
+
+
+def test_pronunciation_guides_are_not_key_terms() -> None:
+    assert "oh-oh-cyte" not in key_terms('Bicoid is unequal in the oocytes ["oh-oh-cyte"] of it.')
+    assert "STUR-tuh-vant" not in key_terms('Alfred Sturtevant ("STUR-tuh-vant") drew a map.')
+    assert "Battle Royale" in key_terms('A "Battle Royale" scene occurs in it.')
