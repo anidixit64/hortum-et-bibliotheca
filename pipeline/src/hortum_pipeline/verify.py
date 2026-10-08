@@ -477,12 +477,12 @@ def check_score(conn: sqlite3.Connection, settings: PipelineSettings) -> list[Ch
     bad_rank = _one(
         conn,
         "SELECT COUNT(*) FROM (SELECT topic_id, COUNT(rank) n, MAX(rank) m FROM cluster_scores "
-        "WHERE rank IS NOT NULL GROUP BY topic_id) WHERE n > 10 OR m != n",
+        "WHERE rank IS NOT NULL GROUP BY topic_id) WHERE n > 20 OR m != n",
     )
     out.append(
         Check(
             "score",
-            "ranks run 1..n with at most 10 per topic",
+            "ranks run 1..n with at most 20 per topic",
             bad_rank == 0,
             f"{bad_rank} topics malformed",
         )

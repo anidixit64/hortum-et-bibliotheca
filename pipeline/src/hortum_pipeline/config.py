@@ -32,7 +32,6 @@ class PipelineSettings(BaseSettings):
     score_power_bonus: float = 0.0
     score_specificity_exponent: float = 0.0
     score_min_sets: int = 2
-    score_mmr_lambda: float = 0.7
     score_frequency_mode: str = "sqrt"
     score_earliness_exponent: float = 0.25
     link_min_similarity: float = 0.05

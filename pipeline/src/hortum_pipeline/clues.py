@@ -5,7 +5,9 @@ clue records its exact span in the question (characters and words), where it fal
 (0 = lead-in, 1 = end), whether it comes before the power mark "(*)", and its kind:
 
 * ``clue``: something a player could buzz on;
-* ``giveaway``: the "For 10 points, name this..." part, and anything after it;
+* ``giveaway``: the whole sentence holding "For 10 points, name this..." and anything after
+  it. A question with no giveaway phrase gives its last sentence away. Only a one-sentence
+  question keeps the part before the phrase as a clue, so it still has one;
 * ``note``: moderator or player notes ("NOTE TO MODERATOR: ...").
 
 The splitter knows quiz bowl text: abbreviations ("Dr.", "St.", "No. 9") and initials
@@ -74,7 +76,7 @@ _STARTERS = {
     "although", "like", "unlike", "with", "at", "on", "by", "from", "to", "as", "despite",
     "members", "what", "which", "who", "if", "once", "later", "earlier", "two", "three",
 }  # fmt: skip
-_GIVEAWAY = re.compile(r"\b(?:for\s+(?:10|ten)\s+points|ftp|for\s+10\s+pts)\b", re.I)
+_GIVEAWAY = re.compile(r"\b(?:for\s+(?:\d+|ten|fifteen|twenty|the)\s+(?:points?|pts)|ftp)\b", re.I)
 _NOTE = re.compile(
     r"^(?:note\s+to\s+(?:the\s+)?(?:moderators?|players|readers?)|moderator(?:'s)?\s+note|"
     r"(?:descriptive\s+answers?|description)\s+acceptable|pronunciation\s+guide|"
@@ -221,29 +223,29 @@ def key_terms(text: str) -> list[str]:
 
 def split_question(question_text: str) -> Layout:
     clean, power_char = clean_question(question_text)
+    sentences = [(s0, s1, bool(_NOTE.match(clean[s0:s1]))) for s0, s1 in _sentences(clean)]
+    body = [i for i, (_, _, note) in enumerate(sentences) if not note]
+    giveaway = next((i for i in body if _GIVEAWAY.search(clean[slice(*sentences[i][:2])])), None)
+    if giveaway is None and len(body) > 1:
+        giveaway = body[-1]
     spans: list[tuple[int, int, Kind]] = []
-    giveaway_seen = False
-    for s0, s1 in _sentences(clean):
-        sentence = clean[s0:s1]
-        if _NOTE.match(sentence):
+    for i, (s0, s1, note) in enumerate(sentences):
+        if note:
             spans.append((s0, s1, "note"))
-            continue
-        if giveaway_seen:
+        elif giveaway is not None and i > giveaway:
             spans.append((s0, s1, "giveaway"))
-            continue
-        hit = _GIVEAWAY.search(sentence)
-        if hit:
-            giveaway_seen = True
-            # "A 'Battle Royale' scene occurs in, for 10 points, what novel?": the part
-            # before the giveaway phrase is still a clue.
-            pre_end = s0 + len(sentence[: hit.start()].rstrip(" ,;-–—"))
-            if pre_end - s0 > 25:
+        elif i == giveaway:
+            hit = _GIVEAWAY.search(clean[s0:s1])
+            pre_end = s0 + len(clean[s0:s1][: hit.start()].rstrip(" ,;-–—")) if hit else s0
+            if hit and body == [i] and pre_end - s0 > 25:
+                # "A 'Battle Royale' scene occurs in, for 10 points, what novel?" as the
+                # whole question: the part before the phrase is its only clue.
                 spans.extend((a, b, "clue") for a, b in _split_long(clean, s0, pre_end))
                 spans.append((s0 + hit.start(), s1, "giveaway"))
             else:
                 spans.append((s0, s1, "giveaway"))
-            continue
-        spans.extend((a, b, "clue") for a, b in _split_long(clean, s0, s1))
+        else:
+            spans.extend((a, b, "clue") for a, b in _split_long(clean, s0, s1))
 
     power_word = clean.count(" ", 0, power_char) if power_char is not None else None
     length = max(len(clean), 1)

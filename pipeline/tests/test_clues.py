@@ -40,12 +40,32 @@ def test_giveaway_and_everything_after_it() -> None:
     assert [c.kind for c in layout.clues] == ["clue", "giveaway", "giveaway"]
 
 
-def test_mid_sentence_giveaway_keeps_the_clue_before_it() -> None:
+def test_mid_sentence_giveaway_takes_the_whole_sentence() -> None:
+    layout = split_question(
+        'Its narrator lives underground. A "Battle Royale" scene occurs in, for 10 points, '
+        "what novel?"
+    )
+    assert [c.kind for c in layout.clues] == ["clue", "giveaway"]
+    assert layout.clues[1].text.startswith('A "Battle Royale"')
+
+
+def test_one_sentence_question_keeps_the_clue_before_the_giveaway() -> None:
     layout = split_question('A "Battle Royale" scene occurs in, for 10 points, what novel?')
     assert [(c.kind, c.text) for c in layout.clues] == [
         ("clue", 'A "Battle Royale" scene occurs in'),
         ("giveaway", "for 10 points, what novel?"),
     ]
+
+
+@pytest.mark.parametrize("phrase", ["For 15 points", "For the point", "For ten points", "FTP"])
+def test_other_giveaway_phrases(phrase: str) -> None:
+    layout = split_question(f"Clue one is here. Clue two is here. {phrase}, name this man.")
+    assert [c.kind for c in layout.clues] == ["clue", "clue", "giveaway"]
+
+
+def test_without_a_giveaway_phrase_the_last_sentence_gives_it_away() -> None:
+    layout = split_question("Clue one is here. Name this Italian artist who painted it.")
+    assert [c.kind for c in layout.clues] == ["clue", "giveaway"]
 
 
 def test_moderator_notes_and_instructions_are_notes() -> None:

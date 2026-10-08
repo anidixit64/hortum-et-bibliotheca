@@ -13,7 +13,7 @@ tracers:
     why: >-
       The power mark sits right after an abbreviation ("Dr. (*) Bledsoe"), a quotation
       ends with a period, and the giveaway is buried mid-sentence ("... occurs in, for 10
-      points, what ..."). A labeled Phase 2 topic.
+      points, what ..."), so that whole sentence is the giveaway. A labeled Phase 2 topic.
     expect:
       ingest:
         answer_text: "Invisible Man [reject The Invisible Man which is a different novel]"
@@ -29,30 +29,28 @@ tracers:
         title: Invisible Man
       clues:
         power_word: 50
-        kinds: [clue, clue, clue, clue, giveaway]
-        in_power: [true, true, false, false, false]
+        kinds: [clue, clue, clue, giveaway]
+        in_power: [true, true, false, false]
         starts:
           - "This novel's protagonist declares himself"
           - "In this novel, the protagonist leads a rich trustee"
           - "The unnamed narrator of this novel is sealed underground"
-          - "A \"Battle Royale\" scene occurs in"
-          - "for 10 points, what Ralph Ellison novel"
+          - "A \"Battle Royale\" scene occurs in, for 10 points"
         key_terms:
           1: ["Jim Trueblood's", "Dr. Bledsoe"]
-          3: ["Battle Royale"]
       cluster:
         # Checked by eye on the full corpus (October 2026): the expulsion storyline (30
         # questions), Ras the Exhorter/Destroyer (38), the Battle Royal(e) (20).
-        cluster_min_questions: {1: 15, 2: 20, 3: 10}
+        cluster_min_questions: {1: 15, 2: 20}
         cluster_mentions:
           1: [Dr. Bledsoe, Jim Trueblood, Mr. Norton]
           2: [Ras the Exhorter, Ras the Destroyer]
-          3: [Battle Royale, Battle Royal]
       score:
-        # Invisible Man's top 10 (October 2026): Dr. Bledsoe, Ras the Exhorter, Sambo,
-        # Battle Royale, Rinehart, Lucius Brockway, Sybil, 1,369 bulbs, Mr. Emerson, Men's Club.
-        # This guard is why scoring weighs frequency over earliness: Ras is in 38 sets.
-        rank_at_most: {1: 3, 2: 3, 3: 6}
+        # Invisible Man's 17 picks (October 2026), most-asked first: Ras the Exhorter (36
+        # sets), Dr. Bledsoe (30), Battle Royale (19), Sambo, 1,369 bulbs, Liberty Paints,
+        # Rinehart, Lucius Brockway, Sybil, ... The Battle Royale isn't this question's clue
+        # any more: here it sits in the giveaway sentence.
+        rank_at_most: {1: 2, 2: 1}
 
   - id: 68b2ff0d8940d9f7c563a1a8
     topic: Drosophila melanogaster
@@ -97,5 +95,5 @@ tracers:
           2: [Hox]
           4: [Thomas Hunt Morgan, T. H. Morgan, Alfred Sturtevant]
       score:
-        # Morgan's fly room ranks first, Hox genes sixth.
-        rank_at_most: {4: 3, 2: 10}
+        # Morgan's fly room (19 sets) ranks first, Hox genes (10) fifth, of 13 picks.
+        rank_at_most: {4: 1, 2: 5}

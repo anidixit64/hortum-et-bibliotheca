@@ -1,6 +1,5 @@
 from collections import Counter
 
-import numpy as np
 import pytest
 
 from hortum_pipeline import score
@@ -26,17 +25,28 @@ def test_earlier_is_better_at_equal_frequency() -> None:
     assert score.impact(stats(5, 0.1), 1.0, w) > score.impact(stats(5, 0.7), 1.0, w)
 
 
-def test_pick_measures_redundancy_against_the_topic_baseline() -> None:
-    # Three clusters all fairly alike (same topic); 1 and 2 are near-duplicates.
-    v = {1: np.array([1.0, 0.0]), 2: np.array([0.999, 0.045]), 3: np.array([0.8, 0.6])}
-    v = {k: x / np.linalg.norm(x) for k, x in v.items()}
-    picks = score.pick([(1, 3.0), (2, 2.9), (3, 2.0)], v, Weights(mmr_lambda=0.5))
-    assert picks[:2] == [1, 3]  # the near-duplicate waits
+def test_pick_orders_by_sets_then_questions_then_position() -> None:
+    a, b, c, d = stats(38, 0.62), stats(6, 0.0), stats(6, 0.5), stats(6, 0.1)
+    for cid, s in enumerate((a, b, c, d), start=1):
+        s.cluster_id = cid
+        s.tossups = {f"q{i}" for i in range(len(s.sets))}
+    c.tossups.add("extra")  # same sets as b and d, one more question
+    assert score.pick([b, c, d, a], 50) == [1, 3, 2, 4]
 
 
-def test_pick_returns_at_most_ten() -> None:
-    v = {i: np.eye(12)[i] for i in range(12)}
-    assert len(score.pick([(i, 1.0) for i in range(12)], v, Weights())) == 10
+@pytest.mark.parametrize(("n", "k"), [(1, 10), (10, 10), (32, 15), (100, 20), (5000, 20)])
+def test_pick_count_grows_with_the_topic(n: int, k: int) -> None:
+    assert score.pick_count(n) == k
+
+
+def test_pick_takes_at_most_pick_count() -> None:
+    many = []
+    for i in range(30):
+        s = stats(30 - i, 0.5)
+        s.cluster_id = i
+        many.append(s)
+    assert score.pick(many, 10) == list(range(10))
+    assert len(score.pick(many, 1000)) == 20
 
 
 @pytest.mark.parametrize(

@@ -147,7 +147,7 @@ For every topic with a QID, fetch its Wikidata entity in bulk (`wbgetentities`, 
 - The Wikidata one-line **description**, used as a hover label everywhere a topic is mentioned.
 
 ### Stage 5: `clues` → split questions into clues
-A quiz-aware splitter: abbreviations ("Dr.", "St.", "No. 9"), initials ("T. H. Morgan", "W.E.B."), and "!"/"?" inside quotations don't end sentences, and the power mark `(*)` is removed before splitting, so "Dr. (\*) Bledsoe" stays one sentence. Sentences over 40 words split again at semicolons. Each piece gets a **kind**: `clue`, `giveaway` (the "For 10 points…" part and anything after it; a mid-sentence giveaway keeps the clue before it), or `note` (moderator notes, "Two answers required."). `question_layout` stores each question's clean text and power position. For every clue:
+A quiz-aware splitter: abbreviations ("Dr.", "St.", "No. 9"), initials ("T. H. Morgan", "W.E.B."), and "!"/"?" inside quotations don't end sentences, and the power mark `(*)` is removed before splitting, so "Dr. (\*) Bledsoe" stays one sentence. Sentences over 40 words split again at semicolons. Each piece gets a **kind**: `clue`, `giveaway` (the whole sentence holding "For 10 points", "For 15 points", "For the point" or "FTP", and anything after it; with no such phrase, the last sentence; only a one-sentence question keeps the part before the phrase as its clue), or `note` (moderator notes, "Two answers required."). `question_layout` stores each question's clean text and power position. For every clue:
 
 | Field | Meaning |
 |---|---|
@@ -157,7 +157,7 @@ A quiz-aware splitter: abbreviations ("Dr.", "St.", "No. 9"), initials ("T. H. M
 | `kind` | clue, giveaway or note |
 | `key_terms` | Capitalized names (allowing "of", "van"...), quoted titles and long numbers, e.g. `T. H. Morgan`, `Battle Royale`, `1,369`. Rule-based for speed and no heavy dependencies; spaCy remains an option if Stage 6 needs lowercase technical terms. |
 
-On the full corpus (October 2026): 892k clues, 183k giveaways, 3k notes in about two minutes; every span reproduces its text exactly, all 114,840 power marks are located, giveaways are found in 97.9% of questions, and 0.16% of clues are fragments.
+On the full corpus (October 2026): 869k clues, 187k giveaways, 3k notes in about two minutes; every span reproduces its text exactly, all 114,840 power marks are located, every question has a giveaway, and 0.15% of clues are fragments.
 
 ### Stage 6: `cluster` → the same fact, worded differently
 Different questions phrase one fact many ways ("invited to the McGurk Institute by Max Gottlieb" vs. "his mentor Gottlieb brings him to McGurk"). Within each topic:
@@ -165,23 +165,17 @@ Different questions phrase one fact many ways ("invited to the McGurk Institute 
 - Similarity = cosine + 0.2 per shared key term, then average-linkage clustering at distance 0.6.
 - The **representative** clue is the medoid, and the cluster's **label** is its most common key term.
 
-The method was chosen against the labeled clues (`pipeline/eval/labeled_clues.yaml`): pairwise F1 on same-fact clue pairs was 0.76 for MiniLM with the term bonus vs 0.60 for the best TF-IDF setting, which rarely groups paraphrases. On the full corpus: 891,754 clues in 434,509 clusters, of which 62,180 recur in 3+ questions; `verify` re-measures F1 on every run (0.761 over 78,456 labeled pairs) and fails below 0.70.
+The method was chosen against the labeled clues (`pipeline/eval/labeled_clues.yaml`): pairwise F1 on same-fact clue pairs was 0.76 for MiniLM with the term bonus vs 0.60 for the best TF-IDF setting, which rarely groups paraphrases. On the full corpus: 868,752 clues in 424,000 clusters, of which 60,420 recur in 3+ questions; `verify` re-measures F1 on every run (0.755 over 73,849 labeled pairs) and fails below 0.70.
 
-### Stage 7: `score` → "high-impact" clues
-The goal is clues **common enough to be worth knowing** and **early enough to win the buzz**. For each clue cluster:
+### Stage 7: `score` → the most common clues
+Clues are picked **in order of how often they're asked**: distinct sets a cluster appears in (common across the circuit, not repeated in one set), then distinct questions, then earlier median position. Clues in the giveaway sentence never count (Stage 5 marks the whole sentence as giveaway).
 
-```
-frequency    F = sqrt(distinct sets)                 # common across the circuit, not repeated in one set
-earliness    E = 1 - median(position) (+ power bonus)
-specificity  S = idf(key terms across all topics)     # stored; weight 0 after tuning
-impact       = F * E ** 0.25 * S ** 0
-```
-
+- **How many:** 10 per topic, rising with how often the topic is asked: `10 + 10 * log10(n_tossups / 10)`, clamped to 10–20 (15 at about 32 questions, 20 at 100+). Fewer when fewer clusters qualify.
 - **Filters:** at least 2 distinct sets (1 for topics with fewer than 6 tossups), and not made only of the topic's own names.
-- **Selection:** up to 10 by maximal marginal relevance (λ = 0.7). Redundancy is measured **relative to the topic's own baseline similarity**: every clue about one novel resembles every other, so raw similarity treated common clues as duplicates of each other.
+- **Stored but not used for picking:** `impact = sqrt(sets) * (1 - median position) ** 0.25` and key-term specificity, kept for display and later tuning.
 - **Heatmap statistics** (stored on each cluster for §8.3): a 10-bin histogram of positions, share in power, counts per difficulty band (unrated, middle school 1, high school 2–5, college 6–9, open 10), first and last year seen, and a trend label (`rising`, `steady`, `fading`): the cluster's share of the topic's most recent third of questions vs the topic's own.
 - **Display label:** the cluster's most common key term found in at most 50 topics, else the representative clue's opening words ("Peace" alone says nothing).
-- **Tuning:** `hortum-pipeline eval-clues` scores the picks against `pipeline/eval/labeled_clues.yaml` (precision@5: share of the top 5 that match a labeled clue; recall@10: share of labeled clues found in the top 10). A sweep chose the weights above (precision@5 0.913, recall@10 0.798), under a tracer guard: *Invisible Man*'s top 10 must include Ras the Exhorter (38 sets, mid-question) and the Battle Royal. The first-guess formula (log frequency, linear earliness) ranked 6-set lead-in trivia above them. A pick matches a label only through its label, key terms, representative and five members, so a big merged cluster isn't credited with every fact its members mention.
+- **Checking:** `hortum-pipeline eval-clues` scores the picks against `pipeline/eval/labeled_clues.yaml` (precision@5: share of the top 5 that match a labeled clue; recall@10: share of labeled clues found in the top 10). Frequency order scores precision@5 0.927 and recall@10 0.842, above the earlier earliness-weighted formula with MMR de-duplication (0.913, 0.798). A pick matches a label only through its label, key terms, representative and five members, so a big merged cluster isn't credited with every fact its members mention. Known cost of dropping MMR: when clustering splits one fact in two ("Ras the Exhorter" and "Ras"), both can be picked.
 
 ### Stage 8: `relate` → related topics
 "Clues that are answers to their own questions":
@@ -230,7 +224,7 @@ topic_aliases_fts  -- FTS5, tokenize='trigram' over alias_search: typo-tolerant 
 clues(id, tossup_id, topic_id, ordinal, text, char_start, char_end, word_start, word_end,
       position, in_power, is_giveaway, key_terms JSON, cluster_id)
 clue_clusters(id, topic_id, label, key_terms JSON, representative_clue_id,
-              n_tossups, n_sets, median_position, share_in_power, specificity, impact, rank /* NULL if not top-K */,
+              n_tossups, n_sets, median_position, share_in_power, specificity, impact, rank /* 1..20, NULL if not picked */,
               position_hist JSON, difficulty_hist JSON, first_year, last_year, trend)
 topic_links(src_topic_id, dst_topic_id, score, n_mentions, example_clue_id)
 topic_facts(topic_id, kind /* date|place|description */, property, value JSON /* time+precision | lat,lon,label | text */)
@@ -552,7 +546,7 @@ From Phase 2 on, two **tracer questions** are followed through every stage (`pip
 11. **Label the evaluation set before writing the scorer.** For ~30 topics across categories and difficulty levels, write down the 5–10 clues you'd want to know (`pipeline/eval/labeled_clues.yaml`). This keeps the scoring honest.
 12. **`clues`:** sentence splitter, positions, word spans, power index, key terms. *Done when* tests on tricky sentences (abbreviations, quoted titles, the `(*)` marker) pass.
 13. **`cluster`:** embeddings plus agglomerative clustering. *Done when* clusters for 5 well-known topics look like "one fact per cluster" when printed.
-14. **`score`:** impact formula, filters, MMR, and heatmap statistics. Write `hortum-pipeline eval` to report precision@5 against step 11, then tune the weights. *Done when* precision@5 stops improving (aim for ≥0.6 and look at the misses).
+14. **`score`:** frequency order, filters, and heatmap statistics. Write `hortum-pipeline eval` to report precision@5 against step 11, then tune the weights. *Done when* precision@5 stops improving (aim for ≥0.6 and look at the misses).
 15. **`relate`** and **`confuse`.** *Done when* soccer relates to FIFA and the World Cup, and Mercury's three topics list each other as confusions.
 16. **`snapshot`**, plus the catalog's `GET /topics/{id}`, `GET /topics/{id}/tossups` and `GET /practice/next`. *Done when* one request returns a complete topic core in milliseconds.
 
