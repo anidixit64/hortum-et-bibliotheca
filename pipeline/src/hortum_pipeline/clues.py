@@ -93,6 +93,8 @@ _CAPITALIZED = re.compile(
     r"(?:\s+(?:(?:of|the|de|la|le|du|des|von|van|der|den|y|al|bin|ibn|di|da|and)\s+)?"
     r"[A-Z][\w'’\-]*\.?)*"
 )
+_FRAGMENT_WORDS = "a an and as at but by for from in of on or that the to with"
+_FRAGMENT_START = frozenset(_FRAGMENT_WORDS.split())
 _QUOTED = re.compile(r"[\"“]([^\"”]{3,80})[\"”]")
 _NUMBER = re.compile(r"\b\d[\d,]{2,}\b")
 _NOT_TERMS = _STARTERS | {"for", "10", "points", "name", "i", "ii", "iii", "x", "s"}
@@ -192,16 +194,28 @@ def _split_long(text: str, start: int, end: int) -> Iterator[tuple[int, int]]:
 
 
 # A pronunciation guide in parentheses or brackets: ("STUR-tuh-vant"), ["oh-oh-cyte"].
-_PRONUNCIATION = re.compile(r"[(\[]\s*[\"“][^)\]]*[)\]]")
+# How to say a word, not a term: a pronunciation in square brackets ["oh-oh-cyte"],
+# [Q-plus], or in parentheses when quoted ("STUR-tuh-vant") or with a capitalized stressed
+# syllable (FAIN-boss). Other square brackets are editorial insertions: kept inside a
+# quotation ("one must imagine [Sisyphus] happy"), dropped when looking for names.
+_BRACKETS = re.compile(r"\[[^\]]*\]")
+_PRONUNCIATION = re.compile(
+    r"\[[^\]]*[-\"“][^\]]*\]"
+    r"|\(\s*[\"“][^)]*\)|\(\s*[A-Za-z']*(?:[A-Z]{2,}[a-z]*-|-[A-Z]{2,})[A-Za-z' -]*\)"
+)
 
 
 def key_terms(text: str) -> list[str]:
-    text = _PRONUNCIATION.sub(" ", text)  # how to say a word, not a term
+    text = _PRONUNCIATION.sub(" ", text)
     terms: list[str] = []
     for match in _QUOTED.finditer(text):
-        if text[: match.start()].rstrip().endswith(("(", "[")):
+        if text[: match.start()].rstrip().endswith("("):
             continue  # a pronunciation guide the pattern above missed
-        terms.append(match.group(1).strip())
+        quoted = " ".join(match.group(1).replace("[", "").replace("]", "").split())
+        quoted = quoted.strip(" .,;:!?")
+        if quoted and quoted.split()[0].lower() not in _FRAGMENT_START:
+            terms.append(quoted)  # not a mid-sentence fragment: "in China.", "and that"
+    text = _BRACKETS.sub(" ", text)
     for match in _CAPITALIZED.finditer(text):
         term = match.group().rstrip(".")
         words = term.split()
