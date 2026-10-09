@@ -165,7 +165,7 @@ Different questions phrase one fact many ways ("invited to the McGurk Institute 
 - Similarity = cosine + 0.2 per shared key term, then average-linkage clustering at distance 0.6.
 - The **representative** clue is the medoid, and the cluster's **label** is its most common key term.
 
-The method was chosen against the labeled clues (`pipeline/eval/labeled_clues.yaml`): pairwise F1 on same-fact clue pairs was 0.76 for MiniLM with the term bonus vs 0.60 for the best TF-IDF setting, which rarely groups paraphrases. On the full corpus: 868,752 clues in 424,000 clusters, of which 60,420 recur in 3+ questions; `verify` re-measures F1 on every run (0.755 over 73,849 labeled pairs) and fails below 0.70.
+The method was chosen against the labeled clues (`pipeline/eval/labeled_clues.yaml`): pairwise F1 on same-fact clue pairs was 0.76 for MiniLM with the term bonus vs 0.60 for the best TF-IDF setting, which rarely groups paraphrases. On the full corpus: 868,752 clues in 424,000 clusters, of which 60,420 recur in 3+ questions; `verify` re-measures F1 on every run (0.741 over 73,849 labeled pairs) and fails below 0.70.
 
 ### Stage 7: `score` → "high-impact" clues
 The goal is clues **common enough to be worth knowing** and **early enough to win the buzz**. For each clue cluster:
@@ -178,7 +178,7 @@ specificity  S = idf(key terms across all topics)     # stored; weight 0 after t
 impact       = F * E ** 0.25 * S ** 0 * (1 + 0.3 * L)
 ```
 
-- **Last-line bonus:** the line just before the giveaway holds the well-known clues, so a small bonus keeps the picks from being only niche lead-in facts. Sweeping 0 / 0.1 / 0.2 / 0.3 / 0.5, 0.3 scored best on the labels (precision@5 0.940, recall@10 0.788) and moved last-line picks from 20% to 22%. For topics asked 3+ times, picks split 36% lead-in, 42% middle and 21% last line. 96% of those topics have a last-line clue in their top 10, and none has a top 10 that is all lead-ins. Last-line picks average 4.2 sets, lead-in picks 2.3.
+- **Last-line bonus:** the line just before the giveaway holds the well-known clues, so a small bonus keeps the picks from being only niche lead-in facts. Sweeping 0 / 0.1 / 0.2 / 0.3 / 0.5, 0.3 scored best on the labels (precision@5 0.940, recall@10 0.788; 0.953 and 0.780 after the label fixes) and moved last-line picks from 20% to 22%. For topics asked 3+ times, picks split 36% lead-in, 42% middle and 21% last line. 96% of those topics have a last-line clue in their top 10, and none has a top 10 that is all lead-ins. Last-line picks average 4.2 sets, lead-in picks 2.3.
 - **Filters:** at least 2 distinct sets (1 for topics with fewer than 6 tossups), and not made only of the topic's own names.
 - **Selection:** up to 10 by maximal marginal relevance (λ = 0.7). Redundancy is measured **relative to the topic's own baseline similarity**: every clue about one novel resembles every other, so raw similarity treated common clues as duplicates of each other.
 - **Heatmap statistics** (stored on each cluster for §8.3): a 10-bin histogram of positions, share in power, counts per difficulty band (unrated, middle school 1, high school 2–5, college 6–9, open 10), first and last year seen, and a trend label (`rising`, `steady`, `fading`): the cluster's share of the topic's most recent third of questions vs the topic's own.
