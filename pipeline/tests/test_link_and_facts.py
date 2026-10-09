@@ -393,3 +393,15 @@ def test_a_demotion_moves_a_link_only_to_a_page_titled_for_the_answer() -> None:
         group, candidates(), {"michael", "michael jackson"}, vectorizer, giveaways="what composer"
     )
     assert ranked[0].title == "Michael Jackson"
+
+
+def test_same_answer_unlinked_groups_merge_only_when_alike() -> None:
+    from hortum_pipeline.topics import homonym_sets
+
+    # plant roots (1, 2) vs polynomial roots (3)
+    alike = {frozenset({1, 2}): 0.4, frozenset({1, 3}): 0.02, frozenset({2, 3}): 0.03}
+    sets = homonym_sets([1, 2, 3], lambda a, b: alike[frozenset({a, b})], 0.25)
+    assert sets == [[1, 2], [3]]
+    # sets chain through a shared member
+    chain = {frozenset({1, 2}): 0.3, frozenset({1, 3}): 0.0, frozenset({2, 3}): 0.3}
+    assert homonym_sets([1, 2, 3], lambda a, b: chain[frozenset({a, b})], 0.25) == [[1, 2, 3]]

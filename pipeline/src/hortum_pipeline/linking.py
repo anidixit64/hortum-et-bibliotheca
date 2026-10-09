@@ -535,5 +535,15 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
     reporter.stat("Linked / no match / skipped", " / ".join(f"{v:,}" for v in counts.values()))
     reporter.stat("New web requests", f"{client.network_requests:,}")
 
-    topics.build(conn, reporter)
+    vectors: dict[int, csr_matrix] = {}
+
+    def group_vector(group_id: int) -> csr_matrix:
+        if group_id not in vectors:
+            vectors[group_id] = l2_normalize(csr_matrix(matrix[members[group_id]].sum(axis=0)))
+        return vectors[group_id]
+
+    def similar(a: int, b: int) -> float:
+        return float((group_vector(a) @ group_vector(b).T).toarray()[0, 0])
+
+    topics.build(conn, reporter, similar)
     conn.close()

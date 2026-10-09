@@ -4,6 +4,7 @@ import json
 import re
 import sqlite3
 from collections import Counter, defaultdict
+from collections.abc import Callable
 
 from unidecode import unidecode
 
@@ -73,27 +74,82 @@ CREATE TABLE topic_aliases (
 _SOURCE_RANK = {"title": 0, "main": 1, "wikidata": 2, "required": 3, "accept": 4}
 
 
-def build(conn: sqlite3.Connection, reporter: Reporter) -> None:
+HOMONYM_SIMILARITY = 0.05  # unlinked groups with the same answer merge at least this alike
+
+
+def homonym_sets(
+    groups: list[int], similar: Callable[[int, int], float], threshold: float
+) -> list[list[int]]:
+    """Splits same-answer groups into sets that are about the same thing.
+
+    Two groups join when their questions are at least ``threshold`` alike (TF-IDF cosine),
+    and sets chain through shared members. Groups come largest first; so do the sets.
+    """
+    parent = {g: g for g in groups}
+
+    def root(g: int) -> int:
+        while parent[g] != g:
+            parent[g] = parent[parent[g]]
+            g = parent[g]
+        return g
+
+    for i, a in enumerate(groups):
+        for b in groups[i + 1 :]:
+            if root(a) != root(b) and similar(a, b) >= threshold:
+                parent[root(b)] = root(a)
+    sets: dict[int, list[int]] = {}
+    for g in groups:
+        sets.setdefault(root(g), []).append(g)
+    return list(sets.values())
+
+
+def build(
+    conn: sqlite3.Connection,
+    reporter: Reporter,
+    similar: Callable[[int, int], float] | None = None,
+) -> None:
+    """Builds topics from linked and unlinked groups.
+
+    Unlinked groups with the same answer become one local topic only when ``similar`` says
+    their questions agree: "root" in biology questions (plant roots) and in other science
+    (polynomial roots) are different topics. Without ``similar`` they all merge.
+    """
     db.recreate(conn, SCHEMA)
     reporter.begin("Building topics", None)
 
     topic_of_group: dict[int, str] = {}
     info: dict[str, dict[str, str | None]] = {}
+    unlinked: dict[str, list[tuple[int, str, str]]] = defaultdict(list)
     rows = conn.execute(
         """
-        SELECT g.id, g.norm_key, g.display_name, g.n_tossups, l.status, l.qid, l.title
+        SELECT g.id, g.norm_key, g.display_name, g.n_tossups, l.status, l.qid, l.title,
+               g.category
         FROM candidate_groups g LEFT JOIN group_links l ON l.group_id = g.id
-        ORDER BY g.n_tossups DESC
+        ORDER BY g.n_tossups DESC, g.id
         """
     )
-    for group_id, norm_key, display, _n, status, qid, title in rows:
+    for group_id, norm_key, display, _n, status, qid, title, category in rows:
         if status == "linked" and qid:
             topic_id = qid
             info.setdefault(topic_id, {"name": title, "qid": qid, "title": title})
+            topic_of_group[group_id] = topic_id
         else:
-            topic_id = f"local:{slugify(norm_key)}"
-            info.setdefault(topic_id, {"name": display, "qid": None, "title": None})
-        topic_of_group[group_id] = topic_id
+            unlinked[norm_key].append((group_id, display, category or ""))
+    split = 0
+    for norm_key, groups in unlinked.items():
+        ids = [g for g, _, _ in groups]
+        sets = homonym_sets(ids, similar, HOMONYM_SIMILARITY) if similar else [ids]
+        split += len(sets) - 1
+        base = f"local:{slugify(norm_key)}"
+        detail = {g: (display, category) for g, display, category in groups}
+        for n, members in enumerate(sets):
+            topic_id = base if n == 0 else f"{base}-{slugify(detail[members[0]][1]) or n}"
+            while topic_id in info:
+                topic_id += "-2"
+            info[topic_id] = {"name": detail[members[0]][0], "qid": None, "title": None}
+            for g in members:
+                topic_of_group[g] = topic_id
+    reporter.stat("Same-answer unlinked groups kept apart", f"{split:,}")
 
     conn.executemany(
         "INSERT INTO tossup_topics SELECT tossup_id, ? FROM tossup_groups WHERE group_id = ?",
