@@ -185,7 +185,81 @@ def title_lookups(display_name: str) -> list[tuple[str, float]]:
     bare = _ARTICLE.sub("", title)
     if bare != title and bare:
         lookups.append((bare, 0.30))
+    short = short_name(title)
+    if short:
+        lookups.append((short, NAME_FORM_BONUS))
     return lookups
+
+
+NAME_FORM_BONUS = 0.25  # "Oscar Wilde" for "Oscar Fingal O'Flahertie Wills Wilde"
+_NAME_WORD = re.compile(r"^[A-Z][\w'’.-]*$")
+_DROPPED_SUFFIX = {"Jr", "Jr.", "Sr", "Sr."}  # Wikipedia titles usually omit these
+_KEPT_SUFFIX = {"II", "III", "IV"}  # "Kellen Winslow II" is not his father
+_REGNAL_NUMERAL = re.compile(r"^(?:I|V|X)+$")  # "Maria Theresa I", "Cleomenes I"
+_HONORIFICS = {
+    "General",
+    "King",
+    "Queen",
+    "Emperor",
+    "Empress",
+    "Prince",
+    "Princess",
+    "Mr",
+    "Mr.",
+    "Mrs",
+    "Mrs.",
+    "Sir",
+    "Doctor",
+    "Dr.",
+    "President",
+    "Ayatollah",
+    "Pope",
+    "Tsar",
+    "Czar",
+    "Sultan",
+}  # fmt: skip  "Madame Nhu", "Lady Macbeth", "Saint Paul" are names as asked
+_ROMAN_REGNAL = {"Caesar", "Augustus", "Germanicus"}  # "Tiberius Julius Caesar Augustus"
+_NOT_IN_NAMES = {"of", "the", "and", "in", "on", "for", "a", "an", "to", "with", "at"}
+
+
+def short_name(title: str) -> str | None:
+    """A shorter form of a person-like full name, or None.
+
+    Answer lines give full legal names ("Marc Zakharovich Chagall", "John Milton Cage Jr",
+    "General Benedict Arnold") that aren't Wikipedia titles; the short form usually
+    redirects. Honorifics, "Jr" and regnal numerals go; "II" stays ("Kellen Winslow II");
+    three or more names become first + last. Only names made entirely of capitalized words
+    with no article or function word qualify, so titles ("The Birthday Party") aren't cut,
+    and Roman regnal names ("Tiberius Julius Caesar Augustus") are left alone.
+    """
+    words = title.split()
+    if any(w.lower() in _NOT_IN_NAMES for w in words) or not all(
+        _NAME_WORD.match(w) for w in words
+    ):
+        return None
+    if _ROMAN_REGNAL & set(words):
+        return None
+    kept = ""
+    while words and (words[-1] in _DROPPED_SUFFIX or words[-1] in _KEPT_SUFFIX
+                     or (len(words) > 2 and _REGNAL_NUMERAL.match(words[-1]))):  # fmt: skip
+        if words[-1] in _KEPT_SUFFIX and not kept:
+            kept = words[-1]
+        words = words[:-1]
+    while words and words[0] in _HONORIFICS:
+        words = words[1:]
+    if len(words) < 2:
+        return None
+    short = [words[0], words[-1]] + ([kept] if kept else [])
+    result = " ".join(short)
+    return result if result != title else None
+
+
+_BIOGRAPHY = re.compile(r"\((?:[^()]*\b(?:born|c\.|died)\b|[^()]*\d{3,4}\s*(?:BC\s*)?[–-])")
+
+
+def reads_like_biography(extract: str) -> bool:
+    """Birth and death dates in the first sentence: "(16 October 1854 – 30 November 1900)"."""
+    return bool(_BIOGRAPHY.search(extract.split("\n", 1)[0][:300]))
 
 
 def parse_title_lookup(response: dict[str, Any]) -> dict[str, Candidate | None]:
@@ -252,6 +326,12 @@ def score_candidates(
     sims = (vectors @ group_vector.T).toarray().ravel()
     for cand, sim in zip(usable, sims, strict=True):
         title = normalize(_PAREN.sub("", cand.title), singularize=True)
+        if cand.direct_bonus == NAME_FORM_BONUS and not (
+            reads_like_biography(cand.extract) and sim >= SHORT_NAME_MIN_SIMILARITY
+        ):
+            # A shortened name that lands on a non-person ("Perfect number") or a namesake
+            # earns nothing for it: the page is scored as any search hit would be.
+            cand.direct_bonus = 0.0
         cand.exact_title = title in names or cand.direct_bonus > 0
         if cand.direct_bonus:
             bonus = cand.direct_bonus
@@ -292,6 +372,9 @@ def giveaway_text(question: str) -> str:
     return " ".join(c.text for c in layout.clues if c.kind == "giveaway")
 
 
+SHORT_NAME_MIN_SIMILARITY = 0.05
+
+
 def make_client(settings: PipelineSettings, user_agent: str) -> WikiClient:
     return WikiClient(HttpCache(settings.http_cache_dir / "wikimedia.db"), user_agent)
 
@@ -310,6 +393,8 @@ def accept_link(best: Candidate, settings: PipelineSettings) -> bool:
         # "Doctor", "Bliss", "The Republic" are disambiguation pages: the name alone proves
         # nothing, so the page has to agree with the questions.
         needed = settings.link_min_similarity
+    elif best.direct_bonus == NAME_FORM_BONUS:
+        needed = settings.link_min_similarity  # a shortened name can land on a namesake
     elif best.direct_bonus:
         needed = 0.0  # the answer is literally this page's title or a redirect to it
     elif best.exact_title:

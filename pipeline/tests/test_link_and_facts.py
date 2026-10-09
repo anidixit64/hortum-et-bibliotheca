@@ -405,3 +405,57 @@ def test_same_answer_unlinked_groups_merge_only_when_alike() -> None:
     # sets chain through a shared member
     chain = {frozenset({1, 2}): 0.3, frozenset({1, 3}): 0.0, frozenset({2, 3}): 0.3}
     assert homonym_sets([1, 2, 3], lambda a, b: chain[frozenset({a, b})], 0.25) == [[1, 2, 3]]
+
+
+@pytest.mark.parametrize(
+    ("answer", "short"),
+    [
+        ("Oscar Fingal O’Flahertie Wills Wilde", "Oscar Wilde"),
+        ("John Milton Cage Jr", "John Cage"),
+        ("Marc Zakharovich Chagall", "Marc Chagall"),
+        ("The Birthday Party", None),
+        ("Joan of Arc", None),
+        ("Herman Melville", None),  # already two words
+        ("Rhapsody on a Theme of Paganini", None),
+        ("General Benedict Arnold", "Benedict Arnold"),
+        ("Maria Theresa I", "Maria Theresa"),
+        ("Kellen Boswell Winslow II", "Kellen Winslow II"),
+        ("Emperor Tiberius Julius Caesar Augustus", None),
+        ("Mr. Fred McFeely Rogers", "Fred Rogers"),
+        ("Madame Ngo Dihn Nhu", "Madame Nhu"),
+    ],
+)
+def test_short_name(answer: str, short: str | None) -> None:
+    assert linking.short_name(answer) == short
+
+
+def test_a_shortened_name_needs_text_agreement() -> None:
+    from hortum_pipeline.linking import NAME_FORM_BONUS, Candidate, accept_link
+
+    settings = PipelineSettings(_env_file=None)  # type: ignore[call-arg]
+    wilde = Candidate("Oscar Wilde", "Q30875", "", 1, False, similarity=0.02, score=0.3)
+    wilde.direct_bonus, wilde.exact_title = NAME_FORM_BONUS, True
+    assert not accept_link(wilde, settings)
+    wilde.similarity = 0.18
+    assert accept_link(wilde, settings)
+
+
+def test_reads_like_biography() -> None:
+    assert linking.reads_like_biography("Oscar Wilde (16 October 1854 – 30 November 1900) was")
+    assert linking.reads_like_biography("Augustus (born Gaius Octavius; 23 September 63 BC –")
+    assert not linking.reads_like_biography("In number theory, a perfect number is a positive")
+
+
+def test_a_rejected_short_name_keeps_the_pages_ordinary_score() -> None:
+    from sklearn.feature_extraction.text import TfidfVectorizer
+
+    from hortum_pipeline.linking import NAME_FORM_BONUS, Candidate, score_candidates
+
+    vectorizer = TfidfVectorizer(stop_words="english").fit(["revolutionary traitor west point"])
+    group = vectorizer.transform(["revolutionary traitor"])
+    # Found by search and by the short form "Benedict Arnold", but too little text in common
+    # for the short-form bonus: it still earns the partial-title bonus a search hit would.
+    arnold = Candidate("Benedict Arnold", "Q1", "Benedict Arnold was a general.", 1, False)
+    arnold.direct_bonus = NAME_FORM_BONUS
+    [scored] = score_candidates(group, [arnold], {"general benedict arnold"}, vectorizer)
+    assert scored.direct_bonus == 0.0 and scored.score >= 0.12
