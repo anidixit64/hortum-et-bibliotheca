@@ -1,12 +1,39 @@
 """Builds topics, their aliases and the search index from linked groups."""
 
 import json
+import re
 import sqlite3
 from collections import Counter, defaultdict
+
+from unidecode import unidecode
 
 from hortum_common.text import normalize, slugify
 from hortum_pipeline import db
 from hortum_pipeline.progress import Reporter
+
+_ARTICLE_SLUG = re.compile(r"[^a-z0-9]+")
+
+
+def unique_slugs(entries: list[tuple[str, str, int]]) -> dict[str, str]:
+    """A distinct URL slug per topic, from (id, name, questions).
+
+    Names often share a slug ("Jungle" and "The Jungle" both slugify to "jungle", since
+    the article is dropped). The most-asked topic keeps the plain slug; the others keep
+    their article ("the-jungle"), or add their id if that's taken too.
+    """
+    taken: set[str] = set()
+    out: dict[str, str] = {}
+    for topic_id, name, _ in sorted(entries, key=lambda e: (-e[2], e[0])):
+        candidates = [
+            slugify(name) or "topic",
+            _ARTICLE_SLUG.sub("-", unidecode(name).lower()).strip("-"),
+            f"{slugify(name) or 'topic'}-{slugify(topic_id.removeprefix('local:'))}",
+        ]
+        slug = next((c for c in candidates if c and c not in taken), candidates[-1])
+        taken.add(slug)
+        out[topic_id] = slug
+    return out
+
 
 SCHEMA = """
 DROP TABLE IF EXISTS topic_aliases_fts;
@@ -87,12 +114,13 @@ def build(conn: sqlite3.Connection, reporter: Reporter) -> None:
         "SELECT tt.topic_id, t.category FROM tossup_topics tt JOIN tossups t ON t.id = tt.tossup_id"
     ):
         categories[topic_id][category] += 1
+    slugs = unique_slugs([(t, info[t]["name"] or "", n) for t, n, *_ in stats])
     conn.executemany(
         "INSERT INTO topics VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?)",
         [
             (
                 topic_id,
-                slugify(info[topic_id]["name"] or ""),
+                slugs[topic_id],
                 info[topic_id]["name"],
                 info[topic_id]["qid"],
                 info[topic_id]["title"],

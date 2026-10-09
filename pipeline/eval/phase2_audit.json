@@ -1,0 +1,2261 @@
+{
+ "seed": 20261008,
+ "size": 30,
+ "min_questions": 10,
+ "judged_by": "Claude, by hand, 2026-10-08 (round 2, after branch fix/audit-clue-labels)",
+ "rules": "clue_ok: a real, specific fact about the topic, correctly labeled, card text matching the label, not a repeat of a higher pick. related_ok: truly related and the right topic for the name. confusion_ok: a pair players plausibly mix up. page_ok: someone could study from the page without being misled.",
+ "items": [
+  {
+   "id": "Q182893",
+   "name": "Dispersion (optics)",
+   "description": "dependence of phase velocity on frequency",
+   "n_tossups": 13,
+   "clues": [
+    {
+     "label": "modal",
+     "n_sets": 11,
+     "text": "This phenomenon is minimized at a characteristic value of 1300 nanometers in a silica optical fiber, whose \"modal\" type occurs due to polarizations in a waveguide."
+    },
+    {
+     "label": "Abbe",
+     "n_sets": 7,
+     "text": "Measurements of three Fraunhofer lines are used to calculate a measure of this phenomenon called the Abbe (\"ABB-uh\") number."
+    },
+    {
+     "label": "relations",
+     "n_sets": 9,
+     "text": "The functions relating angular frequency and wavenumber are called this phenomenon's \"relations.\""
+    },
+    {
+     "label": "anomalous",
+     "n_sets": 5,
+     "text": "The rapid variation of the dielectric function over a narrow frequency range is known as the \"anomalous\" variant of this phenomenon."
+    },
+    {
+     "label": "Cauchy's",
+     "n_sets": 3,
+     "text": "An equation modelling this phenomenon contains a term summing Bλ2(\"B-lambda-squared\")over the quantity λ2(\"lambda-squared\") minus C and built off of Cauchy's (\"koh-SHEEZ\") equation."
+    }
+   ],
+   "related": [
+    {
+     "name": "Optical fiber",
+     "why": "Optical fibers are designed so the \"material\" and \"waveguide\" forms of this phenomenon cancel out."
+    },
+    {
+     "name": "Refractive index",
+     "why": "This phenomenon occurs when light's refractive index varies with wavelength."
+    },
+    {
+     "name": "Group velocity",
+     "why": "Group velocity can be calculated by differentiating a \"relation\" named for this phenomenon."
+    },
+    {
+     "name": "Angular frequency",
+     "why": "Any relation between angular frequency and wavenumber is named for this phenomenon."
+    },
+    {
+     "name": "Snell's law",
+     "why": "This phenomenon occurs when a medium's index of refraction is dependent on the wavelength, thus causing a non-coherent light beam to separate since Snell's law implies the different wavelengths refract at different angles."
+    }
+   ],
+   "confusions": [],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "confusion_ok": [],
+   "page_ok": true,
+   "notes": ""
+  },
+  {
+   "id": "Q1125903",
+   "name": "The Myth of Sisyphus",
+   "description": "philosophical essay by Albert Camus",
+   "n_tossups": 17,
+   "clues": [
+    {
+     "label": "one truly serious philosophical problem",
+     "n_sets": 15,
+     "text": "This essay claims that metaphysical questions are \"games\" next to the \"one truly serious philosophical problem,\" that of suicide."
+    },
+    {
+     "label": "Don Juan",
+     "n_sets": 7,
+     "text": "This work analyzes Don Juan as an example of the seducer, which is compared with the actor and the conqueror as archetypes of how a man could live."
+    },
+    {
+     "label": "Kirilov",
+     "n_sets": 9,
+     "text": "This work contains a notable afterword concerning \"hope and the absurd in the work of Franz Kafka,\" and other literary figures analyzed in this work include Kirilov from The Possessed and Don Juan."
+    },
+    {
+     "label": "Kierkegaard's",
+     "n_sets": 6,
+     "text": "Building on Kierkegaard's theory that we are alienated from God, this essay defines one concept as \"sin without God.\""
+    },
+    {
+     "label": "Thomas Nagel",
+     "n_sets": 5,
+     "text": "A Thomas Nagel paper claims that all arguments in favor of this essay's thesis are inadequate but still \"fundamentally correct.\""
+    }
+   ],
+   "related": [
+    {
+     "name": "Albert Camus",
+     "why": "For 10 points, name this essay about a Greek hero who continuously rolls a boulder up a hill, written by Albert Camus."
+    },
+    {
+     "name": "Thomas Nagel",
+     "why": "An essay by Thomas Nagel calls another author's treatment of this story \"romantic and self-pitying\" for its claim that any fate can \"be surmounted by scorn.\""
+    },
+    {
+     "name": "Søren Kierkegaard",
+     "why": "Its author criticizes Husserl's belief in eternal reason and Kierkegaard's leap of faith as examples of \"philosophical suicide.\""
+    },
+    {
+     "name": "Suicide",
+     "why": "It discusses how the repetition of a mechanical life leads to the birth of the absurd, and its main argument is against committing suicide."
+    },
+    {
+     "name": "Faith",
+     "why": "Its author criticizes Husserl's belief in eternal reason and Kierkegaard's leap of faith as examples of \"philosophical suicide.\""
+    }
+   ],
+   "confusions": [],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "confusion_ok": [],
+   "page_ok": true,
+   "notes": ""
+  },
+  {
+   "id": "Q236958",
+   "name": "Katherine Anne Porter",
+   "description": "American journalist, essayist, short story writer, novelist, and political activist (1890–1980)",
+   "n_tossups": 11,
+   "clues": [
+    {
+     "label": "Miranda Gay",
+     "n_sets": 7,
+     "text": "A story by this author reveals the soldier Adam's death after Miranda Gay recovers from the Spanish flu."
+    },
+    {
+     "label": "Braggioni",
+     "n_sets": 6,
+     "text": "She also wrote a story in which Laura is courted by Braggioni, a leader of the Mexican Revolution."
+    },
+    {
+     "label": "Homer T. Hatch",
+     "n_sets": 5,
+     "text": "This author wrote about the farmer Royal Earle Thompson, who hires escaped mental patient Olaf Helton and kills bounty hunter Homer T. Hatch."
+    },
+    {
+     "label": "Sebastian Brant",
+     "n_sets": 4,
+     "text": "This author wrote about the passengers aboard the Vera sailing from Mexico to Germany in a novel that takes its title from a satire by Sebastian Brant."
+    },
+    {
+     "label": "Maria Rosa",
+     "n_sets": 4,
+     "text": "One of this author's short stories centers on the killing of Maria Rosa by the title character, while another story focuses on Dennis and Rosaleen."
+    }
+   ],
+   "related": [
+    {
+     "name": "Flowering Judas and Other Stories",
+     "why": "For 10 points, name this author of Noon Wine and Pale Horse, Pale Rider, who also wrote \"Flowering Judas\" and Ship of Fools."
+    },
+    {
+     "name": "Pale Horse, Pale Rider: Three Short Novels",
+     "why": "For 10 points, name this author of \"Pale Horse, Pale Rider\" and Ship of Fools."
+    },
+    {
+     "name": "Miranda",
+     "why": "That novel appeared in the same collection as one in which Adam dies of the Spanish flu, which he had contracted while taking care of Miranda."
+    },
+    {
+     "name": "Spanish flu",
+     "why": "A story by this author reveals the soldier Adam's death after Miranda Gay recovers from the Spanish flu."
+    },
+    {
+     "name": "Laura",
+     "why": "In a story by this author, Braggioni is \"a symbol of [Laura's] many disillusions\" with the Mexican Revolution."
+    }
+   ],
+   "confusions": [],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    true,
+    true,
+    true,
+    false
+   ],
+   "confusion_ok": [],
+   "page_ok": true,
+   "notes": "related: Laura (Flowering Judas) links to Petrarch's Laura"
+  },
+  {
+   "id": "Q169950",
+   "name": "Wildfire",
+   "description": "uncontrolled fire in forests or open spaces",
+   "n_tossups": 14,
+   "clues": [
+    {
+     "label": "Adam Pellegrini",
+     "n_sets": 4,
+     "text": "Adam Pellegrini found that precipitation and this phenomenon were the main controls on bark thickness across many tree species worldwide."
+    },
+    {
+     "label": "New South Wales and Victoria",
+     "n_sets": 4,
+     "text": "One of these events heavily affected the states of New South Wales and Victoria in early 2020 due to a record-breaking drought."
+    },
+    {
+     "label": "FARSITE",
+     "n_sets": 4,
+     "text": "The Van Wagner and Rothermel models may be used by FARSITE software to simulate \"spotting\" that occurs during these events."
+    },
+    {
+     "label": "crown",
+     "n_sets": 4,
+     "text": "The \"crown\" type of this phenomenon occurs when it spreads throughout the canopy."
+    },
+    {
+     "label": "Bodrum",
+     "n_sets": 2,
+     "text": "Tourists were evacuated by boats in the popular resort town of Bodrum following one of these events named Manavgat."
+    }
+   ],
+   "related": [
+    {
+     "name": "Ecological succession",
+     "why": "These phenomena are named \"crawling\" or \"ladder\" based on their direction and are a common cause of secondary succession."
+    },
+    {
+     "name": "Eucalyptus",
+     "why": "The resistance of eucalyptus trees to this phenomenon allows it to spread more easily."
+    },
+    {
+     "name": "Air pollution",
+     "why": "In summer 2020, these events caused terrible air quality in Portland."
+    }
+   ],
+   "confusions": [],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    true,
+    true
+   ],
+   "confusion_ok": [],
+   "page_ok": true,
+   "notes": ""
+  },
+  {
+   "id": "Q9410",
+   "name": "Werewolf",
+   "description": "mythological human with the ability to shapeshift into a wolf or an anthropomorphic wolf-like creature",
+   "n_tossups": 12,
+   "clues": [
+    {
+     "label": "Beast of Gevaudan",
+     "n_sets": 8,
+     "text": "In eighteenth century France, the Beast of Gevaudan, which killed over a hundred people, was allegedly one of these creatures."
+    },
+    {
+     "label": "Nyctimus",
+     "n_sets": 7,
+     "text": "Because he served Zeus the flesh of his son Nyctimus, a king of Arcadia was turned into one of these creatures."
+    },
+    {
+     "label": "Damarchus",
+     "n_sets": 4,
+     "text": "In Greek stories, Damarchus overcame this condition to become a champion boxer."
+    },
+    {
+     "label": "Bisclavret",
+     "n_sets": 4,
+     "text": "One of these creatures titles Marie de France's lai \"Bisclavret.\""
+    },
+    {
+     "label": "skin-walkers",
+     "n_sets": 3,
+     "text": "Navajo \"skin-walkers\" are analogues to these creatures."
+    }
+   ],
+   "related": [
+    {
+     "name": "Marie de France",
+     "why": "A character of this type rips off his wife's nose after she has a knight steal his clothing in Marie de France's lay \"Bisclavret.\""
+    },
+    {
+     "name": "Moon",
+     "why": "These people are able to transform on the night of the full moon."
+    },
+    {
+     "name": "Arcadia (utopia)",
+     "why": "After serving the entrails of a Molossian hostage to Zeus, a King of Arcadia was turned into one of these people."
+    },
+    {
+     "name": "Lycaon (mythology)",
+     "why": "Their name derives from Lycaon in Greek myth."
+    },
+    {
+     "name": "Zeus",
+     "why": "After he served human meat to Zeus, a Greek man not named Tantalus was cursed with this punishment."
+    }
+   ],
+   "confusions": [],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    true,
+    false,
+    true,
+    true
+   ],
+   "confusion_ok": [],
+   "page_ok": true,
+   "notes": "related: Arcadia links to Arcadia (utopia), not the region"
+  },
+  {
+   "id": "Q1367",
+   "name": "Monkey",
+   "description": "common idea of an animal of the \"higher primates\" (the simians in English excluding apes)",
+   "n_tossups": 38,
+   "clues": [
+    {
+     "label": "Vayu",
+     "n_sets": 12,
+     "text": "That one of these beings was a son of Vayu who tried to eat the sun as a child."
+    },
+    {
+     "label": "Mayavi",
+     "n_sets": 9,
+     "text": "One of these creatures assumed that his brother was slain fighting the demon Mayavi and takes over his brother's kingdom."
+    },
+    {
+     "label": "pit of despair",
+     "n_sets": 7,
+     "text": "These animals were isolated in the \"pit of despair,\" which caused psychosis, and forced to choose between a \"wire mother\" and a \"cloth mother\" in controversial experiments conducted by Harry Harlow."
+    },
+    {
+     "label": "Sita",
+     "n_sets": 8,
+     "text": "Two of these animals named Nala and Nila form a bridge to Lanka to help search for Sita, who had been kidnapped by rakshasas."
+    },
+    {
+     "label": "Robert van Gulik",
+     "n_sets": 3,
+     "text": "Robert van Gulik discussed the Xuande Emperor's painting of three of these animals in a book titled for a type of these animals \"in China.\""
+    }
+   ],
+   "related": [
+    {
+     "name": "Hanuman",
+     "why": "Hanuman may have inspired one of these animals who wields a magical staff and accompanies Xuanzang, Sandy, and Pigsy on a quest to India in Journey to the West."
+    },
+    {
+     "name": "Harry Harlow",
+     "why": "These animals were also put on \"rape racks\" and in isolation chambers called \"pits of despair\" in a series of infamous experiments by Harry Harlow."
+    },
+    {
+     "name": "Rama",
+     "why": "A god in the form of one of these animals proved his loyalty to Rama and Sita by ripping open his chest."
+    },
+    {
+     "name": "Lanka",
+     "why": "That son of Vayu extinguishes his flaming tail on the sea around Lanka."
+    },
+    {
+     "name": "Vayu",
+     "why": "That son of Vayu extinguishes his flaming tail on the sea around Lanka."
+    }
+   ],
+   "confusions": [
+    {
+     "name": "The Monkey",
+     "reasons": [
+      "same_name"
+     ]
+    }
+   ],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "confusion_ok": [
+    true
+   ],
+   "page_ok": true,
+   "notes": ""
+  },
+  {
+   "id": "Q179976",
+   "name": "Recursion",
+   "description": "process of repeating items in a self-similar way",
+   "n_tossups": 23,
+   "clues": [
+    {
+     "label": "divide",
+     "n_sets": 14,
+     "text": "This programming concept is what enables the implementation of divide and conquer algorithms."
+    },
+    {
+     "label": "Ackermann",
+     "n_sets": 10,
+     "text": "A total computable function that lacks the primitive form of this property is named for Ackermann."
+    },
+    {
+     "label": "Fibonacci",
+     "n_sets": 12,
+     "text": "This concept, often used when calculating Fibonacci numbers and factorials, is contrasted with iteration."
+    },
+    {
+     "label": "tail",
+     "n_sets": 11,
+     "text": "Programming languages can avoid stack overflows using this concept's \"tail\" form."
+    },
+    {
+     "label": "Catalan",
+     "n_sets": 7,
+     "text": "Often used to define the Catalan numbers and the factorial function, programming languages such as Java and Ruby use iteration instead of this to avoid stack overflows."
+    }
+   ],
+   "related": [
+    {
+     "name": "Divide-and-conquer algorithm",
+     "why": "Divide-and-conquer algorithms like quicksort rely on this process, the \"tail\" variety of which allows for machine optimization."
+    },
+    {
+     "name": "Tower of Hanoi",
+     "why": "Relying on a base case, examples of it in math include solutions to the Tower of Hanoi problem, the factorial, and the adding of two Fibonacci numbers to get the next one in sequence."
+    },
+    {
+     "name": "Fibonacci sequence",
+     "why": "Memoization provides a faster alternative to this concept, which is exponentially slow in the case of computing the Fibonacci numbers."
+    },
+    {
+     "name": "Ackermann function",
+     "why": "Its \"mu\" type is expressed in the Ackermann function, and it is applied in lambda calculus to fix the Kleene-Rosser paradox."
+    },
+    {
+     "name": "Lambda calculus",
+     "why": "Its \"mu\" type is expressed in the Ackermann function, and it is applied in lambda calculus to fix the Kleene-Rosser paradox."
+    }
+   ],
+   "confusions": [],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "confusion_ok": [],
+   "page_ok": true,
+   "notes": ""
+  },
+  {
+   "id": "Q9711",
+   "name": "Honoré de Balzac",
+   "description": "French novelist and playwright (1799–1850)",
+   "n_tossups": 41,
+   "clues": [
+    {
+     "label": "Eugene de Rastignac",
+     "n_sets": 32,
+     "text": "In a novel by this author, Madame Vauquer's boarding house is home to the criminal Vautrin and the title old man, who rages about his ungrateful daughters, one of whom hooks up with Eugene de Rastignac."
+    },
+    {
+     "label": "Zambinella",
+     "n_sets": 10,
+     "text": "This author's novella about a sculptor who unwittingly falls in love with a castrato named La Zambinella was analyzed by Roland Barthes in the essay S/Z [ess-zed]."
+    },
+    {
+     "label": "Wild Ass's Skin",
+     "n_sets": 6,
+     "text": "He wrote a massive, interconnected series of novels which include The Wild Ass's Skin, Eugenie Grandet, and Pere Goriot."
+    },
+    {
+     "label": "Raphael Valentin",
+     "n_sets": 7,
+     "text": "This author also wrote about Raphael Valentin, whose repeated wishing causes for the title object to shrink repeatedly."
+    },
+    {
+     "label": "Felix",
+     "n_sets": 7,
+     "text": "In one of his novels, Charles takes a later to his uncle revealing that Guillaume is about to commit suicide, and that uncle Felix looks at Cruchot des Bonfons and des Grassins as possible suitors for his daughter, the title character."
+    }
+   ],
+   "related": [
+    {
+     "name": "Père Goriot",
+     "why": "The criminal Vautrin meets the law student Eugene de Rastignac in this author's novel Pere Goriot (\"pair gohr-YO\")."
+    },
+    {
+     "name": "The Human Comedy",
+     "why": "For 10 points, name this French realist who collected novels like Cousin Bette and Pere Goriot[\"pear\" \"gory\"-OH] as The Human Comedy."
+    },
+    {
+     "name": "Vautrin",
+     "why": "He wrote a novel set in the Maison Vauquer [voh-KAY], whose tenants include the criminal Vautrin [voh-TRAA]."
+    },
+    {
+     "name": "Eugène de Rastignac",
+     "why": "At the end of another novel by this man, two paid mourners and a servant are the only other people at the title vermicelli maker's funeral other than Eugene de Rastignac."
+    },
+    {
+     "name": "Cousin Bette",
+     "why": "This author's characters including Cousin Bette and Eugene de Rastignac [\"yoo-zhan day rahs-tin-yahc\"] were included in his magnum opus."
+    }
+   ],
+   "confusions": [],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "confusion_ok": [],
+   "page_ok": true,
+   "notes": ""
+  },
+  {
+   "id": "Q122960",
+   "name": "Rococo",
+   "description": "18th-century artistic movement and style",
+   "n_tossups": 23,
+   "clues": [
+    {
+     "label": "Cythera",
+     "n_sets": 10,
+     "text": "An artist from this movement depicted a man commonly identified as Gilles in a white costume in his painting Pierrot, and invented a pastoral genre called the fete galante (\"FET guh-LONT\"), exemplified by his Embarkation for Cythera."
+    },
+    {
+     "label": "Francois Boucher",
+     "n_sets": 8,
+     "text": "Madame de Pompadour commissioned portraits from Francois Boucher, an artist of this movement."
+    },
+    {
+     "label": "capable of everything-except the truth",
+     "n_sets": 7,
+     "text": "An artist of this movement, derided by one contemporaneous critic as \"capable of everything-except the truth,\" created a portrait of a woman in a green dress adorned with pink roses and bows."
+    },
+    {
+     "label": "Cupid Cutting His Bow",
+     "n_sets": 6,
+     "text": "An artist who worked in this style depicted a mischievous youth destroying the weapon of a lion-slaying hero in his sculpture Cupid Cutting His Bow from the Club of Hercules."
+    },
+    {
+     "label": "Thomas Chippendale",
+     "n_sets": 3,
+     "text": "Many works of British furniture in this period were made by Thomas Chippendale."
+    }
+   ],
+   "related": [
+    {
+     "name": "The Embarkation for Cythera",
+     "why": "An artist from this movement depicted a man commonly identified as Gilles in a white costume in his painting Pierrot, and invented a pastoral genre called the fete galante (\"FET guh-LONT\"), exemplified by his Embarkation for Cythera."
+    },
+    {
+     "name": "Jean-Honoré Fragonard",
+     "why": "Associated with extreme ornamentation, pastel colors, and themes of love, for 10 points, name this art movement exemplified by Jean-Honore Fragonard's The Swing."
+    },
+    {
+     "name": "Antoine Watteau",
+     "why": "Fete galantes [\"fet gall-ornt\"] such as The Embarkation for Cythera were painted in this movement by Antoine Watteau."
+    },
+    {
+     "name": "François Boucher",
+     "why": "Artists in this movement like Francois Boucher pioneered the fete galante [[\"fett guh-LAWNT\"]], exemplified by paintings like The Embarkation for Cythera."
+    },
+    {
+     "name": "Fête galante",
+     "why": "An artist from this movement depicted a man commonly identified as Gilles in a white costume in his painting Pierrot, and invented a pastoral genre called the fete galante (\"FET guh-LONT\"), exemplified by his Embarkation for Cythera."
+    }
+   ],
+   "confusions": [
+    {
+     "name": "Baroque",
+     "reasons": [
+      "reject"
+     ]
+    }
+   ],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "confusion_ok": [
+    true
+   ],
+   "page_ok": true,
+   "notes": ""
+  },
+  {
+   "id": "Q934597",
+   "name": "The Bacchae",
+   "description": "ancient Greek tragedy by Euripides",
+   "n_tossups": 10,
+   "clues": [
+    {
+     "label": "Agave",
+     "n_sets": 10,
+     "text": "In this play, after bringing her father a supposed lion's head, Agave (\"AG-uh-vee\") realizes that she and her fellow Maenads (\"MEE-nads\") killed her son Pentheus."
+    },
+    {
+     "label": "Cithaeron",
+     "n_sets": 5,
+     "text": "The main character of this play sees double when he is dressed up as a woman, and he receives news from a herdsman that a group of people is engaging in sparagmos on Cithaeron."
+    },
+    {
+     "label": "Communion Rite",
+     "n_sets": 5,
+     "text": "The Yoruban god Ogun is analogized to this play's protagonist in a \"Communion Rite\" by Wole Soyinka."
+    },
+    {
+     "label": "One character in this play is chained to…",
+     "n_sets": 5,
+     "text": "One character in this play is chained to the hooves of a bull, only to escape by causing an earthquake."
+    },
+    {
+     "label": "stranger",
+     "n_sets": 4,
+     "text": "A \"stranger\" helps the protagonist of this work climb a towering fir prior to the play's climax."
+    }
+   ],
+   "related": [
+    {
+     "name": "Euripides",
+     "why": "For 10 points, name this play where the title followers of Dionysus tear apart Pentheus, written by Euripides."
+    },
+    {
+     "name": "Dionysus",
+     "why": "For 10 points, name this play where the title followers of Dionysus tear apart Pentheus, written by Euripides."
+    },
+    {
+     "name": "Tiresias",
+     "why": "In this play, Agave, Autonoe, and Ino belong to the title group, which Tiresias and Cadmus beg Pentheus to sympathize."
+    },
+    {
+     "name": "Cadmus",
+     "why": "Agave presents the head of a mountain lion to Cadmus in this play, only to discover that it is actually her son's head."
+    },
+    {
+     "name": "Cithaeron",
+     "why": "The main character of this play sees double when he is dressed up as a woman, and he receives news from a herdsman that a group of people is engaging in sparagmos on Cithaeron."
+    }
+   ],
+   "confusions": [],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "confusion_ok": [],
+   "page_ok": true,
+   "notes": ""
+  },
+  {
+   "id": "Q506",
+   "name": "Flower",
+   "description": "sexual reproductive structure found on flowering plants",
+   "n_tossups": 77,
+   "clues": [
+    {
+     "label": "MADS-box",
+     "n_sets": 17,
+     "text": "The differentiation of these structures is controlled by three classes of MADS-box (mads box) genes in the ABC model."
+    },
+    {
+     "label": "perfect",
+     "n_sets": 15,
+     "text": "Hermaphroditic, or perfect, examples of these structures contain both stamens and carpels."
+    },
+    {
+     "label": "Arabidopsis",
+     "n_sets": 14,
+     "text": "The development of these structures was studied in Arabidopsis thaliana, and the presence of these structures differentiate angiosperms from gymnosperms."
+    },
+    {
+     "label": "heads",
+     "n_sets": 14,
+     "text": "These structures are arranged along the spadix in members of the Araceae family, and are arranged in \"heads\" in members of Compositae."
+    },
+    {
+     "label": "Ikebana",
+     "n_sets": 9,
+     "text": "A Japanese art form that uses these objects is known as Ikebana or Kado."
+    }
+   ],
+   "related": [
+    {
+     "name": "Aztec Empire",
+     "why": "These things name a series of ritual wars to capture sacrifices for the sun god, often undertaken against the neighboring Tlaxcala by the Aztec Triple-Alliance."
+    },
+    {
+     "name": "Homeotic gene",
+     "why": "One model of the development of these structures relates the expression of three homeotic genes, referred to as A, B, and C, to the proliferation of certain substructures like carpels and stamens."
+    },
+    {
+     "name": "Georgia O'Keeffe",
+     "why": "Close-ups of these objects that resemble genitalia appear in Georgia O'Keeffe paintings like Black Iris."
+    },
+    {
+     "name": "John Singer Sargent",
+     "why": "An oil work by John Singer Sargent depicting two young girls holding lanterns is named after three of these objects."
+    },
+    {
+     "name": "Meristem",
+     "why": "Shoot apical meristem can develop into these organs, which contain a pistil in their center."
+    }
+   ],
+   "confusions": [],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "confusion_ok": [],
+   "page_ok": true,
+   "notes": ""
+  },
+  {
+   "id": "Q1618",
+   "name": "Charles Lindbergh",
+   "description": "American aviator, author, inventor, explorer, and social activist (1902–1974)",
+   "n_tossups": 13,
+   "clues": [
+    {
+     "label": "America First Committee",
+     "n_sets": 10,
+     "text": "This man was spokesperson of the America First Committee that attempted to halt the US's entry into World War II."
+    },
+    {
+     "label": "Bruno Hauptmann",
+     "n_sets": 8,
+     "text": "Bruno Hauptmann was executed for the 1935 kidnapping of this man's infant son."
+    },
+    {
+     "label": "Alexis Carrel",
+     "n_sets": 6,
+     "text": "This man and physician Alexis Carrel invented the perfusion pump, allowing organs to live outside the body before transplantation."
+    },
+    {
+     "label": "Orteig Prize",
+     "n_sets": 5,
+     "text": "This man won the Orteig Prize in 1927 after piloting a modified Ryan M-2 from Roosevelt Field in New York to Le Bourget in Paris."
+    },
+    {
+     "label": "Anne Morrow",
+     "n_sets": 3,
+     "text": "This person's autobiography WE details his marriage to the journalist Anne Morrow."
+    }
+   ],
+   "related": [
+    {
+     "name": "America First Committee",
+     "why": "He stumped for the America First Committee to oppose American entry into World War II, but later served as a consultant for United Aircraft."
+    },
+    {
+     "name": "St. Louis",
+     "why": "For 10 points, name this American aviator who made the first non-stop solo airplane flight across the Atlantic in The Spirit of St. Louis."
+    },
+    {
+     "name": "Transatlantic flight",
+     "why": "For 10 points, name this aviator who made the first non-stop transatlantic flight aboard the Spirit of St. Louis."
+    },
+    {
+     "name": "Anne Morrow Lindbergh",
+     "why": "This person's autobiography WE details his marriage to the journalist Anne Morrow."
+    },
+    {
+     "name": "The Plot Against America",
+     "why": "Philip Roth's novel The Plot Against America depicts an alternative history in which this man defeated FDR in the 1940 presidential race."
+    }
+   ],
+   "confusions": [],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    false,
+    true,
+    true,
+    true
+   ],
+   "confusion_ok": [],
+   "page_ok": true,
+   "notes": "related: St. Louis is the city; the clue names the Spirit of St. Louis"
+  },
+  {
+   "id": "Q186953",
+   "name": "The School of Athens",
+   "description": "fresco by Raphael",
+   "n_tossups": 29,
+   "clues": [
+    {
+     "label": "Timaeus",
+     "n_sets": 24,
+     "text": "One focal figure of this painting is holding a copy of Timaeus and is conversing with a younger man who is holding a book on ethics and pointing downwards."
+    },
+    {
+     "label": "La Disputa",
+     "n_sets": 20,
+     "text": "This painting is located across from the same artist's La Disputa in the Stanza della Segnatura by commission of Pope Julius II."
+    },
+    {
+     "label": "Bramante",
+     "n_sets": 11,
+     "text": "Another man in this painting, thought to be modeled on Bramante, draws a six-pointed star with a compass."
+    },
+    {
+     "label": "Seek Knowledge of Causes",
+     "n_sets": 9,
+     "text": "In a tondo that hangs directly above this painting, a woman flanked by statues of multi-breasted Cybeles sits by putti holding up a phrase meaning \"Seek Knowledge of Causes\"."
+    },
+    {
+     "label": "Zoroaster",
+     "n_sets": 9,
+     "text": "The artist of this painting can be seen in it standing next to Zoroaster while staring at the viewer."
+    }
+   ],
+   "related": [
+    {
+     "name": "Raphael",
+     "why": "Pythagoras, Socrates, and Plato are some of the many philosophers depicted in, for 10 points, what fresco of a namesake Greek city by Raphael?"
+    },
+    {
+     "name": "Disputation of the Holy Sacrament",
+     "why": "This painting appears opposite the artist's La Disputa."
+    },
+    {
+     "name": "Stanza della Segnatura",
+     "why": "A lone figure is sprawled across some stairs at the center of this work found in the Stanza Della Segnatura, whose depiction of a man resting on his hand may have been based on Michaelangelo."
+    },
+    {
+     "name": "Donato Bramante",
+     "why": "Images of contemporaries such as Bramante and Michelangelo are used to represent classical figures such as Euclid and Heraclitus."
+    },
+    {
+     "name": "Nicomachean Ethics",
+     "why": "Contrasting ideas about the physical world are represented in this painting by the gestures of two men at its center, one of whom turns his hand to the ground and holds the Nicomachean Ethics."
+    }
+   ],
+   "confusions": [
+    {
+     "name": "Academy",
+     "reasons": [
+      "reject"
+     ]
+    }
+   ],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "confusion_ok": [
+    true
+   ],
+   "page_ok": true,
+   "notes": ""
+  },
+  {
+   "id": "Q649741",
+   "name": "The Jew of Malta",
+   "description": "play by Christopher Marlowe",
+   "n_tossups": 16,
+   "clues": [
+    {
+     "label": "Abigail",
+     "n_sets": 16,
+     "text": "The title character of this play is assisted by Ithamore in poisoning his daughter Abigail for becoming a nun."
+    },
+    {
+     "label": "Calymath",
+     "n_sets": 9,
+     "text": "At this play's end, Ferneze, having learned of the machinations of the title character from the slave Ithamore, stops the Turkish leader Calymath from walking forward, causing the title character to fall to his death into a cauldron of boiling water, yelling, \"Help, help me, Christians, help!\""
+    },
+    {
+     "label": "Mathias and Lodowick",
+     "n_sets": 6,
+     "text": "A conflict caused by a forged letter leads to Mathias and Lodowick killing each other in a duel."
+    },
+    {
+     "label": "fornication",
+     "n_sets": 6,
+     "text": "After one character in this play admits to committing \"fornication,\" he states, \"but that was in another country; and besides, the wench is dead.\""
+    },
+    {
+     "label": "Bellamira",
+     "n_sets": 5,
+     "text": "In one scene, the title character appears disguised as a French lute player to enter the house of Bellamira, resulting in death for her and her pimp Pilia-Borza."
+    }
+   ],
+   "related": [
+    {
+     "name": "Christopher Marlowe",
+     "why": "For 10 points, the villainous Barabas is the title character of what play written by Christopher Marlowe?"
+    },
+    {
+     "name": "Barabás",
+     "why": "A series of vengeful acts, including the poisoning of Abigail, culminates with Barabas plunging into a cauldron."
+    },
+    {
+     "name": "Turkish",
+     "why": "This play ends after the governor Ferneze and the Turkish prince Calymath watch the title character die in his own trap."
+    },
+    {
+     "name": "The Portrait of a Lady",
+     "why": "A quote from this play about committing fornication that ends \"the wench is dead\" is used as the epigraph for T.S. Eliot's \"The Portrait of a Lady.\""
+    },
+    {
+     "name": "Barabbas",
+     "why": "For 10 points, name this play about Barabbas, by Christopher Marlowe."
+    }
+   ],
+   "confusions": [],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    false,
+    false,
+    false,
+    false
+   ],
+   "confusion_ok": [],
+   "page_ok": false,
+   "notes": "related: Barabas -> a Hungarian village and the biblical Barabbas; 'Turkish' -> the language; Eliot's 'Portrait of a Lady' -> James's novel"
+  },
+  {
+   "id": "Q46388",
+   "name": "Prohibition",
+   "description": "outlawing of the consumption, sale, production, etc. of alcohol",
+   "n_tossups": 26,
+   "clues": [
+    {
+     "label": "Volstead Act",
+     "n_sets": 18,
+     "text": "This policy was enforced by the Volstead Act, and it was later repealed by the 21st Amendment."
+    },
+    {
+     "label": "Portland",
+     "n_sets": 11,
+     "text": "Early proponents of this movement made up a mutual aid group called the Washingtonian Society, which formed in 1840. Portland mayor Neal Dow was called the \"Napoleon\" of this cause, and championed the \"Maine Law\" to enact it in his state."
+    },
+    {
+     "label": "Kiowa",
+     "n_sets": 6,
+     "text": "A supporter of this cause supposedly received instructions from God to \"go to Kiowa,\" leading her to commit acts of destruction across Kansas."
+    },
+    {
+     "label": "Frances Willard",
+     "n_sets": 8,
+     "text": "Frances Willard was a leader of an organization supporting this cause."
+    },
+    {
+     "label": "Carrie Nation",
+     "n_sets": 8,
+     "text": "A hatchet was used in activism for this policy by Carrie Nation."
+    }
+   ],
+   "related": [
+    {
+     "name": "Volstead Act",
+     "why": "The Cullen-Harrison Act weakened this policy, which was effectively begun by the Volstead Act."
+    },
+    {
+     "name": "Carrie Nation",
+     "why": "Carrie Nation used a hatchet to support this cause, and the Volstead Act enforced this policy until the 1933 passage of the 21st Amendment."
+    },
+    {
+     "name": "Anti-Saloon League",
+     "why": "A \"Women's Christian\" union lobbied for this cause, as did the Anti-Saloon League."
+    },
+    {
+     "name": "Eliot Ness",
+     "why": "A group of agents tasked with enforcing this policy led by Eliot Ness were known as the Untouchables."
+    },
+    {
+     "name": "Woman's Christian Temperance Union",
+     "why": "The ASL and WCTU supported this cause, which was enacted nationally by the Volstead Act."
+    }
+   ],
+   "confusions": [],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "confusion_ok": [],
+   "page_ok": true,
+   "notes": ""
+  },
+  {
+   "id": "Q49776",
+   "name": "Strike action",
+   "description": "work stoppage caused by the mass refusal of employees to work",
+   "n_tossups": 12,
+   "clues": [
+    {
+     "label": "Grover Cleveland",
+     "n_sets": 5,
+     "text": "In 1894, Grover Cleveland ended one of these events that began in Pullman, a company town where Eugene V. Debs helped organize a boycott against the Pullman company's train cars."
+    },
+    {
+     "label": "Henry Clay Frick",
+     "n_sets": 6,
+     "text": "Henry Clay Frick called on the Pinkertons in response to one in the steel town Homestead, Pennsylvania, and Grover Cleveland broke up an 1894 \"wildcat\" one by railroad workers of the Pullman Company."
+    },
+    {
+     "label": "Los Vendidos",
+     "n_sets": 2,
+     "text": "Los Vendidos and other plays by Luis Valdez were written for an acting troupe founded during one of these events, El Teatro Campesino."
+    },
+    {
+     "label": "Agate",
+     "n_sets": 2,
+     "text": "An argument about whether to do this action leads Edna to threaten to leave her husband Joe in a play whose title character is found \"with a bullet in his head.\"That discovery spurs Agate to overthrow a man who opposes this action named Harry Fatt."
+    },
+    {
+     "label": "Clancy",
+     "n_sets": 2,
+     "text": "That man is later revealed to be named Clancy, not Tom Clayton."
+    }
+   ],
+   "related": [
+    {
+     "name": "Pinkerton (detective agency)",
+     "why": "One of these events began in Martinsburg in July 1877. Henry Clay Frick hired the Pinkertons to stop one of these events."
+    },
+    {
+     "name": "Henry Clay Frick",
+     "why": "One of these events began in Martinsburg in July 1877. Henry Clay Frick hired the Pinkertons to stop one of these events."
+    },
+    {
+     "name": "Eugene V. Debs",
+     "why": "Grover Cleveland sent Federal troops to an 1894 one organized by Eugene Debs's ARU."
+    },
+    {
+     "name": "Grover Cleveland",
+     "why": "Henry Clay Frick called on the Pinkertons in response to one in the steel town Homestead, Pennsylvania, and Grover Cleveland broke up an 1894 \"wildcat\" one by railroad workers of the Pullman Company."
+    },
+    {
+     "name": "Waiting for Lefty",
+     "why": "For 10 points, name this action undertaken by cab drivers at the end of Waiting for Lefty ."
+    }
+   ],
+   "confusions": [],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "confusion_ok": [],
+   "page_ok": true,
+   "notes": ""
+  },
+  {
+   "id": "Q163366",
+   "name": "Ezra Pound",
+   "description": "American poet and critic (1885–1972)",
+   "n_tossups": 33,
+   "clues": [
+    {
+     "label": "Station",
+     "n_sets": 21,
+     "text": "The lines \"The apparition of these faces in the crowd; Petals on a wet black bough\" comprise his poem \"In a Station of the Metro.\""
+    },
+    {
+     "label": "Penelope",
+     "n_sets": 19,
+     "text": "That poem by this author describes its title figure's three-year attempt to \"maintain \"the sublime\"\" and \"resuscitate the dead art of poetry,\" and notes that figure's \"true Penelope was Flaubert.\""
+    },
+    {
+     "label": "Rock-Drill",
+     "n_sets": 8,
+     "text": "This author included Chinese characters in a work that has \"Rock-Drill\" and \"Pisan\" sections and was largely written in an Italian jail."
+    },
+    {
+     "label": "Old English",
+     "n_sets": 7,
+     "text": "This poet wrote \"their buried bodies / Be an unlikely treasure hoard\" in an interpretive translation of the Old English poem \"The Seafarer.\""
+    },
+    {
+     "label": "resuscitate the dead art of poetry",
+     "n_sets": 5,
+     "text": "Bertrans de Born cries \"May God damn for ever all who cry 'Peace!'\" in another poem by this author, who wrote of a man who seeks to \"resuscitate the dead art of poetry\" in his Hugh Selwyn Mauberley."
+    }
+   ],
+   "related": [
+    {
+     "name": "Hugh Selwyn Mauberley",
+     "why": "Besides \"Hugh Selwyn Mauberley,\" this poet also wrote a fourteen wordpoem containing the line \"Petals on a wet, black bough.\""
+    },
+    {
+     "name": "Li Bai",
+     "why": "This translator of Li Po and author of \"In a Station of the Metro\" wrote the \"Pisan\" section of a collection while he was imprisoned for treason against the Allies."
+    },
+    {
+     "name": "Propertius",
+     "why": "This author of \"The Seafarer\" and \"Homage to Sextus Propertius\" described a figure whose \"true Penelope was Flaubert\" and who was \"Bent resolutely on wringing lilies from the acorn\" in his attempt to \"resuscitate the dead art / Of poetry.\""
+    },
+    {
+     "name": "The Seafarer (poem)",
+     "why": "Along with translating \"The Seafarer\", this poet of Hugh Selwyn Mauberley described \"the apparition of these faces\" as \"petals on a wet, black bough\" in \"In a Station of the Metro\"."
+    },
+    {
+     "name": "The River Merchant's Wife: A Letter",
+     "why": "This \"translator\" of \"The River Merchant's Wife\" described the desire to \"resuscitate the dead art of poetry\" in \"Hugh Selwyn Mauberley.\""
+    }
+   ],
+   "confusions": [],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "confusion_ok": [],
+   "page_ok": true,
+   "notes": ""
+  },
+  {
+   "id": "Q221284",
+   "name": "Conformity",
+   "description": "the act of matching attitudes, beliefs, and behaviors to group norms",
+   "n_tossups": 22,
+   "clues": [
+    {
+     "label": "informational",
+     "n_sets": 18,
+     "text": "The \"informational\" and \"normative\" types of this phenomenon were studied in an experiment at Swarthmore College where participants were shown cards labeled A, B, or C."
+    },
+    {
+     "label": "Muzafer Sherif",
+     "n_sets": 17,
+     "text": "An experiment on this phenomenon was based on the autokinetic effect, in which a stationary light in a dark room appears to move, and was conducted by Muzafer Sherif."
+    },
+    {
+     "label": "Herbert Kelman",
+     "n_sets": 9,
+     "text": "Herbert Kelman identified the compliance, identification, and internalization types of this phenomenon."
+    },
+    {
+     "label": "Stanley Milgram",
+     "n_sets": 5,
+     "text": "In his essay on \"Nationality and [this phenomenon],\" Stanley Milgram asserted that it occured more in Norway than France."
+    },
+    {
+     "label": "Solomon Asch",
+     "n_sets": 5,
+     "text": "That experiment was conducted by Solomon Asch."
+    }
+   ],
+   "related": [
+    {
+     "name": "Solomon Asch",
+     "why": "Solomon Asch studied this phenomenon, which results in groupthink and compliance to norms."
+    },
+    {
+     "name": "Autokinetic effect",
+     "why": "Muzafer Sherif's experiments on the autokinetic effect demonstrated this phenomenon when subjects were asked to identify a dot in a dark room."
+    },
+    {
+     "name": "Muzafer Sherif",
+     "why": "Muzafer Sherif's experiments on the autokinetic effect demonstrated this phenomenon when subjects were asked to identify a dot in a dark room."
+    },
+    {
+     "name": "Stanley Milgram",
+     "why": "Using audio tones, Stanley Milgram found that this phenomenon occurred more often in Norway than in France."
+    }
+   ],
+   "confusions": [],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    false
+   ],
+   "related_ok": [
+    true,
+    true,
+    true,
+    true
+   ],
+   "confusion_ok": [],
+   "page_ok": true,
+   "notes": "clue 5 (Solomon Asch) repeats clue 1 (the Asch experiment)"
+  },
+  {
+   "id": "Q130900",
+   "name": "Lombards",
+   "description": "historical ethnical group",
+   "n_tossups": 12,
+   "clues": [
+    {
+     "label": "Desiderius",
+     "n_sets": 9,
+     "text": "Kings of these people include Alboin, Liutprand, and a man who was defeated by Charlemagne, Desiderius."
+    },
+    {
+     "label": "Paul the Deacon",
+     "n_sets": 9,
+     "text": "A history of these people was penned by Paul the Deacon."
+    },
+    {
+     "label": "Rosamund",
+     "n_sets": 5,
+     "text": "A king of these people was killed after inviting his wife Rosamund to drink from the skull of her father."
+    },
+    {
+     "label": "Alboin",
+     "n_sets": 5,
+     "text": "The depopulation caused by the long Gothic Wars allowed this people to swiftly defeat the Byzantines and established a kingdom under Alboin ruled from the city of Pavia."
+    },
+    {
+     "label": "Rothari",
+     "n_sets": 4,
+     "text": "These people had officials called gastalds, which were granted authority by the Edict of Rothari."
+    }
+   ],
+   "related": [
+    {
+     "name": "Charlemagne",
+     "why": "Under Alboin, these people established a kingdom in the south, but were eventually conquered by Charlemagne, who took the title \"King of\" this people."
+    },
+    {
+     "name": "Milan",
+     "why": "For 10 points, name these Germanic people who ruled a namesake kingdom in Italy, whose name lives on in a modern-day region that is the home of Pavia and Milan."
+    },
+    {
+     "name": "Desiderius",
+     "why": "The final king of these people was Desiderius, whose daughter Desiderata married the man who eventually conquered this group."
+    },
+    {
+     "name": "Pavia",
+     "why": "Via the local gostalds, this group ruled from Pavia for two centuries until Charlemagne conquered them in 774."
+    },
+    {
+     "name": "Pepin the Short",
+     "why": "The defeat of these people's king Aistulf led to the Donation of Pepin."
+    }
+   ],
+   "confusions": [],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "confusion_ok": [],
+   "page_ok": true,
+   "notes": ""
+  },
+  {
+   "id": "Q36348",
+   "name": "Dream",
+   "description": "series of images, thoughts, and emotions, often with a story-like quality, generated by mental activity during sleep; the state in which this occurs",
+   "n_tossups": 63,
+   "clues": [
+    {
+     "label": "all that we see or seem",
+     "n_sets": 11,
+     "text": "that poem asks whether \"all that we see or seem\" is but one of these entities within another."
+    },
+    {
+     "label": "wish fulfillment",
+     "n_sets": 10,
+     "text": "After studying one of these titled \"Irma's Injection\", the concepts of \"wish fulfillment\" and the \"royal road to the unconscious\" were developed by Sigmund Freud in his \"Interpretation of\" these events."
+    },
+    {
+     "label": "does it explode",
+     "n_sets": 9,
+     "text": "The question \"does it explode\" ends a poem in which the speaker asks if one of these things stinks \"like rotten meat\" or dries up \"like a raisin in the sun.\""
+    },
+    {
+     "label": "Sergei Pankejeff",
+     "n_sets": 6,
+     "text": "One of these events, as related by Sergei Pankejeff, involved six or seven stark white wolves sitting in a walnut tree outside of a window."
+    },
+    {
+     "label": "Penelope",
+     "n_sets": 7,
+     "text": "While evaluating the truth of these events, Penelope described \"gates of horn and ivory\" in a literary image first appearing in the Odyssey."
+    }
+   ],
+   "related": [
+    {
+     "name": "Sigmund Freud",
+     "why": "After studying one of these titled \"Irma's Injection\", the concepts of \"wish fulfillment\" and the \"royal road to the unconscious\" were developed by Sigmund Freud in his \"Interpretation of\" these events."
+    },
+    {
+     "name": "Langston Hughes",
+     "why": "One of these things might \"crust and sugar over\" in the poem \"Harlem.\"This kind of thing might dry up \"like a raisin in the sun\" if it is \"deferred\" in a poem by Langston Hughes."
+    },
+    {
+     "name": "Harlem",
+     "why": "A poet wonders if these things \"crust and sugar over\" or \"stink like rotten meat\" in the poem Harlem."
+    },
+    {
+     "name": "a red room",
+     "why": "Langston Hughes wrote about a montage of one of these deferred, and a work of Chinese lit talks about one \"of the Red Chamber.\""
+    },
+    {
+     "name": "Boogie-woogie",
+     "why": "The speaker of a different poem asks, \"Good morning, daddy! Ain't you heard / The boogie-woogie rumble of [one of these things]?\" in a poem from a collection titled for a Montage of [them]."
+    }
+   ],
+   "confusions": [],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    true,
+    false,
+    true,
+    true
+   ],
+   "confusion_ok": [],
+   "page_ok": true,
+   "notes": "related: Hughes's poem 'Harlem' links to the neighborhood"
+  },
+  {
+   "id": "Q5673",
+   "name": "Hans Christian Andersen",
+   "description": "Danish writer and poet (1805–1875)",
+   "n_tossups": 23,
+   "clues": [
+    {
+     "label": "Kai",
+     "n_sets": 16,
+     "text": "In another story by this author, the title character kidnaps Kai and forces him to spell letters from ice shards before he is saved by Gerda; that story inspired Disney'sFrozen."
+    },
+    {
+     "label": "Snow Queen",
+     "n_sets": 14,
+     "text": "This author of \"The Little Match Girl\" and \"The Snow Queen\" wrote about a character who trades her voice to a sea witch in exchange for legs."
+    },
+    {
+     "label": "Karen",
+     "n_sets": 7,
+     "text": "In a story by this author, an angel's warning convinces Karen to ask an executioner to cut off her legs before she dances to death wearing the title \"Red Shoes.\""
+    },
+    {
+     "label": "New Year's Eve",
+     "n_sets": 4,
+     "text": "Another of this author's characters sees visions of her grandmother while freezing to death on New Year's Eve."
+    },
+    {
+     "label": "Steadfast Tin Soldier",
+     "n_sets": 4,
+     "text": "This writer depicts a one-legged ballerina falling in love with the title character in \"The Steadfast Tin Soldier.\""
+    }
+   ],
+   "related": [
+    {
+     "name": "The Little Mermaid",
+     "why": "For ten points, name this Danish recorder of folk tales like \"The Little Mermaid.\""
+    },
+    {
+     "name": "The Ugly Duckling",
+     "why": "For 10 points, name this author of \"The Little Mermaid,\" \"The Snow Queen,\" \"Thumbelina,\" and \"The Ugly Duckling,\" a Danish fairytale writer."
+    },
+    {
+     "name": "The Emperor's New Clothes",
+     "why": "In addition to \"The Snow Queen\" and \"The Emperor's New Clothes\" this man wrote about a girl who gives up her voice to marry a prince at the risk of turning into sea foam."
+    },
+    {
+     "name": "The Red Shoes (1948 film)",
+     "why": "This author's cobbler father inspired his story in which Karen dances herself to death while wearing the title \"Red Shoes.\""
+    },
+    {
+     "name": "Uriah Heep (David Copperfield)",
+     "why": "This author perhaps inspired Uriah Heep when he crashed at Charles Dickens's house for five weeks."
+    }
+   ],
+   "confusions": [],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    true,
+    true,
+    false,
+    true
+   ],
+   "confusion_ok": [],
+   "page_ok": true,
+   "notes": "related: The Red Shoes links to the 1948 film"
+  },
+  {
+   "id": "Q26833",
+   "name": "Othello",
+   "description": "theatrical play by William Shakespeare",
+   "n_tossups": 31,
+   "clues": [
+    {
+     "label": "Cassio",
+     "n_sets": 26,
+     "text": "The protagonist of this play smothers his wife after Iago uses a handkerchief to indicate Cassio is having an affair with Desdemona."
+    },
+    {
+     "label": "Brabantio",
+     "n_sets": 19,
+     "text": "In this play, Brabantio is told that his daughter is \"making the beast with two backs.\""
+    },
+    {
+     "label": "green-eyed monster",
+     "n_sets": 10,
+     "text": "The antagonist of this play warns its title character about that \"green-eyed monster\" of jealousy."
+    },
+    {
+     "label": "I am not what I am",
+     "n_sets": 8,
+     "text": "A man in this play claims \"I am not what I am\" and notes \"who steals my purse steals trash, tis something, nothing, 'Twas mine, tis his.\""
+    },
+    {
+     "label": "Montano",
+     "n_sets": 6,
+     "text": "Act II of this play begins with discussion of a storm that wrecked most of a Turkish fleet, though Montano soon spies the protagonist's surviving ship."
+    }
+   ],
+   "related": [
+    {
+     "name": "Iago",
+     "why": "This character entrusts Iago to protect his wife Desdemona while on a military campaign."
+    },
+    {
+     "name": "Desdemona",
+     "why": "This character entrusts Iago to protect his wife Desdemona while on a military campaign."
+    },
+    {
+     "name": "Season of Migration to the North",
+     "why": "Mustafa Sa'eed claims that this character \"was a lie\" in Season of Migration to the North."
+    },
+    {
+     "name": "Dom Casmurro",
+     "why": "Bento Santiago identifies as this character after seeing a theater performance in the novel Dom Casmurro."
+    },
+    {
+     "name": "William Shakespeare",
+     "why": "For 10 points, name this William Shakespeare play about the title \"Moor of Venice.\""
+    }
+   ],
+   "confusions": [],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "confusion_ok": [],
+   "page_ok": true,
+   "notes": ""
+  },
+  {
+   "id": "Q1074953",
+   "name": "Microscopy",
+   "description": "technical field of using microscopes to view samples and objects that cannot be seen with the unaided eye",
+   "n_tossups": 10,
+   "clues": [
+    {
+     "label": "transmission",
+     "n_sets": 7,
+     "text": "Samples are sputter-coated with gold in types of this technique named for \"scanning\" and \"transmission.\""
+    },
+    {
+     "label": "Antonie van Leeuwenhoek",
+     "n_sets": 5,
+     "text": "This technique was popularized by Antonie van Leeuwenhoek and Robert Hooke, who used it to discover the cell."
+    },
+    {
+     "label": "atomic force",
+     "n_sets": 5,
+     "text": "The subtle movement of a sharp cantilever is central to the \"atomic force\" type of this technique."
+    },
+    {
+     "label": "cryogenic",
+     "n_sets": 5,
+     "text": "The sample is vitrified [VIH-trih-fyde] using liquid ethane in a form of this technique termed \"cryogenic.\""
+    },
+    {
+     "label": "acoustic",
+     "n_sets": 4,
+     "text": "A type of this technique has an \"acoustic\" variant in which the sample is placed on a piezoelectric transducer."
+    }
+   ],
+   "related": [
+    {
+     "name": "Antonie van Leeuwenhoek",
+     "why": "Antonie van Leeuwenhoek [AN-tuh-nee vahn LAY-ven-hook] used the \"optical\" type of this technique to observe bacteria."
+    },
+    {
+     "name": "Robert Hooke",
+     "why": "Antonie van Leeuwenhoek popularized this technique, as did the coiner of the word \"cell,\" Robert Hooke."
+    }
+   ],
+   "confusions": [
+    {
+     "name": "Microscope",
+     "reasons": [
+      "lookalike"
+     ]
+    }
+   ],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    true
+   ],
+   "confusion_ok": [
+    true
+   ],
+   "page_ok": true,
+   "notes": ""
+  },
+  {
+   "id": "Q216445",
+   "name": "Scheherazade",
+   "description": "main female character and a narrator in The Thousand and One Nights",
+   "n_tossups": 10,
+   "clues": [
+    {
+     "label": "Dunyazad",
+     "n_sets": 7,
+     "text": "This character is assisted by her sister Dunyazad after she volunteers to marry a man notorious for killing a new wife every day."
+    },
+    {
+     "label": "Edgar Allen Poe",
+     "n_sets": 3,
+     "text": "This character is killed for trying to describe a \"terrible fowl\"-also known as a hot air balloon-in a story by Edgar Allen Poe."
+    },
+    {
+     "label": "John Barth's Chimera",
+     "n_sets": 4,
+     "text": "John Barth appears in the narrative to give this character some advice in his Chimera trilogy's first section, which is titled for this character's sister."
+    },
+    {
+     "label": "Tell whoso hath sorrow / Grief never shall last",
+     "n_sets": 3,
+     "text": "This character recites the line \"Tell whoso hath sorrow / Grief never shall last\" to her father, who responds by recalling an ass telling a bull not to work so hard."
+    },
+    {
+     "label": "Open sesame",
+     "n_sets": 3,
+     "text": "This character, who may have invented the cliffhanger, relates a story in which a group of bandits kill the grain merchant Cassim after his greed causes him to forget the phrase, \"open sesame.\""
+    }
+   ],
+   "related": [
+    {
+     "name": "One Thousand and One Nights",
+     "why": "For 10 points, name this woman who titles a suite by Nikolai Rimsky-Korsakov based on the One Thousand and One Nights."
+    },
+    {
+     "name": "Sinbad the Sailor",
+     "why": "At the end of the book in which this woman appears, her husband, the king Shahryar, pardons her, after she delays her execution by telling the stories of Ali Baba and Sinbad the Sailor."
+    },
+    {
+     "name": "John Barth",
+     "why": "A frame tale is retold from the perspective of this character's sister in the first novella of John Barth's Chimera."
+    },
+    {
+     "name": "Ali Baba and the Forty Thieves",
+     "why": "At the end of the book in which this woman appears, her husband, the king Shahryar, pardons her, after she delays her execution by telling the stories of Ali Baba and Sinbad the Sailor."
+    },
+    {
+     "name": "Tristan Klingsor",
+     "why": "Three poems by Tristan Klingsor formed the basis for a song cycle for soprano and orchestra of this title written by Maurice Ravel, who also wrote a \"fairy overture\" of this name."
+    }
+   ],
+   "confusions": [
+    {
+     "name": "Scheherazade (Rimsky-Korsakov)",
+     "reasons": [
+      "same_name"
+     ]
+    }
+   ],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "confusion_ok": [
+    true
+   ],
+   "page_ok": true,
+   "notes": ""
+  },
+  {
+   "id": "Q203249",
+   "name": "Guru Granth Sahib",
+   "description": "The primary holy scripture of Sikhism",
+   "n_tossups": 14,
+   "clues": [
+    {
+     "label": "Gurmukhi",
+     "n_sets": 10,
+     "text": "The opening of this text written in Gurmukhi (\"gurr-MOO-kee\") script states \"Ik Onkar\" (\"ick OWN-car\"), or \"There is one God\"; that Mul Mantar summarizes the teachings of Guru Nanak."
+    },
+    {
+     "label": "Sohila",
+     "n_sets": 7,
+     "text": "This text contains a hymn sung at bedtime known as Sohila."
+    },
+    {
+     "label": "Gobind Singh",
+     "n_sets": 7,
+     "text": "After his death, Gobind Singh chose his final, eternal successor to be this thing, which begins with the Mul Mantar."
+    },
+    {
+     "label": "dust of the saints",
+     "n_sets": 3,
+     "text": "A recurring image in this text is the \"dust of the saints,\" which its speaker begs to become or to be blessed with."
+    },
+    {
+     "label": "This text is fanned with a yak hair…",
+     "n_sets": 6,
+     "text": "This text is fanned with a yak hair fan called the chaur sahib."
+    }
+   ],
+   "related": [
+    {
+     "name": "Sikhism",
+     "why": "For 10 points, name this current guru, the holy text of Sikhism."
+    },
+    {
+     "name": "Guru Gobind Singh",
+     "why": "This book, which contains writings from six out of ten leaders of a religion, is written in the Gurmukhi script, and it always sits on a takhat because of an action performed by Gobind Singh prior to his death."
+    },
+    {
+     "name": "Guru Nanak",
+     "why": "The opening of this text written in Gurmukhi (\"gurr-MOO-kee\") script states \"Ik Onkar\" (\"ick OWN-car\"), or \"There is one God\"; that Mul Mantar summarizes the teachings of Guru Nanak."
+    },
+    {
+     "name": "Punjabi language",
+     "why": "This entity, which consists mostly of Punjabi hymns, was designated the eternal successor of Gobind Singh."
+    },
+    {
+     "name": "Gurdwara",
+     "why": "Every one of these locations has a copy of the Adi Granth."
+    }
+   ],
+   "confusions": [],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "confusion_ok": [],
+   "page_ok": true,
+   "notes": ""
+  },
+  {
+   "id": "Q1648751",
+   "name": "Rutherford scattering experiments",
+   "description": "series of experiments (1908–1913) by Hans Geiger and Ernest Marsden, directed by Ernest Rutherford, at the University of Manchester, proving the existence of the atomic nucleus through alpha particle scattering on gold foil",
+   "n_tossups": 11,
+   "clues": [
+    {
+     "label": "Geiger and Marsden",
+     "n_sets": 10,
+     "text": "A tube containing radium and bismuth-214 was a component of this experiment's setup, which is sometimes also named after Geiger and Marsden."
+    },
+    {
+     "label": "reciprocal of the fourth power of the sine of the half angle",
+     "n_sets": 7,
+     "text": "The differential cross section of this process is proportional to the \"reciprocal of the fourth power of the sine of the half angle.\""
+    },
+    {
+     "label": "Nondestructive thin film analysis using this process usually…",
+     "n_sets": 2,
+     "text": "Nondestructive thin film analysis using this process usually uses an energy of two to three megaelectronvolts, can be improved by ion channeling, and plots count against either channels or energy."
+    },
+    {
+     "label": "Mott",
+     "n_sets": 2,
+     "text": "Mott scattering is the equivalent of this process in electrons."
+    },
+    {
+     "label": "Schrodinger's",
+     "n_sets": 2,
+     "text": "A device central to the setup of Schrodinger's cat was developed as a result of this experiment."
+    }
+   ],
+   "related": [
+    {
+     "name": "Ernest Rutherford",
+     "why": "For 10 points, name this procedure in which alpha particles were fired at the namesake metal, an experiment credited to Ernest Rutherford."
+    },
+    {
+     "name": "Atomic nucleus",
+     "why": "This experiment led to the discovery of the atomic nucleus."
+    },
+    {
+     "name": "Alpha particle",
+     "why": "In this experiment, the namesake apparatus was bombarded with alpha particles, some of which bounced off at surprising angles."
+    },
+    {
+     "name": "Hans Geiger",
+     "why": "This experiment was performed by Hans Geiger and Ernest Marsden, and it helped disprove the plum pudding model of the atom."
+    },
+    {
+     "name": "Charles-Augustin de Coulomb",
+     "why": "For 10 points, name this scattering of charged particles by the Coulomb potential of the nucleus, which was used to infer the existence of the nucleus."
+    }
+   ],
+   "confusions": [],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "confusion_ok": [],
+   "page_ok": true,
+   "notes": ""
+  },
+  {
+   "id": "Q16875637",
+   "name": "Transverse flute",
+   "description": "flute which is held horizontally when played",
+   "n_tossups": 10,
+   "clues": [
+    {
+     "label": "Johann Joachim Quantz",
+     "n_sets": 6,
+     "text": "Over 300 concertos for this instrument were written by Johann Joachim Quantz (\"k'VONTS\"), who taught Frederick the Great to play it."
+    },
+    {
+     "label": "Georges Barrere",
+     "n_sets": 6,
+     "text": "Georges Barrere commissioned Edgar Varese's Density 21.5 for this instrument, and also premiered a chromatic line descending from C-sharp to G in one symphonic poem."
+    },
+    {
+     "label": "Afternoon",
+     "n_sets": 5,
+     "text": "The melody begins on this instrument in Bolero, and it also opens Debussy's Prelude to the Afternoon of a Faun."
+    },
+    {
+     "label": "Largo",
+     "n_sets": 4,
+     "text": "This instrument follows the violin two bars later and a fourth higher in a canon that opens the \"Largo\" first movement of a trio sonata embedded within The Musical Offering."
+    },
+    {
+     "label": "Domenico Cimarosa",
+     "n_sets": 3,
+     "text": "Two of these instruments are the soloists in the only fully authenticated concerto by Domenico Cimarosa (\"chee-mah-ROH-zah\")."
+    }
+   ],
+   "related": [
+    {
+     "name": "Prélude à l'après-midi d'un faune",
+     "why": "that piece, also by Debussy, is Prelude to the Afternoon of a Faun."
+    },
+    {
+     "name": "Boléro",
+     "why": "The melody begins on this instrument in Bolero, and it also opens Debussy's Prelude to the Afternoon of a Faun."
+    },
+    {
+     "name": "The Musical Offering",
+     "why": "This instrument follows the violin two bars later and a fourth higher in a canon that opens the \"Largo\" first movement of a trio sonata embedded within The Musical Offering."
+    },
+    {
+     "name": "Jean-Pierre Rampal",
+     "why": "This instrument often features a \"gizmo key\" that makes playing a high C easier, and one of these made of solid gold was owned by Jean-Pierre Rampal."
+    },
+    {
+     "name": "Cécile Chaminade",
+     "why": "A concertino for this instrument opens with an orchestral descending D major scale and was composed by Cecile Chaminade."
+    }
+   ],
+   "confusions": [
+    {
+     "name": "Recorder (musical instrument)",
+     "reasons": [
+      "reject"
+     ]
+    },
+    {
+     "name": "Pan flute",
+     "reasons": [
+      "reject"
+     ]
+    }
+   ],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "confusion_ok": [
+    true,
+    true
+   ],
+   "page_ok": true,
+   "notes": ""
+  },
+  {
+   "id": "Q181593",
+   "name": "Sorting algorithm",
+   "description": "algorithm that puts elements of a list in a certain order",
+   "n_tossups": 20,
+   "clues": [
+    {
+     "label": "Big O",
+     "n_sets": 15,
+     "text": "Big O of n-squared describes the worst-case runtime of the \"quick\" form of this algorithm."
+    },
+    {
+     "label": "quick",
+     "n_sets": 14,
+     "text": "One task of this type uses a pivot and is called the \"quick\" type."
+    },
+    {
+     "label": "rises",
+     "n_sets": 7,
+     "text": "One type of this algorithm is named because it \"rises\" elements to the top,and is called bubble."
+    },
+    {
+     "label": "Donald Shell",
+     "n_sets": 6,
+     "text": "Another way to perform this operation relies on gap sequences and was formulated by Donald Shell."
+    },
+    {
+     "label": "radix",
+     "n_sets": 4,
+     "text": "A variation of this operation that can compare least significant digits is called the radix type, and another type of this process randomly places elements and checks if they are correct."
+    }
+   ],
+   "related": [
+    {
+     "name": "Time complexity",
+     "why": "Algorithms for this task that use comparisons have a best-case runtime of big-omega of n log n, although this is avoided by the counting kind of this type of algorithm."
+    },
+    {
+     "name": "John von Neumann",
+     "why": "An algorithm for this task developed by John von Neumann recursively divides a list into halves and then merges the lists together."
+    },
+    {
+     "name": "Heap (data structure)",
+     "why": "These structures are used in a sorting algorithm which removes the maximal element from one of these structures, puts it at the end of the sorted list, and rebuilds one of these structures;"
+    },
+    {
+     "name": "Quicksort",
+     "why": "For 10 points, name this algorithm, the fastest sorting algorithm known."
+    },
+    {
+     "name": "Python (programming language)",
+     "why": "Python's standard algorithm for this task, which was developed by, and named for, Tim Peters, preserves 'runs' and is thus considered 'stable'."
+    }
+   ],
+   "confusions": [],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "confusion_ok": [],
+   "page_ok": true,
+   "notes": ""
+  },
+  {
+   "id": "local:root",
+   "name": "roots",
+   "description": null,
+   "n_tossups": 19,
+   "clues": [
+    {
+     "label": "nodules",
+     "n_sets": 13,
+     "text": "Fungi form symbiotic relationships with these structures in mycorrhizae, and rhizobia, which fix nitrogen, form nodules on them."
+    },
+    {
+     "label": "cap",
+     "n_sets": 7,
+     "text": "The \"cap\" of these organs contains columella cells which sense gravity using auxins."
+    },
+    {
+     "label": "tap",
+     "n_sets": 8,
+     "text": "Monocots typically have a \"fibrous\" system of these structures, while the \"tap\" form of these structures is exemplified by carrots."
+    },
+    {
+     "label": "Hartig",
+     "n_sets": 5,
+     "text": "These structures are penetrated by Hartig nets and secrete mucigel."
+    },
+    {
+     "label": "polishes",
+     "n_sets": 3,
+     "text": "Laguerre's method for finding these quantities is one of many algorithms that \"polishes\" them by repeatedly \"deflating\" a function."
+    }
+   ],
+   "related": [
+    {
+     "name": "Abel–Ruffini theorem",
+     "why": "There is no general method for finding these quantities for expressions higher than the fourth degree according to the Abel-Ruffini theorem."
+    },
+    {
+     "name": "Descartes' rule of signs",
+     "why": "An upper bound on the number of these quantities can be found with Descartes' Rule of Signs."
+    },
+    {
+     "name": "Meristem",
+     "why": "These structures contain a quiescent center of low mitotic activity surrounded by an apical meristem that produces cells in two directions."
+    },
+    {
+     "name": "Fundamental theorem of algebra",
+     "why": "Accounting for multiplicity, a function has as many of these things over the complex numbers as its degree, a result of the fundamental theorem of algebra."
+    },
+    {
+     "name": "Newton's method",
+     "why": "These quantities, which can be found using the Newton-Raphson method, are defined as inputs to a function such that it outputs zero."
+    }
+   ],
+   "confusions": [
+    {
+     "name": "Roots",
+     "reasons": [
+      "same_name"
+     ]
+    }
+   ],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "confusion_ok": [
+    true
+   ],
+   "page_ok": false,
+   "notes": "Phase 1 grouping merged plant roots and polynomial roots into one topic"
+  },
+  {
+   "id": "Q2501468",
+   "name": "Richard III (1995 film)",
+   "description": "1995 film by Richard Loncraine",
+   "n_tossups": 13,
+   "clues": [
+    {
+     "label": "Now is the winter of our discontent",
+     "n_sets": 9,
+     "text": "The protagonist is \"determined to prove a villain\" in this play in a speech beginning \"Now is the winter of our discontent.\""
+    },
+    {
+     "label": "Clarence",
+     "n_sets": 8,
+     "text": "During a battle in one play, this man is tormented by the ghosts of people he murdered like his brother Clarence and the two young princes."
+    },
+    {
+     "label": "Despair",
+     "n_sets": 7,
+     "text": "A series of ghosts tell this character to \"Despair and die!\" in one play."
+    },
+    {
+     "label": "Was ever woman in this humour won",
+     "n_sets": 3,
+     "text": "after succeeding in that scene, he crows, \"Was ever woman in this humour won?\""
+    },
+    {
+     "label": "my kingdom for a horse",
+     "n_sets": 3,
+     "text": "This man resolves, \"since I cannot prove a lover...I am determined to prove a villain\" and yells, \"My kingdom for a horse!\""
+    }
+   ],
+   "related": [
+    {
+     "name": "Richard III (play)",
+     "why": "I am determined to prove a villain\" in a speech that opens, \"Now is the winter of our discontent.\""
+    },
+    {
+     "name": "Battle of Bosworth Field",
+     "why": "For 10 points, name this William Shakespeare play about the title hunchbacked king who dies at the Battle of Bosworth Field, thus ending the Wars of the Roses."
+    },
+    {
+     "name": "Colley Cibber",
+     "why": "An adaptation of this play by Colley Cibber includes the line \"Off with his head; so much for Buckingham.\""
+    },
+    {
+     "name": "Edward IV",
+     "why": "Buckingham loses favor with the protagonist in this play because he refuses to murder two princes shut up in a tower who are the sons of Edward IV."
+    },
+    {
+     "name": "William Shakespeare",
+     "why": "For 10 points, name this William Shakespeare play about the title hunchbacked king who dies at the Battle of Bosworth Field, thus ending the Wars of the Roses."
+    }
+   ],
+   "confusions": [],
+   "clue_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "related_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "confusion_ok": [],
+   "page_ok": false,
+   "notes": "Phase 1 linked the play's questions to the 1995 film"
+  }
+ ],
+ "rounds": [
+  {
+   "round": 1,
+   "judged": "2026-10-08",
+   "result": {
+    "clues": "142/150",
+    "related": "135/144",
+    "confusions": "8/8",
+    "pages": "27/30"
+   },
+   "clue_misses": [
+    "FAIN-boss (pronunciation)",
+    "Q-plus (pronunciation)",
+    "RYE-zee (pronunciation)",
+    "'in China.' (fragment)",
+    "'and that' (fragment)",
+    "Snow Queen repeated",
+    "Geiger and Marsden repeated",
+    "Asch experiment repeated"
+   ]
+  }
+ ]
+}

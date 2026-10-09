@@ -147,58 +147,133 @@ For every topic with a QID, fetch its Wikidata entity in bulk (`wbgetentities`, 
 - The Wikidata one-line **description**, used as a hover label everywhere a topic is mentioned.
 
 ### Stage 5: `clues` → split questions into clues
-Also record each tossup's `power_word_index` (the word where `(*)` falls), then remove the marker from the text. Use a quiz-aware sentence splitter that handles `St.`, `U.S.`, initials, quoted titles and the `(*)` marker. Sentences with semicolons that run past ~40 words are split again. For every clue, store:
+A quiz-aware splitter: abbreviations ("Dr.", "St.", "No. 9"), initials ("T. H. Morgan", "W.E.B."), and "!"/"?" inside quotations don't end sentences, and the power mark `(*)` is removed before splitting, so "Dr. (\*) Bledsoe" stays one sentence. Sentences over 40 words split again at semicolons. Each piece gets a **kind**: `clue`, `giveaway` (the whole sentence holding "For 10 points", "For 15 points", "For the point" or "FTP", and anything after it; with no such phrase, the last sentence; only a one-sentence question keeps the part before the phrase as its clue), or `note` (moderator notes, "Two answers required."). `question_layout` stores each question's clean text and power position. For every clue:
 
 | Field | Meaning |
 |---|---|
-| `char_start`, `char_end`, `word_start`, `word_end` | Exact span in the question, so buzzer practice can map "you buzzed at word 37" to the clue being read |
-| `position` | `char_start / len(question)`; 0 is the lead-in, 1 is the end |
-| `in_power` | Appears before `(*)` |
-| `is_giveaway` | The final "For 10 points, name this…" sentence |
-| `key_terms` | Named entities, quoted titles and capitalized noun phrases from spaCy, e.g. `Max Gottlieb`, `McGurk Institute`, `Leora Tozer` |
+| `char_start`, `char_end`, `word_start`, `word_end` | Exact span in the clean text, so buzzer practice can map "you buzzed at word 37" to the clue being read |
+| `position` | `char_start / len(text)`; 0 is the lead-in, 1 is the end |
+| `in_power` | Starts before `(*)` |
+| `kind` | clue, giveaway or note |
+| `key_terms` | Capitalized names (allowing "of", "van"...), quoted titles and long numbers, e.g. `T. H. Morgan`, `Battle Royale`, `1,369`. Rule-based for speed and no heavy dependencies; spaCy remains an option if Stage 6 needs lowercase technical terms. |
+
+On the full corpus (October 2026): 869k clues, 187k giveaways, 3k notes in about two minutes; every span reproduces its text exactly, all 114,840 power marks are located, every question has a giveaway, and 0.15% of clues are fragments.
 
 ### Stage 6: `cluster` → the same fact, worded differently
 Different questions phrase one fact many ways ("invited to the McGurk Institute by Max Gottlieb" vs. "his mentor Gottlieb brings him to McGurk"). Within each topic:
-- Embed clues with MiniLM (local, free), and boost similarity when clues share key terms.
-- Run agglomerative clustering with a cosine threshold (tune it, starting around 0.6).
-- The **representative** clue is the medoid, and the cluster's **label** is its most frequent key term.
+- Embed clues with MiniLM (`all-MiniLM-L6-v2` via fastembed, local and free; onnxruntime is pinned below 1.20 on Intel Macs, which newer releases dropped). Embeddings are cached per clue text, so the ~2-hour first run happens once.
+- Similarity = cosine + 0.2 per shared key term, then average-linkage clustering at distance 0.6.
+- The **representative** clue is the medoid, and the cluster's **label** is its most common key term.
+
+The method was chosen against the labeled clues (`pipeline/eval/labeled_clues.yaml`): pairwise F1 on same-fact clue pairs was 0.76 for MiniLM with the term bonus vs 0.60 for the best TF-IDF setting, which rarely groups paraphrases. On the full corpus: 868,752 clues in 424,000 clusters, of which 60,420 recur in 3+ questions; `verify` re-measures F1 on every run (0.741 over 73,849 labeled pairs) and fails below 0.70.
 
 ### Stage 7: `score` → "high-impact" clues
 The goal is clues **common enough to be worth knowing** and **early enough to win the buzz**. For each clue cluster:
 
 ```
-frequency    F = log(1 + distinct_sets)              # common across the circuit, not repeated in one set
-earliness    E = 1 - median(position)                # earlier is better
-             E += 0.15 * share_in_power              # bonus for appearing before (*)
-specificity  S = idf(key_terms across all topics)    # "pointing power": rare elsewhere, so it identifies THIS topic
-impact       = F * E * sqrt(S)
+frequency    F = sqrt(distinct sets)                 # common across the circuit, not repeated in one set
+earliness    E = 1 - median(position) (+ power bonus)
+last line    L = share of clues in the last line before the giveaway
+specificity  S = idf(key terms across all topics)     # stored; weight 0 after tuning
+impact       = F * E ** 0.25 * S ** 0 * (1 + 0.3 * L)
 ```
 
-- **Filters:** at least 2 distinct sets (relaxed to 1 for topics with fewer than 6 tossups), exclude clusters that are only giveaways, and exclude clusters whose key terms are just the answer's own aliases.
-- **Selection:** take the top K by maximal marginal relevance (MMR) so the 5–10 clues aren't near-duplicates. K = `clamp(5, 10, clusters passing the filters)`.
-- **Heatmap statistics** (stored on each cluster for §8.3): a 10-bin histogram of positions, share in power, counts per difficulty band (middle school 1, high school 2–5, college 6–9, open 10), first and last year seen, and a trend label (`rising`, `steady`, `fading`) from a linear fit of appearances per year.
-- **Tuning:** hand-label "good clues" for ~30 topics across categories and difficulties, then tune the weights and thresholds against them. Keep that file in `pipeline/eval/`. It's the only way to know whether a weight change helped.
+- **Last-line bonus:** the line just before the giveaway holds the well-known clues, so a small bonus keeps the picks from being only niche lead-in facts. Sweeping 0 / 0.1 / 0.2 / 0.3 / 0.5, 0.3 scored best on the labels (precision@5 0.940, recall@10 0.788; 0.953 and 0.780 after the label fixes) and moved last-line picks from 20% to 22%. For topics asked 3+ times, picks split 36% lead-in, 42% middle and 21% last line. 96% of those topics have a last-line clue in their top 10, and none has a top 10 that is all lead-ins. Last-line picks average 4.2 sets, lead-in picks 2.3.
+- **Filters:** at least 2 distinct sets (1 for topics with fewer than 6 tossups), and not made only of the topic's own names.
+- **Selection:** up to 10 by maximal marginal relevance (λ = 0.7). Redundancy is measured **relative to the topic's own baseline similarity**: every clue about one novel resembles every other, so raw similarity treated common clues as duplicates of each other.
+- **Heatmap statistics** (stored on each cluster for §8.3): a 10-bin histogram of positions, share in power, counts per difficulty band (unrated, middle school 1, high school 2–5, college 6–9, open 10), first and last year seen, and a trend label (`rising`, `steady`, `fading`): the cluster's share of the topic's most recent third of questions vs the topic's own.
+- **Display label:** the cluster's most common key term found in at most 50 topics, else the representative clue's opening words ("Peace" alone says nothing).
+- **Tuning:** `hortum-pipeline eval-clues` scores the picks against `pipeline/eval/labeled_clues.yaml` (precision@5: share of the top 5 that match a labeled clue; recall@10: share of labeled clues found in the top 10). A sweep chose the weights above (precision@5 0.913, recall@10 0.798, before the last-line bonus and before the whole giveaway sentence was excluded from clues), under a tracer guard: *Invisible Man*'s top 10 must include Ras the Exhorter (38 sets, mid-question) and the Battle Royal. The first-guess formula (log frequency, linear earliness) ranked 6-set lead-in trivia above them. A pick matches a label only through its label, key terms, representative and five members, so a big merged cluster isn't credited with every fact its members mention.
 
 ### Stage 8: `relate` → related topics
-"Clues that are answers to their own questions":
-- Build an Aho-Corasick automaton over every topic alias (dropping aliases shorter than 4 characters, aliases shared by several topics, and stop-like aliases such as "water").
-- Scan every clue. Each hit is a directed edge `topic A's clue mentions topic B`.
-- Score edges by `log(1 + mentions) * log(1 + B's tossup count)`, merge in reverse edges at a lower weight, and keep the top ~12. Store **which clue** created each edge, so the page can say *why* two topics are related.
+"Clues that are answers to their own questions." Every clue and giveaway is scanned for other topics' names; each hit is a directed mention *topic A's question names topic B*, stored with its span (`clue_mentions`) so the page can link the clue text. This is how soccer's page links to FIFA and the FIFA World Cup.
 
-This is also how soccer's page links to FIFA, the World Cup, Pelé and so on.
+Matching is token-based and longest-first ("FIFA World Cup" isn't also "World Cup"). The hard part is names that mean something else in context, and every rule below exists because a real link went wrong without it:
+
+- **Which names:** main answers, Wikipedia titles and Wikidata aliases, plus accepted/required answer parts seen in more than one answer line. Soccer accepts "What We Think" once; *Midnight's Children* requires "main characters" once. A name must have 4+ characters and not be a bare number ("1984"). It can't start with an article or end in a function word ("existence of"). A lowercase name found in more than 300 topics' questions is a generic phrase ("18th century") and is dropped.
+- **Capitalization:** a capitalized name must appear capitalized ("What is your name?" isn't the film *Your Name*). It can't sit inside a longer name ("Dr. **Bledsoe**" isn't the NFL quarterback, "Alfred **Sturtevant**" isn't Aaron Paul's birth name). A one-word name must be capitalized in most of its mid-sentence uses across the corpus, which drops "water" and "power".
+- **Strong vs weak names:**
+  - **Strong names** match anywhere: an all-caps one-word title ("FIFA"), the topic's own lowercase name ("Calvin cycle"), or a capitalized multi-word alias.
+  - **Weak names** count only when both topics share a category: other one-word names ("Sybil" in *Invisible Man* isn't Sybil Fawlty) and lowercase Wikidata extras ("black man").
+- **Shared names:**
+  - **Multi-word names** go to the owner in the question's category: "Battle Royale" in a literature question is the battle royal, not the film. Among several such owners, the one whose own name it is wins ("Calvin cycle", which photosynthesis also accepts). Next comes the topic whose Wikipedia title it is; otherwise the name is skipped.
+  - **One-word names** go to the in-category owner only when it's that topic's own name: "the Brotherhood" yes, but not "Columbia" claimed by the space shuttle in a biology question. Otherwise only an all-caps title keeps it ("FIFA").
+- **Scoring:** `log(1 + questions of A naming B) * idf(B) + 0.5 * log(1 + questions of B naming A) * idf(A)`, where `idf(X) = log(topics / topics whose questions name X)`. A topic needs 2+ questions of support (1 for topics with fewer than 6 questions) and keeps its top 12. A **hub** (named in more than 150 topics' questions: countries, "American", "World War II") must appear in at least 3 of the topic's questions and a quarter of them. Without that rule, "American" sat in 319 topics' lists.
+- **Why:** each link stores an example clue, preferring a real clue from the most commonly asked cluster over the giveaway.
+
+On the full corpus (October 2026): 652k mentions and 291k links. 99.9% of topics with 10+ questions have related topics. `verify` checks:
+- every mention span reads as its name
+- no self-links
+- every link's example clue names the pair
+- 14 hand-checked links are present (soccer → FIFA and the World Cup, Dumas → *Monte Cristo*, …)
+- 9 known wrong links stay absent (the film, the quarterback, the space shuttle, …)
+- the tracers
+
+**Audits of 40 random top-5 links:**
+- An intermediate version scored 38/40. Its two errors led to the answer-line weight rule.
+- The final version scores 39/40, i.e. precision ≥ 89% at 95% confidence. The one miss is *The Rime of the Ancient Mariner* → *Wedding*, from "the Wedding-Guest".
+
+Known gaps:
+- **A one-word surname in the same category can still mean someone else:** "Huxley" in *Axon* is Andrew, not Thomas Henry.
+- **Skipping shared one-word names costs a few true links,** such as Ganges → Yamuna.
 
 ### Stage 9: `confuse` → "don't confuse with"
-Collect candidate pairs from four free signals, score them, and keep the top 5 per topic, each with its evidence:
+Candidate pairs come from three signals. Confusion is symmetric, so each topic keeps its top 5 pairs, each with its evidence:
 
 | Signal | How | Example |
 |---|---|---|
-| **Answer-line rejects and prompts** | Run the alias automaton over `reject` and `prompt` strings from Stage 2; a hit on another topic is a confusion edge | `do not accept "United Kingdom"` on an England question |
-| **Same name** | Topics that share a normalized alias but resolved to different QIDs | Mercury (planet / element / god) |
-| **Clue overlap** | Cosine similarity between topics' clue-embedding centroids within a category, above a threshold, excluding pairs that are already "related" | Two novels by the same author with overlapping character clues |
-| **Look-alike names** | Edit distance between aliases within a category | Similar surnames among composers |
+| **Answer-line rejects** | A reject entry that *is* another topic's name, or a name covering at least half the entry. The question's own topic never counts as rejected, which settles shared names. | mitosis ↔ meiosis, soccer ↔ American football, *Invisible Man* ↔ Wells's *The Invisible Man* (31 rejects) |
+| **Same name** | Titles that are the same name once the parenthetical goes. Both topics need 2+ questions, and at most 8 topics may share the name. | Mercury (planet / element / god), Narcissus (myth / plant), *Vertigo* (film / condition) |
+| **Look-alike names** | A letter or two apart in the same category, *and* clue centroids at least 0.6 alike. Names differing only in digits don't count. | Iran ↔ Iraq, North ↔ South Dakota, alkane ↔ alkene, Henry I ↔ Henry II |
+
+`score = log(1 + rejects, either way) + 1.0 * same name + 0.5 * look-alike`.
+
+**What was tried and dropped, with evidence:**
+- **Prompts.** They mostly name broader terms ("primates" for monkeys, "fly" for *Drosophila*), which is hierarchy, not confusion.
+- **Aliases as "same name".** Answer lines accept near-synonyms ("boiling" for vaporization) and parts of overlapping answers ("Allende" for the 1973 coup). They also group main answers under events named after them ("Joseph Smith" under his killing). 4 of the 6 errors in a 40-pair audit came from this.
+- **Look-alike names without the similarity gate.** About half were unrelated pairs: shale/whale (0.23), leaf/lead (0.33), poker/*Joker* (0.33). Real look-alikes score 0.73–0.86.
+- **Clue overlap on its own.** A topic's nearest neighbors by clue centroid are siblings, not confusions: Poe → Shakespeare 0.93, electron → photon 0.94, Austria → Italy 0.89. Those scores sit above the 99th percentile of same-category pairs (0.81), so no threshold separates confusions from siblings.
+
+On the full corpus (October 2026): 3,410 rejects name another topic, plus 400 same-name pairs and 176 look-alike pairs (of 282 similar names). That gives 4,798 confusion links over 3,701 topics; most topics have nothing confusable, so that is expected. The stage runs in about 2½ minutes.
+
+**Audits of 40 random pairs:**
+- **First version:** 34/40.
+- **Final version:** 37/40, so precision ≥ 80% at 95% confidence. The three misses are two duplicate topics left over from Phase 1 (*making tea*, *infinite*) and one odd answer-line reject.
+
+`verify` checks:
+- every pair's evidence supports its reasons
+- 18 hand-checked pairs are present both ways
+- 7 known wrong pairs stay absent
+- the tracers
 
 ### Stage 10: `snapshot` → one row per topic
-Denormalize everything the page needs from the corpus into `topic_snapshots(topic_id, json, pipeline_version)`. **The catalog's topic endpoint is a single primary-key read with no joins.**
+Denormalize everything the page needs from the corpus into `topic_snapshots(topic_id, json, schema_version)`. **The catalog's topic endpoint is a single primary-key read with no joins.** Every topic gets a record, even one asked once: search can find any answer, so every answer has a page. Topics asked fewer than 3 times are marked `thin` so the page can say "rarely asked".
+
+The record holds:
+- **`topic`:** id, slug, name, Wikidata/Wikipedia ids, description, category and stats. Display aliases are Wikipedia and Wikidata names plus capitalized answer-line names seen twice. Answer lines also accept descriptions like "main character", which aren't names.
+- **`clues`:** the ranked picks, each with a label, text, up to 3 example wordings from other sets, set and question counts, impact and the heatmap.
+  - **The card's text and examples name its label.** A big cluster can hold a neighboring fact ("Ras the Exhorter" merged with Brotherhood clues), so wordings that contain every content word of the label come first, then the newest.
+- **`related`:** each link with a plain-language "why" and its example clue.
+- **`confusions`:** reasons, evidence, and distinguishing clues. Those are each side's top clue labels that the other side doesn't share: Wells's *The Invisible Man* offers "Griffin, Thomas Marvel, Port Burdock".
+- **`timeline`:** the most precise Wikidata date per property, for the topic and its related topics.
+- **`map`:** places with coordinates.
+- **`tossup_ids`:** newest first.
+
+Generated sections (summary, story, clue write-ups, theme) live in the content service and are merged in by the gateway.
+
+On the full corpus (October 2026):
+- **Records:** 45,523, of which 32,143 are thin. They total about 390 MB, averaging 8.5 KB, and are built in about 3 minutes.
+- **Checks:** `verify` confirms:
+  - every topic has a current record whose counts match the source tables
+  - clue cards name their labels
+  - no record is over 200 KB
+  - a page read is fast (p95 under 5 ms)
+  - the tracers' final pages
+
+Catalog endpoints, also reachable through the gateway at `/api/catalog/...`:
+- **`GET /topics/{id-or-slug}`:** the stored JSON, served without re-parsing.
+- **`GET /topics/{id}/tossups?limit=&offset=`:** questions newest first, with clean text, power position, answer and clue spans.
+- **`GET /practice/next?topic=&category=&difficulty_min=&difficulty_max=&exclude=`:** a random matching question that skips ones already seen.
 
 ---
 
@@ -226,12 +301,13 @@ topic_aliases_fts  -- FTS5, tokenize='trigram' over alias_search: typo-tolerant 
 clues(id, tossup_id, topic_id, ordinal, text, char_start, char_end, word_start, word_end,
       position, in_power, is_giveaway, key_terms JSON, cluster_id)
 clue_clusters(id, topic_id, label, key_terms JSON, representative_clue_id,
-              n_tossups, n_sets, median_position, share_in_power, specificity, impact, rank /* NULL if not top-K */,
+              n_tossups, n_sets, median_position, share_in_power, share_last_line, specificity, impact, rank /* NULL if not top-K */,
               position_hist JSON, difficulty_hist JSON, first_year, last_year, trend)
-topic_links(src_topic_id, dst_topic_id, score, n_mentions, example_clue_id)
+clue_mentions(clue_id, topic_id, mentioned_topic_id, alias, char_start, char_end)
+related_topics(topic_id, related_topic_id, rank, score, n_questions, n_reverse, example_clue_id)
 topic_facts(topic_id, kind /* date|place|description */, property, value JSON /* time+precision | lat,lon,label | text */)
-confusions(topic_id, other_topic_id, reason /* reject|prompt|same_name|clue_overlap|lookalike */, score, evidence JSON)
-topic_snapshots(topic_id PRIMARY KEY, json, pipeline_version)
+confusions(topic_id, other_topic_id, rank, score, reasons JSON /* reject|same_name|lookalike */, evidence JSON)
+topic_snapshots(topic_id PRIMARY KEY, json, schema_version)
 ```
 
 ### `content.db` (writable, owned by content)
@@ -436,7 +512,7 @@ Real tossups are revealed word by word, like a moderator reading. You buzz, answ
   - Your personal markers on the clue heatmap (§8.3).
   - Your stats on the topic page: accuracy, median buzz position, and how that's trending.
   - **Flashcards:** a wrong buzz, or a correct one that came after the topic's top clues had already been read, creates `missed` cards for the clues you passed (§8.2).
-- **Endpoints:** catalog serves the tossups (`GET /topics/{id}/tossups`, `GET /practice/next?category=&difficulty=`) and study records the attempts (`POST /buzzes`).
+- **Endpoints:** catalog serves the tossups (`GET /topics/{id}/tossups`, `GET /practice/next?topic=&category=&difficulty_min=&difficulty_max=&exclude=`; each question carries clue spans so a buzz can be tied to the clue being read) and study records the attempts (`POST /buzzes`).
 
 ### 8.2 Flashcards with spaced repetition
 
@@ -471,7 +547,7 @@ From `topic_facts` (Stage 4b), for the topic **and its related topics**, so you 
 
 From the `confusions` table (Stage 9), up to 5 per topic. For each one:
 
-- **Why they're confusable:** the reason (answer-line reject, same name, overlapping clues, look-alike name) and its evidence, e.g. the actual `do not accept` text.
+- **Why they're confusable:** the reason (answer-line reject, same name, look-alike name) and its evidence, e.g. the actual `do not accept` text.
 - **Distinguishing clues**, computed for free: the other topic's top clues that this topic never uses, and vice versa. That's usually enough to tell them apart.
 - **An optional one-line tip** ("planet clues talk about orbits and the precession of its perihelion; element clues talk about amalgams and thermometers") from the light LLM request, cached like everything else.
 - One-click links to the other topic's page and to a mixed **practice round** with tossups from both, which is the fastest way to stop mixing them up.
@@ -540,6 +616,9 @@ The order is chosen so you can **see and use something at the end of every phase
 10. **Catalog search:** build the FTS5 trigram index and `GET /search`; add the gateway route. *Done when* `curl 'localhost:8000/api/topics/search?q=socer'` returns association football first, and "Mercury" returns three topics.
 
 **Phase 1 status (October 2026): done.** All 1,318 low-confidence answer lines were reviewed by hand (`pipeline/overrides/answers.jsonl`); 30 stage checks pass (`hortum-pipeline verify`); a 100-question audit gives parse accuracy ≥93.8% and link precision ≥91.9% at 95% confidence (`pipeline/eval/README.md`). Known gap: link coverage, ~10% of questions sit in unlinked topics although an article exists.
+
+### Tracer questions
+From Phase 2 on, two **tracer questions** are followed through every stage (`pipeline/eval/tracers.yaml`): one *Invisible Man* question (power mark right after "Dr.", a mid-sentence giveaway) and one *Drosophila* question (a moderator note, the power mark between initials). Each stage's expected output for them was checked by hand; `verify` asserts it on the real corpus after every stage, and `test_tracers.py` rebuilds a two-question corpus from their raw records and asserts it again. Each new stage adds its expectations there.
 
 ### Phase 2: Clue mining
 11. **Label the evaluation set before writing the scorer.** For ~30 topics across categories and difficulty levels, write down the 5–10 clues you'd want to know (`pipeline/eval/labeled_clues.yaml`). This keeps the scoring honest.

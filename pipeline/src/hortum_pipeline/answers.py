@@ -49,6 +49,7 @@ _CONDITION = re.compile(
     r"\s*[,(]?\s*\b(?:before|until|after|if|once|when|only\s+(?:before|after)|by\s+asking)\b.*$",
     re.I,
 )
+_EXPLANATION = re.compile(r"\s+(?:which|because|since|as\s+(?:it|that|this))\b.*$", re.I)
 _CONDITION_ONLY = re.compile(r"^(?:before|until|after|once|when)\b", re.I)
 # "word forms like combusting", "descriptions of 'banning alcohol'": keep what follows.
 _GENERIC_LEAD = re.compile(
@@ -316,6 +317,8 @@ def _items(marked: _Marked, start: int, end: int) -> list[tuple[str, str | None,
             p1 = p0 + cond.start()
             raw = body[p0:p1]
         text = _clean(raw)
+        # "reject The Invisible Man which is a different novel": drop the explanation.
+        text = _clean(_EXPLANATION.sub("", text)) if _EXPLANATION.search(text[1:]) else text
         lead = _GENERIC_LEAD.match(text)
         if lead:
             text = _clean(text[lead.end() :])

@@ -23,6 +23,33 @@ class PipelineSettings(BaseSettings):
     link_min_tossups: int = 1
     link_new_requests: int | None = None
     link_min_score: float = 0.2
+    # Clue clustering (chosen against pipeline/eval/labeled_clues.yaml: pairwise F1 0.76).
+    cluster_threshold: float = 0.6
+    cluster_term_bonus: float = 0.2
+    # Clue scoring (see hortum_pipeline/score.py), tuned by a sweep over the labeled clues
+    # with the tracer guard that Invisible Man keeps Ras the Exhorter and the Battle Royal:
+    # precision@5 0.913, recall@10 0.798.
+    score_power_bonus: float = 0.0
+    score_specificity_exponent: float = 0.0
+    score_min_sets: int = 2
+    score_mmr_lambda: float = 0.7
+    score_frequency_mode: str = "sqrt"
+    score_earliness_exponent: float = 0.25
+    score_last_line_bonus: float = 0.3
+    relate_min_cap_share: float = 0.7  # one-word names must be capitalized this often
+    relate_reverse_weight: float = 0.5
+    relate_max_alias_topics: int = 300  # lowercase names found more widely are generic
+    relate_min_questions: int = 2
+    relate_top: int = 12
+    relate_hub_topics: int = 150  # topics named this widely must earn their place
+    confuse_top: int = 5
+    confuse_reject_weight: float = 1.0
+    confuse_same_name_weight: float = 1.0
+    confuse_lookalike_weight: float = 0.5
+    confuse_same_name_max_owners: int = 8  # names shared more widely are generic
+    confuse_same_name_min_questions: int = 2  # both topics asked at least this often
+    confuse_lookalike_min_questions: int = 3
+    confuse_lookalike_min_similarity: float = 0.6  # clue centroids must be this alike
     link_min_similarity: float = 0.05
 
     def require_wikimedia_contact(self) -> str:
@@ -46,6 +73,16 @@ class PipelineSettings(BaseSettings):
     @property
     def corpus_path(self) -> Path:
         return self.build_dir / "corpus.db"
+
+    @property
+    def labels_path(self) -> Path:
+        """Hand-labeled clues worth knowing (see pipeline/eval/labeled_clues.yaml)."""
+        return self.overrides_dir.parent / "eval" / "labeled_clues.yaml"
+
+    @property
+    def tracers_path(self) -> Path:
+        """Questions followed through every stage (see pipeline/eval/tracers.yaml)."""
+        return self.overrides_dir.parent / "eval" / "tracers.yaml"
 
     @property
     def answer_overrides_path(self) -> Path:

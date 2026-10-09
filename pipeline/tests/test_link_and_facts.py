@@ -300,3 +300,20 @@ def test_title_store_reuses_cached_batches(tmp_path) -> None:  # type: ignore[no
     hit = store.get("soccer")
     assert hit is not None and hit.qid == "Q2736"
     assert store.get("nothing here") is None
+
+
+def test_slugs_are_unique_and_the_most_asked_topic_keeps_the_plain_one() -> None:
+    from hortum_pipeline.topics import unique_slugs
+
+    slugs = unique_slugs(
+        [
+            ("Q1539509", "The Invisible Man", 31),
+            ("Q1784288", "Invisible Man", 52),
+            ("local:invisible-man", "invisible man", 2),
+        ]
+    )
+    assert slugs == {
+        "Q1784288": "invisible-man",
+        "Q1539509": "the-invisible-man",
+        "local:invisible-man": "invisible-man-invisible-man",
+    }

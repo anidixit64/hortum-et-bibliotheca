@@ -92,6 +92,9 @@ uv run hortum-pipeline parse-answers --gui # just re-parse answers
 uv run hortum-pipeline review-answers      # fix low-confidence answers by hand
 uv run hortum-pipeline all --from group    # rebuild topics after fixing answers
 uv run hortum-pipeline link --max-requests 2000  # link in chunks; cached requests are free
+uv run hortum-pipeline clues --gui         # split questions into clues
+uv run hortum-pipeline inspect-clues       # see any question split into clues
+uv run hortum-pipeline verify              # check every stage's output
 ```
 
 The review window lists answer lines the parser wasn't sure about, most-asked first, with
