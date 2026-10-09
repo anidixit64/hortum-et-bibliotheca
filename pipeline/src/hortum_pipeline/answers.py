@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from typing import Literal
 
-PARSER_VERSION = "1"
+PARSER_VERSION = "2"
 
 Directive = Literal["accept", "prompt", "reject"]
 
@@ -26,7 +26,18 @@ _FORMAT_TAGS = {"b", "strong", "u", "i", "em", "span", "sup", "sub", "a", "p", "
 _PSEUDO_TAG = re.compile(
     r"<(?!/?(?:b|strong|u|i|em|span|sup|sub|a|p|br|font|s)\b)[^<>]{1,40}>", re.I
 )
-_TRAILING_JUNK = re.compile(r"(?:\s*(?:\(\d{1,2}\)|\[[A-Z]{1,4}\]))+\s*$")
+# Trailing author initials and numbering: "(3)", "[JB]", and "<RB/MJ>" (escaped in the
+# source HTML, so the tag filter never sees it).
+_TRAILING_JUNK = re.compile(
+    r"(?:\s*(?:\(\d{1,2}\)|\[[A-Z]{1,4}\]|<[A-Z][\w.]{0,12}(?:/[A-Z][\w. ]{0,12}){0,3}>))+\s*$"
+)
+# A packet header run into the answer line: "Tay-Sachs disease PACE NSC 2011 Edited by
+# Mike Bentley, ... Packet 16", "Island Delta Burke 2017 Round 5". The cut starts at a
+# known tournament name followed by a year, never at the answer's own capitals.
+_PACKET_TAIL = re.compile(
+    r"\s+(?:PACE\s+NSC|ACF\s+National(?:s|\s+Championship)|Delta\s+Burke|"
+    r"(?:[A-Z]\w+\s+){1,2}Novice)\s+(?:19|20)\d{2}\b.*$"
+)
 
 _REJECT = re.compile(
     r"^(?:but\s+)?(?:do\s+not|don[’']t|not|never)\s+(?:accept|take|prompt)"
@@ -191,10 +202,11 @@ def _flatten(answer_html: str) -> _Marked:
     parser.close()
     text = "".join(parser.chars).replace("\xa0", " ")
     mask = parser.under if any(parser.under) else parser.bold
-    # Drop trailing author tags / numbering, keeping the mask aligned.
-    match = _TRAILING_JUNK.search(text)
-    if match:
-        text, mask = text[: match.start()], mask[: match.start()]
+    # Drop a packet header, then trailing author tags / numbering, keeping the mask aligned.
+    for junk in (_PACKET_TAIL, _TRAILING_JUNK):
+        match = junk.search(text)
+        if match and match.start() > 0:
+            text, mask = text[: match.start()], mask[: match.start()]
     return _Marked(text, list(mask))
 
 
