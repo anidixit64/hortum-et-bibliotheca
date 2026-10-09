@@ -405,3 +405,30 @@ def test_same_answer_unlinked_groups_merge_only_when_alike() -> None:
     # sets chain through a shared member
     chain = {frozenset({1, 2}): 0.3, frozenset({1, 3}): 0.0, frozenset({2, 3}): 0.3}
     assert homonym_sets([1, 2, 3], lambda a, b: chain[frozenset({a, b})], 0.25) == [[1, 2, 3]]
+
+
+@pytest.mark.parametrize(
+    ("answer", "short"),
+    [
+        ("Oscar Fingal O’Flahertie Wills Wilde", "Oscar Wilde"),
+        ("John Milton Cage Jr", "John Cage"),
+        ("Marc Zakharovich Chagall", "Marc Chagall"),
+        ("The Birthday Party", None),
+        ("Joan of Arc", None),
+        ("Herman Melville", None),  # already two words
+        ("Rhapsody on a Theme of Paganini", None),
+    ],
+)
+def test_short_name(answer: str, short: str | None) -> None:
+    assert linking.short_name(answer) == short
+
+
+def test_a_shortened_name_needs_text_agreement() -> None:
+    from hortum_pipeline.linking import NAME_FORM_BONUS, Candidate, accept_link
+
+    settings = PipelineSettings(_env_file=None)  # type: ignore[call-arg]
+    wilde = Candidate("Oscar Wilde", "Q30875", "", 1, False, similarity=0.02, score=0.3)
+    wilde.direct_bonus, wilde.exact_title = NAME_FORM_BONUS, True
+    assert not accept_link(wilde, settings)
+    wilde.similarity = 0.18
+    assert accept_link(wilde, settings)

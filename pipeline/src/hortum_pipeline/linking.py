@@ -185,7 +185,34 @@ def title_lookups(display_name: str) -> list[tuple[str, float]]:
     bare = _ARTICLE.sub("", title)
     if bare != title and bare:
         lookups.append((bare, 0.30))
+    short = short_name(title)
+    if short:
+        lookups.append((short, NAME_FORM_BONUS))
     return lookups
+
+
+NAME_FORM_BONUS = 0.25  # "Oscar Wilde" for "Oscar Fingal O'Flahertie Wills Wilde"
+_NAME_WORD = re.compile(r"^[A-Z][\w'’.-]*$")
+_NAME_SUFFIX = {"Jr", "Jr.", "Sr", "Sr.", "II", "III", "IV"}
+_NOT_IN_NAMES = {"of", "the", "and", "in", "on", "for", "a", "an", "to", "with", "at"}
+
+
+def short_name(title: str) -> str | None:
+    """First and last name of a person-like full name, or None.
+
+    Answer lines give full legal names ("Marc Zakharovich Chagall", "John Milton Cage Jr")
+    that aren't Wikipedia titles; the short form usually redirects. Only names of three or
+    more capitalized words with no article or function word qualify, so titles ("The
+    Birthday Party") aren't cut down.
+    """
+    words = title.split()
+    while words and words[-1].rstrip(",") in _NAME_SUFFIX:
+        words = words[:-1]
+    if len(words) < 3 or any(w.lower() in _NOT_IN_NAMES for w in words):
+        return None
+    if not all(_NAME_WORD.match(w) for w in words):
+        return None
+    return f"{words[0]} {words[-1].rstrip(',')}"
 
 
 def parse_title_lookup(response: dict[str, Any]) -> dict[str, Candidate | None]:
@@ -310,6 +337,8 @@ def accept_link(best: Candidate, settings: PipelineSettings) -> bool:
         # "Doctor", "Bliss", "The Republic" are disambiguation pages: the name alone proves
         # nothing, so the page has to agree with the questions.
         needed = settings.link_min_similarity
+    elif best.direct_bonus == NAME_FORM_BONUS:
+        needed = settings.link_min_similarity  # a shortened name can land on a namesake
     elif best.direct_bonus:
         needed = 0.0  # the answer is literally this page's title or a redirect to it
     elif best.exact_title:
