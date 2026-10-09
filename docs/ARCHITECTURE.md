@@ -103,7 +103,7 @@ Everything here is free: Python, `selectolax` (HTML), `unidecode`, `inflect` (si
 - Load into `tossups` and `sets`.
 
 ### Stage 2: `parse-answers` → structured answer lines
-Parse the **HTML** answer (not the sanitized one) so underline and bold information is preserved. For each tossup, produce:
+Parse the **HTML** answer (not the sanitized one) so underline and bold information is preserved. Packet headers run into the answer line are dropped ("Tay-Sachs disease PACE NSC 2011 Edited by … Packet 16"). The cut starts only at a known tournament name followed by a year. Editor initials escaped in the source ("spiders &lt;RB/MJ&gt;") are dropped too. For each tossup, produce:
 
 ```json
 {
