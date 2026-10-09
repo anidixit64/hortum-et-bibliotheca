@@ -72,3 +72,12 @@ def test_self_reference_and_display_label() -> None:
         == "Chance for Peace"
     )
     assert score.display_label(stats(3, 0.2, ["Peace"]), vague) == "representative clue text here"
+
+
+def test_a_repeated_label_is_picked_once() -> None:
+    assert score.same_label("Snow Queen", "The Snow Queen")
+    assert score.same_label("Geiger and Marsden", "Ernest Marsden and Hans Geiger")
+    assert not score.same_label("Kai", "The Snow Queen")
+    v = {i: np.eye(3)[i] for i in range(3)}
+    labels = {0: "The Snow Queen", 1: "Snow Queen", 2: "Kai"}
+    assert score.pick([(0, 3.0), (1, 2.0), (2, 1.0)], v, Weights(), labels) == [0, 2]

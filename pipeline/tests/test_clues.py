@@ -106,3 +106,19 @@ def test_pronunciation_guides_are_not_key_terms() -> None:
     assert "oh-oh-cyte" not in key_terms('Bicoid is unequal in the oocytes ["oh-oh-cyte"] of it.')
     assert "STUR-tuh-vant" not in key_terms('Alfred Sturtevant ("STUR-tuh-vant") drew a map.')
     assert "Battle Royale" in key_terms('A "Battle Royale" scene occurs in it.')
+    assert key_terms("Fire maintains the fynbos (FAIN-boss) shrublands.") == []
+    assert key_terms("Fungi form Mycorrhizae [my-kuh-RYE-zee] with roots.") == ["Mycorrhizae"]
+    assert "Q-plus" not in key_terms("Tuning forks make qPlus [Q-plus] sensors.")
+
+
+def test_quoted_fragments_are_not_key_terms() -> None:
+    terms = key_terms('He wrote a book on gibbons "in China." It is called the "relations."')
+    assert "in China." not in terms and "in China" not in terms
+    assert "relations" in terms  # trailing punctuation dropped
+    assert key_terms('It says "and that" twice.') == []
+
+
+def test_editorial_insertions_stay_inside_quotations() -> None:
+    terms = key_terms('It argues that "one must imagine [Sisyphus] happy."')
+    assert "one must imagine Sisyphus happy" in terms
+    assert key_terms("Tuning forks make qPlus [Q-plus] sensors for [this technique].") == []

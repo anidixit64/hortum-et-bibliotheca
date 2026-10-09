@@ -2,7 +2,7 @@
  "seed": 20261008,
  "size": 30,
  "min_questions": 10,
- "judged_by": "Claude, by hand, 2026-10-08",
+ "judged_by": "Claude, by hand, 2026-10-08 (round 2, after branch fix/audit-clue-labels)",
  "rules": "clue_ok: a real, specific fact about the topic, correctly labeled, card text matching the label, not a repeat of a higher pick. related_ok: truly related and the right topic for the name. confusion_ok: a pair players plausibly mix up. page_ok: someone could study from the page without being misled.",
  "items": [
   {
@@ -22,8 +22,8 @@
      "text": "Measurements of three Fraunhofer lines are used to calculate a measure of this phenomenon called the Abbe (\"ABB-uh\") number."
     },
     {
-     "label": "relations.",
-     "n_sets": 8,
+     "label": "relations",
+     "n_sets": 9,
      "text": "The functions relating angular frequency and wavenumber are called this phenomenon's \"relations.\""
     },
     {
@@ -246,9 +246,9 @@
      "text": "The Van Wagner and Rothermel models may be used by FARSITE software to simulate \"spotting\" that occurs during these events."
     },
     {
-     "label": "FAIN-boss",
+     "label": "crown",
      "n_sets": 4,
-     "text": "The recurring presence of this phenomenon maintains the fynbos (FAIN-boss) shrublands."
+     "text": "The \"crown\" type of this phenomenon occurs when it spreads throughout the canopy."
     },
     {
      "label": "Bodrum",
@@ -275,7 +275,7 @@
     true,
     true,
     true,
-    false,
+    true,
     true
    ],
    "related_ok": [
@@ -285,7 +285,7 @@
    ],
    "confusion_ok": [],
    "page_ok": true,
-   "notes": "clue label 'FAIN-boss' is the pronunciation of fynbos"
+   "notes": ""
   },
   {
    "id": "Q9410",
@@ -309,7 +309,7 @@
      "text": "In Greek stories, Damarchus overcame this condition to become a champion boxer."
     },
     {
-     "label": "Bisclavret.",
+     "label": "Bisclavret",
      "n_sets": 4,
      "text": "One of these creatures titles Marie de France's lai \"Bisclavret.\""
     },
@@ -377,7 +377,7 @@
      "text": "One of these creatures assumed that his brother was slain fighting the demon Mayavi and takes over his brother's kingdom."
     },
     {
-     "label": "Harry Harlow",
+     "label": "pit of despair",
      "n_sets": 7,
      "text": "These animals were isolated in the \"pit of despair,\" which caused psychosis, and forced to choose between a \"wire mother\" and a \"cloth mother\" in controversial experiments conducted by Harry Harlow."
     },
@@ -387,7 +387,7 @@
      "text": "Two of these animals named Nala and Nila form a bridge to Lanka to help search for Sita, who had been kidnapped by rakshasas."
     },
     {
-     "label": "in China.",
+     "label": "Robert van Gulik",
      "n_sets": 3,
      "text": "Robert van Gulik discussed the Xuande Emperor's painting of three of these animals in a book titled for a type of these animals \"in China.\""
     }
@@ -399,7 +399,7 @@
     },
     {
      "name": "Harry Harlow",
-     "why": "An experiment tested whether these animals would prefer fake mothers made of cloth or wire, and was conducted by Harry Harlow's experiments."
+     "why": "These animals were also put on \"rape racks\" and in isolation chambers called \"pits of despair\" in a series of infamous experiments by Harry Harlow."
     },
     {
      "name": "Rama",
@@ -427,7 +427,7 @@
     true,
     true,
     true,
-    false
+    true
    ],
    "related_ok": [
     true,
@@ -440,7 +440,7 @@
     true
    ],
    "page_ok": true,
-   "notes": "clue label 'in China.' is a fragment of a book title"
+   "notes": ""
   },
   {
    "id": "Q179976",
@@ -605,7 +605,7 @@
      "text": "Madame de Pompadour commissioned portraits from Francois Boucher, an artist of this movement."
     },
     {
-     "label": "capable of everything-except the truth,",
+     "label": "capable of everything-except the truth",
      "n_sets": 7,
      "text": "An artist of this movement, derided by one contemporaneous critic as \"capable of everything-except the truth,\" created a portrait of a woman in a green dress adorned with pink roses and bows."
     },
@@ -755,7 +755,7 @@
      "text": "The differentiation of these structures is controlled by three classes of MADS-box (mads box) genes in the ABC model."
     },
     {
-     "label": "perfect.",
+     "label": "perfect",
      "n_sets": 15,
      "text": "Hermaphroditic, or perfect, examples of these structures contain both stamens and carpels."
     },
@@ -993,7 +993,7 @@
      "text": "A conflict caused by a forged letter leads to Mathias and Lodowick killing each other in a duel."
     },
     {
-     "label": "fornication,",
+     "label": "fornication",
      "n_sets": 6,
      "text": "After one character in this play admits to committing \"fornication,\" he states, \"but that was in another country; and besides, the wench is dead.\""
     },
@@ -1217,15 +1217,15 @@
      "text": "This poet wrote \"their buried bodies / Be an unlikely treasure hoard\" in an interpretive translation of the Old English poem \"The Seafarer.\""
     },
     {
-     "label": "Vorticism",
+     "label": "resuscitate the dead art of poetry",
      "n_sets": 5,
-     "text": "This man popularized his friend's poem \"Oread\" by claiming it was emblematic of Vorticism, a movement whose name he coined."
+     "text": "Bertrans de Born cries \"May God damn for ever all who cry 'Peace!'\" in another poem by this author, who wrote of a man who seeks to \"resuscitate the dead art of poetry\" in his Hugh Selwyn Mauberley."
     }
    ],
    "related": [
     {
      "name": "Hugh Selwyn Mauberley",
-     "why": "This \"translator\" of \"The River Merchant's Wife\" described the desire to \"resuscitate the dead art of poetry\" in \"Hugh Selwyn Mauberley.\""
+     "why": "Besides \"Hugh Selwyn Mauberley,\" this poet also wrote a fourteen wordpoem containing the line \"Petals on a wet, black bough.\""
     },
     {
      "name": "Li Bai",
@@ -1416,14 +1416,14 @@
      "text": "that poem asks whether \"all that we see or seem\" is but one of these entities within another."
     },
     {
-     "label": "Sigmund Freud",
+     "label": "wish fulfillment",
      "n_sets": 10,
      "text": "After studying one of these titled \"Irma's Injection\", the concepts of \"wish fulfillment\" and the \"royal road to the unconscious\" were developed by Sigmund Freud in his \"Interpretation of\" these events."
     },
     {
-     "label": "does it explode?",
+     "label": "does it explode",
      "n_sets": 9,
-     "text": "Potential answers to a question about one of these things include \"Does it stink like rotten meat?\" and \"does it explode?\""
+     "text": "The question \"does it explode\" ends a poem in which the speaker asks if one of these things stinks \"like rotten meat\" or dries up \"like a raisin in the sun.\""
     },
     {
      "label": "Sergei Pankejeff",
@@ -1484,19 +1484,14 @@
    "n_tossups": 23,
    "clues": [
     {
-     "label": "The Snow Queen",
-     "n_sets": 14,
-     "text": "This author of \"The Little Match Girl\" and \"The Snow Queen\" wrote about a character who trades her voice to a sea witch in exchange for legs."
-    },
-    {
      "label": "Kai",
-     "n_sets": 13,
-     "text": "Gerda saves Kai from the title character in his short story entitled \"The Snow Queen.\""
+     "n_sets": 16,
+     "text": "In another story by this author, the title character kidnaps Kai and forces him to spell letters from ice shards before he is saved by Gerda; that story inspired Disney'sFrozen."
     },
     {
      "label": "Snow Queen",
-     "n_sets": 7,
-     "text": "Another story by this author of Snow Queen features a protagonist who is bullied for his appearance until he grows into a beautiful swan."
+     "n_sets": 14,
+     "text": "This author of \"The Little Match Girl\" and \"The Snow Queen\" wrote about a character who trades her voice to a sea witch in exchange for legs."
     },
     {
      "label": "Karen",
@@ -1507,6 +1502,11 @@
      "label": "New Year's Eve",
      "n_sets": 4,
      "text": "Another of this author's characters sees visions of her grandmother while freezing to death on New Year's Eve."
+    },
+    {
+     "label": "Steadfast Tin Soldier",
+     "n_sets": 4,
+     "text": "This writer depicts a one-legged ballerina falling in love with the title character in \"The Steadfast Tin Soldier.\""
     }
    ],
    "related": [
@@ -1535,7 +1535,7 @@
    "clue_ok": [
     true,
     true,
-    false,
+    true,
     true,
     true
    ],
@@ -1548,7 +1548,7 @@
    ],
    "confusion_ok": [],
    "page_ok": true,
-   "notes": "clue 3 'Snow Queen' repeats clue 1 and its text is The Ugly Duckling; related: The Red Shoes links to the 1948 film"
+   "notes": "related: The Red Shoes links to the 1948 film"
   },
   {
    "id": "Q26833",
@@ -1567,14 +1567,14 @@
      "text": "In this play, Brabantio is told that his daughter is \"making the beast with two backs.\""
     },
     {
-     "label": "green-eyed monster.",
+     "label": "green-eyed monster",
      "n_sets": 10,
      "text": "The antagonist of this play warns its title character about that \"green-eyed monster\" of jealousy."
     },
     {
-     "label": "an idle and most false imposition",
+     "label": "I am not what I am",
      "n_sets": 8,
-     "text": "A character in this play calls reputation \"an idle and most false imposition\" and tells the audience that he's going to lie by saying \"I am not what I am.\""
+     "text": "A man in this play claims \"I am not what I am\" and notes \"who steals my purse steals trash, tis something, nothing, 'Twas mine, tis his.\""
     },
     {
      "label": "Montano",
@@ -1630,14 +1630,9 @@
    "n_tossups": 10,
    "clues": [
     {
-     "label": "acoustic",
-     "n_sets": 8,
-     "text": "A type of this technique has an \"acoustic\" variant in which the sample is placed on a piezoelectric transducer."
-    },
-    {
-     "label": "Q-plus",
-     "n_sets": 6,
-     "text": "Quartz tuning forks are used to make qPlus [Q-plus] sensors for that type of this technique, which runs a microcantilever [micro-KAN-tih-lever] over a surface."
+     "label": "transmission",
+     "n_sets": 7,
+     "text": "Samples are sputter-coated with gold in types of this technique named for \"scanning\" and \"transmission.\""
     },
     {
      "label": "Antonie van Leeuwenhoek",
@@ -1645,14 +1640,19 @@
      "text": "This technique was popularized by Antonie van Leeuwenhoek and Robert Hooke, who used it to discover the cell."
     },
     {
-     "label": "cryogenic.",
+     "label": "atomic force",
+     "n_sets": 5,
+     "text": "The subtle movement of a sharp cantilever is central to the \"atomic force\" type of this technique."
+    },
+    {
+     "label": "cryogenic",
      "n_sets": 5,
      "text": "The sample is vitrified [VIH-trih-fyde] using liquid ethane in a form of this technique termed \"cryogenic.\""
     },
     {
-     "label": "Scanning",
-     "n_sets": 5,
-     "text": "This technique comes in transmission and scanning types, both of which utilize a beam of high-speed electrons."
+     "label": "acoustic",
+     "n_sets": 4,
+     "text": "A type of this technique has an \"acoustic\" variant in which the sample is placed on a piezoelectric transducer."
     }
    ],
    "related": [
@@ -1675,7 +1675,7 @@
    ],
    "clue_ok": [
     true,
-    false,
+    true,
     true,
     true,
     true
@@ -1688,7 +1688,7 @@
     true
    ],
    "page_ok": true,
-   "notes": "clue label 'Q-plus' is a pronunciation guide"
+   "notes": ""
   },
   {
    "id": "Q216445",
@@ -1717,7 +1717,7 @@
      "text": "This character recites the line \"Tell whoso hath sorrow / Grief never shall last\" to her father, who responds by recalling an ass telling a bull not to work so hard."
     },
     {
-     "label": "Open sesame.",
+     "label": "Open sesame",
      "n_sets": 3,
      "text": "This character, who may have invented the cliffhanger, relates a story in which a group of bandits kill the grain merchant Cassim after his greed causes him to forget the phrase, \"open sesame.\""
     }
@@ -1794,9 +1794,9 @@
      "text": "After his death, Gobind Singh chose his final, eternal successor to be this thing, which begins with the Mul Mantar."
     },
     {
-     "label": "and that",
+     "label": "dust of the saints",
      "n_sets": 3,
-     "text": "the wind speaks through it\" and that \"the matter constituting the human body was recycled many times as rocks and mountains\" in a passage about how \"it took innumerable births to produced human body.\""
+     "text": "A recurring image in this text is the \"dust of the saints,\" which its speaker begs to become or to be blessed with."
     },
     {
      "label": "This text is fanned with a yak hair…",
@@ -1831,7 +1831,7 @@
     true,
     true,
     true,
-    false,
+    true,
     true
    ],
    "related_ok": [
@@ -1843,7 +1843,7 @@
    ],
    "confusion_ok": [],
    "page_ok": true,
-   "notes": "clue label 'and that' is a fragment"
+   "notes": ""
   },
   {
    "id": "Q1648751",
@@ -1857,9 +1857,9 @@
      "text": "A tube containing radium and bismuth-214 was a component of this experiment's setup, which is sometimes also named after Geiger and Marsden."
     },
     {
-     "label": "the co-secant of theta divided by two to the fourth power",
+     "label": "reciprocal of the fourth power of the sine of the half angle",
      "n_sets": 7,
-     "text": "The cross section for this process is proportional to \"the co-secant of theta divided by two to the fourth power\"."
+     "text": "The differential cross section of this process is proportional to the \"reciprocal of the fourth power of the sine of the half angle.\""
     },
     {
      "label": "Nondestructive thin film analysis using this process usually…",
@@ -1872,9 +1872,9 @@
      "text": "Mott scattering is the equivalent of this process in electrons."
     },
     {
-     "label": "Ernest Marsden and Hans Geiger",
+     "label": "Schrodinger's",
      "n_sets": 2,
-     "text": "Ernest Marsden and Hans Geiger discovered this phenomenon via an experiment in which roughly 1 of every 8000 particles fired was deflected at an angle greater than 90 degrees."
+     "text": "A device central to the setup of Schrodinger's cat was developed as a result of this experiment."
     }
    ],
    "related": [
@@ -1905,7 +1905,7 @@
     true,
     true,
     true,
-    false
+    true
    ],
    "related_ok": [
     true,
@@ -1916,7 +1916,7 @@
    ],
    "confusion_ok": [],
    "page_ok": true,
-   "notes": "clue 5 (Marsden and Geiger) repeats clue 1"
+   "notes": ""
   },
   {
    "id": "Q16875637",
@@ -1930,9 +1930,9 @@
      "text": "Over 300 concertos for this instrument were written by Johann Joachim Quantz (\"k'VONTS\"), who taught Frederick the Great to play it."
     },
     {
-     "label": "eighth, sixteenth, sixteenth",
-     "n_sets": 5,
-     "text": "The finale of a B-minor orchestral work opens with this instrument playing a melody in [read slowly] \"eighth, sixteenth, sixteenth\" rhythm, starting \"B, D, B\"; then \"F-sharp, B, F-sharp.\""
+     "label": "Georges Barrere",
+     "n_sets": 6,
+     "text": "Georges Barrere commissioned Edgar Varese's Density 21.5 for this instrument, and also premiered a chromatic line descending from C-sharp to G in one symphonic poem."
     },
     {
      "label": "Afternoon",
@@ -1940,9 +1940,9 @@
      "text": "The melody begins on this instrument in Bolero, and it also opens Debussy's Prelude to the Afternoon of a Faun."
     },
     {
-     "label": "Georges Barrere",
+     "label": "Largo",
      "n_sets": 4,
-     "text": "Georges Barrere commissioned Edgar Varese's Density 21.5 for this instrument, and also premiered a chromatic line descending from C-sharp to G in one symphonic poem."
+     "text": "This instrument follows the violin two bars later and a fourth higher in a canon that opens the \"Largo\" first movement of a trio sonata embedded within The Musical Offering."
     },
     {
      "label": "Domenico Cimarosa",
@@ -2020,7 +2020,7 @@
     },
     {
      "label": "quick",
-     "n_sets": 15,
+     "n_sets": 14,
      "text": "One task of this type uses a pivot and is called the \"quick\" type."
     },
     {
@@ -2034,7 +2034,7 @@
      "text": "Another way to perform this operation relies on gap sequences and was formulated by Donald Shell."
     },
     {
-     "label": "radix.",
+     "label": "radix",
      "n_sets": 4,
      "text": "A variation of this operation that can compare least significant digits is called the radix type, and another type of this process randomly places elements and checks if they are correct."
     }
@@ -2042,7 +2042,7 @@
    "related": [
     {
      "name": "Time complexity",
-     "why": "An algorithm that performs this task repeatedly picks a pivot value and has an average complexity of \"Big Oh of N log N.\""
+     "why": "Algorithms for this task that use comparisons have a best-case runtime of big-omega of n log n, although this is avoided by the counting kind of this type of algorithm."
     },
     {
      "name": "John von Neumann",
@@ -2087,9 +2087,9 @@
    "n_tossups": 19,
    "clues": [
     {
-     "label": "RYE-zee",
+     "label": "nodules",
      "n_sets": 13,
-     "text": "Mycorrhizae [my-kuh-RYE-zee] are symbiotic relationships between fungi and these plant organs, which can harbor nitrogen-fixing bacteria nodules."
+     "text": "Fungi form symbiotic relationships with these structures in mycorrhizae, and rhizobia, which fix nitrogen, form nodules on them."
     },
     {
      "label": "cap",
@@ -2143,7 +2143,7 @@
     }
    ],
    "clue_ok": [
-    false,
+    true,
     true,
     true,
     true,
@@ -2160,7 +2160,7 @@
     true
    ],
    "page_ok": false,
-   "notes": "Phase 1 grouping merged plant roots and polynomial roots into one topic; clue label 'RYE-zee' is a pronunciation guide"
+   "notes": "Phase 1 grouping merged plant roots and polynomial roots into one topic"
   },
   {
    "id": "Q2501468",
@@ -2169,7 +2169,7 @@
    "n_tossups": 13,
    "clues": [
     {
-     "label": "Now is the winter of our discontent.",
+     "label": "Now is the winter of our discontent",
      "n_sets": 9,
      "text": "The protagonist is \"determined to prove a villain\" in this play in a speech beginning \"Now is the winter of our discontent.\""
     },
@@ -2184,12 +2184,12 @@
      "text": "A series of ghosts tell this character to \"Despair and die!\" in one play."
     },
     {
-     "label": "Was ever woman in this humour won?",
+     "label": "Was ever woman in this humour won",
      "n_sets": 3,
      "text": "after succeeding in that scene, he crows, \"Was ever woman in this humour won?\""
     },
     {
-     "label": "A horse, a horse! My kingdom for a horse!",
+     "label": "my kingdom for a horse",
      "n_sets": 3,
      "text": "This man resolves, \"since I cannot prove a lover...I am determined to prove a villain\" and yells, \"My kingdom for a horse!\""
     }
@@ -2234,6 +2234,28 @@
    "confusion_ok": [],
    "page_ok": false,
    "notes": "Phase 1 linked the play's questions to the 1995 film"
+  }
+ ],
+ "rounds": [
+  {
+   "round": 1,
+   "judged": "2026-10-08",
+   "result": {
+    "clues": "142/150",
+    "related": "135/144",
+    "confusions": "8/8",
+    "pages": "27/30"
+   },
+   "clue_misses": [
+    "FAIN-boss (pronunciation)",
+    "Q-plus (pronunciation)",
+    "RYE-zee (pronunciation)",
+    "'in China.' (fragment)",
+    "'and that' (fragment)",
+    "Snow Queen repeated",
+    "Geiger and Marsden repeated",
+    "Asch experiment repeated"
+   ]
   }
  ]
 }

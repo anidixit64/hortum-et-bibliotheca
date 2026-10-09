@@ -33,6 +33,7 @@ from hortum_pipeline import db
 from hortum_pipeline.cluster import EmbeddingCache, text_key
 from hortum_pipeline.config import PipelineSettings
 from hortum_pipeline.progress import Reporter
+from hortum_pipeline.relate import STOPWORDS, tokenize
 
 SCHEMA = """
 DROP TABLE IF EXISTS cluster_scores;
@@ -170,15 +171,30 @@ def is_self_reference(terms: list[str], aliases: set[str]) -> bool:
     return bool(terms) and all(normalize(t) in aliases for t in terms[:3])
 
 
+def label_words(label: str) -> frozenset[str]:
+    return frozenset(t.key for t in tokenize(label.rstrip("…"))) - STOPWORDS
+
+
+def same_label(a: str, b: str) -> bool:
+    """One label within the other: "Snow Queen" / "The Snow Queen", "Geiger and Marsden" /
+    "Ernest Marsden and Hans Geiger". Clustering split one fact; pick it once."""
+    words_a, words_b = label_words(a), label_words(b)
+    return bool(words_a and words_b) and (words_a <= words_b or words_b <= words_a)
+
+
 def pick(
-    candidates: list[tuple[int, float]], vectors: dict[int, np.ndarray], weights: Weights
+    candidates: list[tuple[int, float]],
+    vectors: dict[int, np.ndarray],
+    weights: Weights,
+    labels: dict[int, str] | None = None,
 ) -> list[int]:
     """Maximal marginal relevance: high impact, but not near-duplicates of earlier picks.
 
     Redundancy is measured against the topic's own baseline: every clue about one novel
     resembles every other (same characters, same setting), so raw similarity would treat
     "Ras the Exhorter" as a duplicate of "Dr. Bledsoe" and skip the topic's most-asked clues.
-    Only pairs more alike than the topic's typical pair count as duplicates.
+    Only pairs more alike than the topic's typical pair count as duplicates. A candidate
+    whose label repeats an earlier pick's (see ``same_label``) is skipped outright.
     """
     if not candidates:
         return []
@@ -200,8 +216,10 @@ def pick(
             return weights.mmr_lambda * pool[cid] / top - (1 - weights.mmr_lambda) * redundancy
 
         best = max(pool, key=mmr)
-        chosen.append(best)
         del pool[best]
+        if labels and any(same_label(labels[best], labels[c]) for c in chosen):
+            continue
+        chosen.append(best)
     return chosen
 
 
@@ -287,7 +305,9 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
             reps = {s.cluster_id: s.representative for s, *_ in scored}
             matrix = cache.get([text_key(reps[cid]) for cid, _ in candidates])
             vectors = {cid: matrix[i] for i, (cid, _) in enumerate(candidates)}
-        ranks = {cid: r for r, cid in enumerate(pick(candidates, vectors, weights), start=1)}
+        labels = {stats.cluster_id: display_label(stats, topic_freq) for stats, *_ in scored}
+        picked = pick(candidates, vectors, weights, labels)
+        ranks = {cid: r for r, cid in enumerate(picked, start=1)}
         ranked_topics += bool(ranks)
         for stats, spec, value, eligible in scored:
             bands = Counter(difficulty_band(d) for d in stats.difficulties)
@@ -295,7 +315,7 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
                 (stats.cluster_id, topic_id, len(stats.sets), stats.median_position,
                  stats.share_in_power, stats.share_last_line, spec, value, int(eligible),
                  ranks.get(stats.cluster_id),
-                 display_label(stats, topic_freq),
+                 labels[stats.cluster_id],
                  json.dumps(position_hist(stats.positions)), json.dumps(dict(bands)),
                  min(stats.years, default=None), max(stats.years, default=None),
                  trend(stats.years, topic_years.get(topic_id, [])))

@@ -66,7 +66,7 @@ tracers:
         # The final page: its top clues, Ellison and the battle royal as related topics,
         # Wells's novel as a confusion, and this question among its 52.
         n_tossups: 52
-        clue_labels_include: [Ras the Exhorter, Dr. Bledsoe, Battle Royale]
+        clue_labels_include: [Ras the Exhorter, Dr. Bledsoe, [Battle Royale, Battle Royal]]
         related_includes: [Q299965, Q3241463]
         confusions_include: [Q1539509]
         has_question: true

@@ -985,7 +985,12 @@ def _tracer_mismatches(expect: dict[str, Any], actual: dict[str, Any]) -> list[s
             if absent:
                 problems.append(f"related topics lack {absent}")
         elif key == "clue_labels_include":
-            absent = [t for t in want if t not in actual["clue_labels"]]
+            # An entry may list spellings: [Battle Royale, Battle Royal].
+            absent = [
+                t
+                for t in want
+                if not set(t if isinstance(t, list) else [t]) & set(actual["clue_labels"])
+            ]
             if absent:
                 problems.append(f"clue labels lack {absent} (got {actual['clue_labels']})")
         elif key == "confusions_include":
