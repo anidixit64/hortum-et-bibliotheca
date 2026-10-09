@@ -36,20 +36,32 @@ uv run python pipeline/eval/audit_phase2.py sample   # reprint the pages
 uv run python pipeline/eval/audit_phase2.py score    # recompute the bounds below
 ```
 
-| Measure | Result | 95% lower bound |
-|---|---|---|
-| Top-5 clue correct (real, specific, labeled right, not a repeat) | 142 / 150 | 90.6% |
-| Top-5 related topic correct (related, and the right topic for the name) | 135 / 144 | 89.3% |
-| Confusion sensible | 8 / 8 | 68.8% |
-| Page usable as a whole | 27 / 30 | 76.1% |
+| Measure | Round 1 | Round 2 (after fixes) | 95% lower bound, round 2 |
+|---|---|---|---|
+| Top-5 clue correct (real, specific, labeled right, not a repeat) | 142 / 150 | 149 / 150 | 96.9% |
+| Top-5 related topic correct (related, and the right topic for the name) | 135 / 144 | 135 / 144 | 89.3% |
+| Confusion sensible | 8 / 8 | 8 / 8 | 68.8% |
+| Page usable as a whole | 27 / 30 | 27 / 30 | 76.1% |
 
-**Where the errors come from:**
-- **Clues (8 misses):**
-  - Four labels are pronunciation guides or fragments: "FAIN-boss", "Q-plus" and "RYE-zee" come from guides without quotation marks, and "in China." and "and that" are fragments.
-  - Three picks repeat a higher pick under another label: "Snow Queen" twice, Geiger and Marsden twice, the Asch experiment twice.
-- **Related topics (9 misses):** a name resolved to the wrong topic of that name. Examples: Porter's Laura links to Petrarch's, the Barabas of *The Jew of Malta* to the biblical Barabbas, and the poem "Harlem" to the neighborhood.
-- **Pages (3 failures):** two come from Phase 1. Plant and polynomial "roots" were merged into one topic, and *Richard III* questions were linked to the 1995 film. The third is *The Jew of Malta*, with four wrong related topics.
+**Round 1** found eight clue misses. Five labels were pronunciation guides or fragments: "FAIN-boss", "Q-plus" and "RYE-zee" (guides without quotation marks), and "in China." and "and that" (fragments). Three picks repeated a higher pick under another label: "Snow Queen", Geiger and Marsden, and the Asch experiment.
 
+**Branch `fix/audit-clue-labels` changed four things:**
+- Square-bracketed pronunciations and unquoted ones with a capitalized syllable are stripped.
+- Editorial insertions are kept inside quotations ("one must imagine [Sisyphus] happy").
+- Quoted fragments that start with a function word are dropped.
+- A pick whose label sits inside a higher pick's label, or contains it, is skipped.
+
+**Round 2**, on the same 30 pages, leaves one clue miss: the Asch repeat. Its labels, "informational" and "Solomon Asch", share no words.
+
+**Related topics are unchanged, and the 9 misses stay.** Each is a name pointing at the wrong topic of that name: Porter's Laura → Petrarch's, the Barabas of *The Jew of Malta* → the biblical Barabbas and a Hungarian village, the poem "Harlem" → the neighborhood.
+
+Two fixes were tried and measured, and neither helped:
+- **Gating weak names on clue similarity:** wrong links scored 0.54–0.80, inside the range of correct ones. The Barabbas topic's questions are themselves about Marlowe's Barabas, linked to the wrong article in Phase 1.
+- **Demoting one-word names mentioned far more widely than their topic is asked:** all 9 errors stayed in the top 5, and correct rare names (Vayu, Cithaeron) were demoted instead.
+
+These errors, and the two failing pages, come from Phase 1 topic identity: plant and polynomial "roots" are merged into one topic, and *Richard III* is linked to the 1995 film. They belong to a Phase 1 cleanup pass.
+
+## Stage checks
 
 `uv run hortum-pipeline verify` runs every stage's checks (they also run automatically
 after each stage; a failure stops the pipeline). See `hortum_pipeline/verify.py`.
