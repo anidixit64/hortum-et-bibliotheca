@@ -2,7 +2,7 @@
  "seed": 20261008,
  "size": 30,
  "min_questions": 10,
- "judged_by": "Claude, by hand, 2026-10-08 (round 2, after branch fix/audit-clue-labels)",
+ "judged_by": "Claude, by hand, 2026-10-09 (round 3, after the Phase 1 cleanup)",
  "rules": "clue_ok: a real, specific fact about the topic, correctly labeled, card text matching the label, not a repeat of a higher pick. related_ok: truly related and the right topic for the name. confusion_ok: a pair players plausibly mix up. page_ok: someone could study from the page without being misled.",
  "items": [
   {
@@ -201,8 +201,8 @@
      "why": "A story by this author reveals the soldier Adam's death after Miranda Gay recovers from the Spanish flu."
     },
     {
-     "name": "Laura",
-     "why": "In a story by this author, Braggioni is \"a symbol of [Laura's] many disillusions\" with the Mexican Revolution."
+     "name": "Mexico",
+     "why": "In another of her works, the title vessel sails from Mexico to Germany and allegorically represents the moral decay on the eve of Nazi Germany's rise."
     }
    ],
    "confusions": [],
@@ -218,11 +218,11 @@
     true,
     true,
     true,
-    false
+    true
    ],
    "confusion_ok": [],
    "page_ok": true,
-   "notes": "related: Laura (Flowering Judas) links to Petrarch's Laura"
+   "notes": ""
   },
   {
    "id": "Q169950",
@@ -519,7 +519,7 @@
    "id": "Q9711",
    "name": "Honoré de Balzac",
    "description": "French novelist and playwright (1799–1850)",
-   "n_tossups": 41,
+   "n_tossups": 42,
    "clues": [
     {
      "label": "Eugene de Rastignac",
@@ -533,7 +533,7 @@
     },
     {
      "label": "Wild Ass's Skin",
-     "n_sets": 6,
+     "n_sets": 7,
      "text": "He wrote a massive, interconnected series of novels which include The Wild Ass's Skin, Eugenie Grandet, and Pere Goriot."
     },
     {
@@ -557,12 +557,12 @@
      "why": "For 10 points, name this French realist who collected novels like Cousin Bette and Pere Goriot[\"pear\" \"gory\"-OH] as The Human Comedy."
     },
     {
-     "name": "Vautrin",
-     "why": "He wrote a novel set in the Maison Vauquer [voh-KAY], whose tenants include the criminal Vautrin [voh-TRAA]."
-    },
-    {
      "name": "Eugène de Rastignac",
      "why": "At the end of another novel by this man, two paid mourners and a servant are the only other people at the title vermicelli maker's funeral other than Eugene de Rastignac."
+    },
+    {
+     "name": "Vautrin",
+     "why": "He wrote a novel set in the Maison Vauquer [voh-KAY], whose tenants include the criminal Vautrin [voh-TRAA]."
     },
     {
      "name": "Cousin Bette",
@@ -1009,12 +1009,8 @@
      "why": "For 10 points, the villainous Barabas is the title character of what play written by Christopher Marlowe?"
     },
     {
-     "name": "Barabás",
+     "name": "Barabas",
      "why": "A series of vengeful acts, including the poisoning of Abigail, culminates with Barabas plunging into a cauldron."
-    },
-    {
-     "name": "Turkish",
-     "why": "This play ends after the governor Ferneze and the Turkish prince Calymath watch the title character die in his own trap."
     },
     {
      "name": "The Portrait of a Lady",
@@ -1023,6 +1019,10 @@
     {
      "name": "Barabbas",
      "why": "For 10 points, name this play about Barabbas, by Christopher Marlowe."
+    },
+    {
+     "name": "The Merchant of Venice",
+     "why": "For 10 points, name this work that may have inspired The Merchant of Venice, a play about the life of a Semite named Barabas by Christopher Marlowe."
     }
    ],
    "confusions": [],
@@ -1035,14 +1035,14 @@
    ],
    "related_ok": [
     true,
+    true,
     false,
     false,
-    false,
-    false
+    true
    ],
    "confusion_ok": [],
    "page_ok": false,
-   "notes": "related: Barabas -> a Hungarian village and the biblical Barabbas; 'Turkish' -> the language; Eliot's 'Portrait of a Lady' -> James's novel"
+   "notes": "related: Eliot's 'Portrait of a Lady' -> James's novel; an answer spelled 'Barabbas' that Phase 1 linked to the biblical figure"
   },
   {
    "id": "Q46388",
@@ -2084,7 +2084,7 @@
    "id": "local:root",
    "name": "roots",
    "description": null,
-   "n_tossups": 19,
+   "n_tossups": 13,
    "clues": [
     {
      "label": "nodules",
@@ -2107,34 +2107,24 @@
      "text": "These structures are penetrated by Hartig nets and secrete mucigel."
     },
     {
-     "label": "polishes",
-     "n_sets": 3,
-     "text": "Laguerre's method for finding these quantities is one of many algorithms that \"polishes\" them by repeatedly \"deflating\" a function."
+     "label": "aerial",
+     "n_sets": 5,
+     "text": "Epiphytes often have \"aerial\" examples of these organs, and certain mangroves have upward-growing examples called pneumatophores [noo-MAT-uh-forz]."
     }
    ],
    "related": [
     {
-     "name": "Abel–Ruffini theorem",
-     "why": "There is no general method for finding these quantities for expressions higher than the fourth degree according to the Abel-Ruffini theorem."
-    },
-    {
-     "name": "Descartes' rule of signs",
-     "why": "An upper bound on the number of these quantities can be found with Descartes' Rule of Signs."
-    },
-    {
      "name": "Meristem",
      "why": "These structures contain a quiescent center of low mitotic activity surrounded by an apical meristem that produces cells in two directions."
-    },
-    {
-     "name": "Fundamental theorem of algebra",
-     "why": "Accounting for multiplicity, a function has as many of these things over the complex numbers as its degree, a result of the fundamental theorem of algebra."
-    },
-    {
-     "name": "Newton's method",
-     "why": "These quantities, which can be found using the Newton-Raphson method, are defined as inputs to a function such that it outputs zero."
     }
    ],
    "confusions": [
+    {
+     "name": "roots",
+     "reasons": [
+      "same_name"
+     ]
+    },
     {
      "name": "Roots",
      "reasons": [
@@ -2150,32 +2140,29 @@
     true
    ],
    "related_ok": [
-    true,
-    true,
-    true,
-    true,
     true
    ],
    "confusion_ok": [
+    true,
     true
    ],
-   "page_ok": false,
-   "notes": "Phase 1 grouping merged plant roots and polynomial roots into one topic"
+   "page_ok": true,
+   "notes": ""
   },
   {
-   "id": "Q2501468",
-   "name": "Richard III (1995 film)",
-   "description": "1995 film by Richard Loncraine",
-   "n_tossups": 13,
+   "id": "Q652011",
+   "name": "Richard III (play)",
+   "description": "Shakespearean history play",
+   "n_tossups": 14,
    "clues": [
     {
-     "label": "Now is the winter of our discontent",
+     "label": "York",
      "n_sets": 9,
-     "text": "The protagonist is \"determined to prove a villain\" in this play in a speech beginning \"Now is the winter of our discontent.\""
+     "text": "The title character of this play opens it by claiming, \"Now is the winter of our discontent / made glorious summer by this son of York.\""
     },
     {
      "label": "Clarence",
-     "n_sets": 8,
+     "n_sets": 9,
      "text": "During a battle in one play, this man is tormented by the ghosts of people he murdered like his brother Clarence and the two young princes."
     },
     {
@@ -2196,10 +2183,6 @@
    ],
    "related": [
     {
-     "name": "Richard III (play)",
-     "why": "I am determined to prove a villain\" in a speech that opens, \"Now is the winter of our discontent.\""
-    },
-    {
      "name": "Battle of Bosworth Field",
      "why": "For 10 points, name this William Shakespeare play about the title hunchbacked king who dies at the Battle of Bosworth Field, thus ending the Wars of the Roses."
     },
@@ -2214,6 +2197,10 @@
     {
      "name": "William Shakespeare",
      "why": "For 10 points, name this William Shakespeare play about the title hunchbacked king who dies at the Battle of Bosworth Field, thus ending the Wars of the Roses."
+    },
+    {
+     "name": "Duke",
+     "why": "This character decides, \"I am determined to prove a villain\" in resolving to imprison the Duke of Clarence in a speech that describes a \"glorious summer\" and opens \"now is the winter of our discontent.\""
     }
    ],
    "confusions": [],
@@ -2229,11 +2216,11 @@
     true,
     true,
     true,
-    true
+    false
    ],
    "confusion_ok": [],
-   "page_ok": false,
-   "notes": "Phase 1 linked the play's questions to the 1995 film"
+   "page_ok": true,
+   "notes": "Phase 1 cleanup moved the play's questions from the 1995 film to Richard III (play); related 'Duke' is wrong"
   }
  ],
  "rounds": [
@@ -2256,6 +2243,16 @@
     "Geiger and Marsden repeated",
     "Asch experiment repeated"
    ]
+  },
+  {
+   "round": 2,
+   "judged": "2026-10-08",
+   "result": {
+    "clues": "149/150",
+    "related": "135/144",
+    "confusions": "8/8",
+    "pages": "27/30"
+   }
   }
  ]
 }

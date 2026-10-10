@@ -19,6 +19,12 @@ Japanese film. If several owners share the category, the one whose own name it i
 ("Calvin cycle", which photosynthesis also accepts). If none does, the topic whose
 Wikipedia title it is wins; if it's still unclear, the name is skipped.
 
+A link made only by an unlinked (local) topic's one-word name needs mutual mention: the
+local topic's own questions must name this topic too. Such topics are often a handful of
+questions answered "Laura", "Paul" or "Scottish"; a judged sample of 25 links through
+them found 7 right. With mutual mention, "the Brotherhood" in Invisible Man stays and
+Raymond Carver -> Petrarch's Laura goes.
+
 A shared one-word name is riskier: the owner in the question's category gets it only if
 it's that topic's own name ("the Brotherhood" in *Invisible Man*), not a side alias
 ("Columbia" claimed by the space shuttle in a biology question); otherwise only an
@@ -67,6 +73,7 @@ from dataclasses import dataclass
 
 from unidecode import unidecode
 
+from hortum_common.text import normalize
 from hortum_pipeline import db
 from hortum_pipeline.config import PipelineSettings
 from hortum_pipeline.progress import Reporter
@@ -325,6 +332,48 @@ def score_edges(
     return out
 
 
+def is_mutual_enough(
+    a: str, b: str, fwd: int, rev: int, firm: set[tuple[str, str]], named_back: bool = False
+) -> bool:
+    """A link made only by a local topic's one-word name needs the other direction too.
+
+    Unlinked topics are often a few questions answered "Julia", "Clara" or "Scottish", so a
+    "Julia" in 1984 questions is usually some other Julia (Herrick's). Judged samples:
+    one-way links through such names were right 2 times in 16, mutual ones 8 in 9. Mutual
+    means the local topic's questions name this topic back, resolved (Barabas in The Jew
+    of Malta) or not: "Invisible Man" is ambiguous between Ellison and Wells, but the
+    Brotherhood's question still says it (``named_back``).
+    """
+    named_firmly = (a, b) in firm or (b, a) in firm
+    return named_firmly or (fwd > 0 and rev > 0) or named_back
+
+
+def names_in_questions(
+    conn: sqlite3.Connection, pairs: set[tuple[str, str]]
+) -> set[tuple[str, str]]:
+    """Pairs (a, b) where a's own name (title or main answer) appears in b's questions,
+    whether or not the name could be resolved there: b names a back."""
+    topics_needed = {t for pair in pairs for t in pair}
+    own: dict[str, set[str]] = defaultdict(set)
+    for topic_id, alias_search in conn.execute(
+        "SELECT topic_id, alias_search FROM topic_aliases WHERE source IN ('title', 'main')"
+    ):
+        if topic_id in topics_needed and len(alias_search) >= 4:
+            own[topic_id].add(alias_search)
+    texts: dict[str, list[str]] = defaultdict(list)
+    for topic_id, text in conn.execute(
+        "SELECT tt.topic_id, t.question_text FROM tossup_topics tt "
+        "JOIN tossups t ON t.id = tt.tossup_id"
+    ):
+        if topic_id in topics_needed:
+            texts[topic_id].append(f" {normalize(text)} ")
+
+    def says(x: str, y: str) -> bool:  # x's questions contain one of y's names
+        return any(f" {name} " in text for text in texts[x] for name in own[y])
+
+    return {(a, b) for a, b in pairs if says(b, a)}
+
+
 def is_strong_hub_link(questions_naming: int, topic_questions: int) -> bool:
     """A hub topic ("France") is related only if it's in 3+ and a quarter of the questions."""
     return questions_naming >= 3 and questions_naming >= 0.25 * topic_questions
@@ -378,6 +427,7 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
     reporter.stat("Generic phrases dropped", ", ".join(sorted(generic)[:8]) or "none")
 
     forward: dict[tuple[str, str], set[str]] = defaultdict(set)
+    firm: set[tuple[str, str]] = set()
     # Best example per pair: real clues first, then the most commonly asked, then earliest.
     example: dict[tuple[str, str], tuple[tuple[bool, int, int], int]] = {}
     mentions = []
@@ -386,6 +436,8 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
             continue
         pair = (topic_id, other)
         forward[pair].add(tossup_id)
+        if " " in alias or not other.startswith("local:"):
+            firm.add(pair)  # named by more than a local topic's one-word name
         mentions.append((clue_id, topic_id, other, alias, start, end))
         rank_key = (kind != "clue", -n_sets, clue_id)
         if pair not in example or rank_key < example[pair][0]:
@@ -397,12 +449,16 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
     n_topics = conn.execute("SELECT COUNT(DISTINCT topic_id) FROM clues").fetchone()[0]
     edges = score_edges(forward, max(n_topics, 2), settings.relate_reverse_weight)
     reach = Counter(b for _, b in forward)
+    weak = {pair for pair in edges if pair not in firm and (pair[1], pair[0]) not in firm}
+    named_back = names_in_questions(conn, weak)
     by_topic: dict[str, list[tuple[float, str, int, int]]] = defaultdict(list)
     for (a, b), (value, fwd, rev) in edges.items():
         need = settings.relate_min_questions if sizes.get(a, 0) >= 6 else 1
         if fwd + rev < need:
             continue
         if reach[b] > settings.relate_hub_topics and not is_strong_hub_link(fwd, sizes.get(a, 0)):
+            continue
+        if not is_mutual_enough(a, b, fwd, rev, firm, (a, b) in named_back):
             continue
         by_topic[a].append((value, b, fwd, rev))
     rows = []

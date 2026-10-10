@@ -130,3 +130,35 @@ def test_hub_topics_must_earn_their_place() -> None:
     assert not relate.is_strong_hub_link(2, 5)  # "American" in two questions of a novel
     assert not relate.is_strong_hub_link(5, 100)
     assert relate.is_strong_hub_link(30, 100)  # France in Napoleon's questions
+
+
+def test_a_local_one_word_link_needs_mutual_mention() -> None:
+    firm: set[tuple[str, str]] = set()
+    assert not relate.is_mutual_enough("1984", "local:julia", 20, 0, firm)
+    assert relate.is_mutual_enough("jew of malta", "local:barabas", 1, 1, firm)
+    assert relate.is_mutual_enough("invisible man", "local:brotherhood", 31, 0, firm, True)
+    firm.add(("dumas", "local:the-three-musketeers-sequel"))
+    assert relate.is_mutual_enough("dumas", "local:the-three-musketeers-sequel", 1, 0, firm)
+
+
+def test_named_back_looks_only_in_the_other_topics_questions(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    import sqlite3
+
+    conn = sqlite3.connect(tmp_path / "c.db")
+    conn.executescript(
+        """
+        CREATE TABLE topic_aliases (topic_id TEXT, alias_search TEXT, source TEXT);
+        CREATE TABLE tossup_topics (tossup_id TEXT, topic_id TEXT);
+        CREATE TABLE tossups (id TEXT, question_text TEXT);
+        INSERT INTO topic_aliases VALUES ('man', 'invisible man', 'title'),
+            ('local:brotherhood', 'brotherhood', 'main'), ('calder', 'alexander calder', 'title'),
+            ('local:american', 'american', 'main');
+        INSERT INTO tossup_topics VALUES ('q1', 'man'), ('q2', 'local:brotherhood'),
+            ('q3', 'calder'), ('q4', 'local:american');
+        INSERT INTO tossups VALUES
+            ('q1', 'He joins the Brotherhood.'), ('q2', 'This group in Invisible Man...'),
+            ('q3', 'This American sculptor made mobiles.'), ('q4', 'Name this nationality.');
+        """
+    )
+    pairs = {("man", "local:brotherhood"), ("calder", "local:american")}
+    assert relate.names_in_questions(conn, pairs) == {("man", "local:brotherhood")}

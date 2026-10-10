@@ -317,3 +317,145 @@ def test_slugs_are_unique_and_the_most_asked_topic_keeps_the_plain_one() -> None
         "Q1539509": "the-invisible-man",
         "local:invisible-man": "invisible-man-invisible-man",
     }
+
+
+@pytest.mark.parametrize(
+    ("extract", "kind"),
+    [
+        ("Barabás is a village in Szabolcs-Szatmár-Bereg county, Hungary.", "settlement"),
+        ("Some Like It Hot is a 1959 American crime comedy film.", "film"),
+        ("Wynton or Winton is a masculine given name. Notable people with the name", "name"),
+        ("Thriller is the sixth studio album by Michael Jackson.", "recording"),
+        ("David Mamet is an American playwright, filmmaker and author.", None),
+        ("Steven Spielberg is an American film director.", None),
+        ("Winterreise is a song cycle for voice and piano.", None),
+        ("The Battle of Poitiers was a major English victory.", None),
+        ("The Battle of Kursk was a major battle near Kursk. It was the largest single", None),
+        ("An elegy is a poem or song of serious reflection.", None),
+        ("Tralfamadore is the name of a fictional planet in Vonnegut's novels.", None),
+        ("Duck is the common name for numerous species of waterfowl.", None),
+        ("Austria is a landlocked country. Vienna is the most populous city.", None),
+        ("Molloy or O'Molloy is an Irish surname, anglicised from Ó Maolmhuaidh.", "name"),
+        ("Seville is the capital and largest city of Andalusia.", "settlement"),
+        ("Monaco is a sovereign city-state and microstate on the French Riviera.", None),
+    ],
+)
+def test_article_kind(extract: str, kind: str | None) -> None:
+    assert linking.article_kind(extract) == kind
+
+
+def test_wrong_kind_of_page_needs_text_agreement_even_on_an_exact_title() -> None:
+    from sklearn.feature_extraction.text import TfidfVectorizer
+
+    from hortum_pipeline.linking import Candidate, accept_link, score_candidates
+
+    settings = PipelineSettings(_env_file=None)  # type: ignore[call-arg]
+    questions = "Barabas poisons his daughter Abigail in this Marlowe play about Malta."
+    vectorizer = TfidfVectorizer(stop_words="english").fit([questions, "a village in Hungary"])
+    village = Candidate("Barabás", "Q524336", "Barabás is a village in Hungary.", 1, False)
+    village.direct_bonus = 0.35
+    group = vectorizer.transform([questions])
+    asked = "for 10 points, name this jew of malta title character"
+    [scored] = score_candidates(group, [village], {"barabas"}, vectorizer, giveaways=asked)
+    assert scored.kind_mismatch and not accept_link(scored, settings)
+    # Asked for a place, the same page is fine.
+    [scored] = score_candidates(
+        group, [village], {"barabas"}, vectorizer, giveaways="name this hungarian village"
+    )
+    assert not scored.kind_mismatch and accept_link(scored, settings)
+
+
+def test_a_demotion_moves_a_link_only_to_a_page_titled_for_the_answer() -> None:
+    from sklearn.feature_extraction.text import TfidfVectorizer
+
+    from hortum_pipeline.linking import Candidate, score_candidates
+
+    vectorizer = TfidfVectorizer(stop_words="english").fit(
+        ["composers michael singer pop thriller nyman tippett", "masculine given name"]
+    )
+    group = vectorizer.transform(["composers nyman tippett michael singer"])
+
+    def candidates() -> list[Candidate]:
+        name_page = Candidate("Michael", "Q1", "Michael is a masculine given name.", 1, False)
+        name_page.direct_bonus = 0.35
+        singer = Candidate(
+            "Michael Jackson", "Q2", "Michael Jackson was an American singer.", 2, False
+        )
+        return [name_page, singer]
+
+    # The singer only partly matches "Michael": the original order stands.
+    ranked = score_candidates(
+        group, candidates(), {"michael"}, vectorizer, giveaways="what composer"
+    )
+    assert ranked[0].title == "Michael" and not ranked[0].promoted
+    # Titled for the answer, the same page takes over.
+    ranked = score_candidates(
+        group, candidates(), {"michael", "michael jackson"}, vectorizer, giveaways="what composer"
+    )
+    assert ranked[0].title == "Michael Jackson"
+
+
+def test_same_answer_unlinked_groups_merge_only_when_alike() -> None:
+    from hortum_pipeline.topics import homonym_sets
+
+    # plant roots (1, 2) vs polynomial roots (3)
+    alike = {frozenset({1, 2}): 0.4, frozenset({1, 3}): 0.02, frozenset({2, 3}): 0.03}
+    sets = homonym_sets([1, 2, 3], lambda a, b: alike[frozenset({a, b})], 0.25)
+    assert sets == [[1, 2], [3]]
+    # sets chain through a shared member
+    chain = {frozenset({1, 2}): 0.3, frozenset({1, 3}): 0.0, frozenset({2, 3}): 0.3}
+    assert homonym_sets([1, 2, 3], lambda a, b: chain[frozenset({a, b})], 0.25) == [[1, 2, 3]]
+
+
+@pytest.mark.parametrize(
+    ("answer", "short"),
+    [
+        ("Oscar Fingal O’Flahertie Wills Wilde", "Oscar Wilde"),
+        ("John Milton Cage Jr", "John Cage"),
+        ("Marc Zakharovich Chagall", "Marc Chagall"),
+        ("The Birthday Party", None),
+        ("Joan of Arc", None),
+        ("Herman Melville", None),  # already two words
+        ("Rhapsody on a Theme of Paganini", None),
+        ("General Benedict Arnold", "Benedict Arnold"),
+        ("Maria Theresa I", "Maria Theresa"),
+        ("Kellen Boswell Winslow II", "Kellen Winslow II"),
+        ("Emperor Tiberius Julius Caesar Augustus", None),
+        ("Mr. Fred McFeely Rogers", "Fred Rogers"),
+        ("Madame Ngo Dihn Nhu", "Madame Nhu"),
+    ],
+)
+def test_short_name(answer: str, short: str | None) -> None:
+    assert linking.short_name(answer) == short
+
+
+def test_a_shortened_name_needs_text_agreement() -> None:
+    from hortum_pipeline.linking import NAME_FORM_BONUS, Candidate, accept_link
+
+    settings = PipelineSettings(_env_file=None)  # type: ignore[call-arg]
+    wilde = Candidate("Oscar Wilde", "Q30875", "", 1, False, similarity=0.02, score=0.3)
+    wilde.direct_bonus, wilde.exact_title = NAME_FORM_BONUS, True
+    assert not accept_link(wilde, settings)
+    wilde.similarity = 0.18
+    assert accept_link(wilde, settings)
+
+
+def test_reads_like_biography() -> None:
+    assert linking.reads_like_biography("Oscar Wilde (16 October 1854 – 30 November 1900) was")
+    assert linking.reads_like_biography("Augustus (born Gaius Octavius; 23 September 63 BC –")
+    assert not linking.reads_like_biography("In number theory, a perfect number is a positive")
+
+
+def test_a_rejected_short_name_keeps_the_pages_ordinary_score() -> None:
+    from sklearn.feature_extraction.text import TfidfVectorizer
+
+    from hortum_pipeline.linking import NAME_FORM_BONUS, Candidate, score_candidates
+
+    vectorizer = TfidfVectorizer(stop_words="english").fit(["revolutionary traitor west point"])
+    group = vectorizer.transform(["revolutionary traitor"])
+    # Found by search and by the short form "Benedict Arnold", but too little text in common
+    # for the short-form bonus: it still earns the partial-title bonus a search hit would.
+    arnold = Candidate("Benedict Arnold", "Q1", "Benedict Arnold was a general.", 1, False)
+    arnold.direct_bonus = NAME_FORM_BONUS
+    [scored] = score_candidates(group, [arnold], {"general benedict arnold"}, vectorizer)
+    assert scored.direct_bonus == 0.0 and scored.score >= 0.12

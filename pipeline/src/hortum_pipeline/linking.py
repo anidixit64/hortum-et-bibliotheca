@@ -24,6 +24,7 @@ from sklearn.preprocessing import normalize as l2_normalize
 
 from hortum_common.text import normalize
 from hortum_pipeline import db, topics
+from hortum_pipeline.clues import split_question
 from hortum_pipeline.config import PipelineSettings
 from hortum_pipeline.progress import Reporter
 from hortum_pipeline.wiki import (
@@ -67,6 +68,77 @@ class Candidate:
     from_hint: bool = False  # found only by the second, category-hinted search
     direct_bonus: float = 0.0  # set when the answer itself is this page's title or redirect
     ambiguous: bool = False  # the answer's own title is a disambiguation page
+    kind_mismatch: bool = False  # a film, village, name page or record the questions don't ask for
+    promoted: bool = False  # ranks first only because a wrong-kind page above it was demoted
+
+
+# What an article is, from its first sentence, for the kinds that most often get linked by
+# mistake: an exact title wins even when the questions ask for something else. "Barabas"
+# (Marlowe's Jew of Malta) is a title redirect to Barabás, a village in Hungary; "Wynton" is
+# a given-name page; "Richard III" questions about the play matched the 1995 film; battles
+# matched the towns they're named for (Poitiers, Chaeronea).
+# The kind noun must head the first clause, "X is a [adjectives] NOUN": no "of", "or" or
+# "between" before it, or "a poem or song", "a battle between ... the largest single ..."
+# and "the name of a fictional planet" would all count.
+_FILLER = (
+    r"(?:(?!(?:of|or|in|between|about|for|that|which|who|by|from|with|to|on|at|near|"
+    r"during|where|whose)\b)[\w'’-]+ ){0,%d}?"
+)
+_ARTICLE_KINDS = {
+    "film": re.compile(
+        r"\b(?:is|was) (?:an?|the) " + _FILLER % 6 + r"(?:film|movie)\b"
+        r"(?! (?:director|producer|critic|actor|actress|composer|editor|studio|festival|"
+        r"score|series))"
+    ),
+    "settlement": re.compile(
+        r"\b(?:is|was) (?:an?|the) " + _FILLER % 5 + r"(?:village|town|commune|municipality|"
+        r"hamlet|civil parish|township|census-designated place|city)\b(?!-)"
+    ),
+    "name": re.compile(
+        r"\b(?:is|was) (?:an?|the) " + _FILLER % 3 + r"(?:given name|surname|family name|"
+        r"first name|forename)\b|\bpeople with the (?:sur)?name\b"
+    ),
+    "recording": re.compile(
+        r"\b(?:is|was) (?:an?|the) " + _FILLER % 6 + r"(?:studio album|album|single|song|EP)\b"
+        r"(?! cycle)"
+    ),
+}
+# Words in a giveaway that ask for that kind of thing: "name this John Schlesinger film",
+# "this Spanish city", "give this surname", "give this name, shared by...".
+_ASKS_FOR = {
+    "film": re.compile(
+        r"\b(?:films?|movies?|cinema|directed|director|starring|stars?|starred|screenplay|"
+        r"adaptation|animated|remake|live-action|documentary|documentaries)\b"
+    ),
+    "settlement": re.compile(
+        r"\b(?:city|cities|towns?|villages?|capital|commune|municipality|settlement|port|"
+        r"metropolis|place|site|location|suburb|borough|hamlet|townsite)\b"
+    ),
+    "name": re.compile(
+        r"\b(?:surnames?|last names?|first names?|given names?|family names?|forenames?|"
+        r"famil(?:y|ies)|(?:this|what|these|which) names?|names? shared|shared names?|"
+        r"(?:female|male|girl'?s|boy'?s|common|pet|nick) ?names?)\b"
+    ),
+    "recording": re.compile(
+        r"\b(?:albums?|songs?|singles?|records?|tracks?|hits?|ballads?|releases?|tunes?|"
+        r"anthems?|singers?|bands?|hymns?|chants?|canticles?|theme|lp|ep)\b"
+    ),
+}
+KIND_PENALTY = 0.2
+_SENTENCE_END = re.compile(r"(?<=[a-z0-9)\]\"”])\.\s")
+
+
+def article_kind(extract: str) -> str | None:
+    """The kind of thing an article is about, judged from its first sentence."""
+    first = _SENTENCE_END.split(extract.split("\n", 1)[0], maxsplit=1)[0][:300]
+    for kind, pattern in _ARTICLE_KINDS.items():
+        if pattern.search(first):
+            return kind
+    return None
+
+
+def asks_for(kind: str, giveaways: str) -> bool:
+    return bool(_ASKS_FOR[kind].search(giveaways))
 
 
 def search_query(display_name: str, hint: str = "") -> str:
@@ -113,7 +185,81 @@ def title_lookups(display_name: str) -> list[tuple[str, float]]:
     bare = _ARTICLE.sub("", title)
     if bare != title and bare:
         lookups.append((bare, 0.30))
+    short = short_name(title)
+    if short:
+        lookups.append((short, NAME_FORM_BONUS))
     return lookups
+
+
+NAME_FORM_BONUS = 0.25  # "Oscar Wilde" for "Oscar Fingal O'Flahertie Wills Wilde"
+_NAME_WORD = re.compile(r"^[A-Z][\w'’.-]*$")
+_DROPPED_SUFFIX = {"Jr", "Jr.", "Sr", "Sr."}  # Wikipedia titles usually omit these
+_KEPT_SUFFIX = {"II", "III", "IV"}  # "Kellen Winslow II" is not his father
+_REGNAL_NUMERAL = re.compile(r"^(?:I|V|X)+$")  # "Maria Theresa I", "Cleomenes I"
+_HONORIFICS = {
+    "General",
+    "King",
+    "Queen",
+    "Emperor",
+    "Empress",
+    "Prince",
+    "Princess",
+    "Mr",
+    "Mr.",
+    "Mrs",
+    "Mrs.",
+    "Sir",
+    "Doctor",
+    "Dr.",
+    "President",
+    "Ayatollah",
+    "Pope",
+    "Tsar",
+    "Czar",
+    "Sultan",
+}  # fmt: skip  "Madame Nhu", "Lady Macbeth", "Saint Paul" are names as asked
+_ROMAN_REGNAL = {"Caesar", "Augustus", "Germanicus"}  # "Tiberius Julius Caesar Augustus"
+_NOT_IN_NAMES = {"of", "the", "and", "in", "on", "for", "a", "an", "to", "with", "at"}
+
+
+def short_name(title: str) -> str | None:
+    """A shorter form of a person-like full name, or None.
+
+    Answer lines give full legal names ("Marc Zakharovich Chagall", "John Milton Cage Jr",
+    "General Benedict Arnold") that aren't Wikipedia titles; the short form usually
+    redirects. Honorifics, "Jr" and regnal numerals go; "II" stays ("Kellen Winslow II");
+    three or more names become first + last. Only names made entirely of capitalized words
+    with no article or function word qualify, so titles ("The Birthday Party") aren't cut,
+    and Roman regnal names ("Tiberius Julius Caesar Augustus") are left alone.
+    """
+    words = title.split()
+    if any(w.lower() in _NOT_IN_NAMES for w in words) or not all(
+        _NAME_WORD.match(w) for w in words
+    ):
+        return None
+    if _ROMAN_REGNAL & set(words):
+        return None
+    kept = ""
+    while words and (words[-1] in _DROPPED_SUFFIX or words[-1] in _KEPT_SUFFIX
+                     or (len(words) > 2 and _REGNAL_NUMERAL.match(words[-1]))):  # fmt: skip
+        if words[-1] in _KEPT_SUFFIX and not kept:
+            kept = words[-1]
+        words = words[:-1]
+    while words and words[0] in _HONORIFICS:
+        words = words[1:]
+    if len(words) < 2:
+        return None
+    short = [words[0], words[-1]] + ([kept] if kept else [])
+    result = " ".join(short)
+    return result if result != title else None
+
+
+_BIOGRAPHY = re.compile(r"\((?:[^()]*\b(?:born|c\.|died)\b|[^()]*\d{3,4}\s*(?:BC\s*)?[–-])")
+
+
+def reads_like_biography(extract: str) -> bool:
+    """Birth and death dates in the first sentence: "(16 October 1854 – 30 November 1900)"."""
+    return bool(_BIOGRAPHY.search(extract.split("\n", 1)[0][:300]))
 
 
 def parse_title_lookup(response: dict[str, Any]) -> dict[str, Candidate | None]:
@@ -164,11 +310,14 @@ def score_candidates(
     names: set[str],
     vectorizer: TfidfVectorizer,
     alternates: frozenset[str] = frozenset(),
+    giveaways: str | None = None,
 ) -> list[Candidate]:
     """Scores usable hits in place and returns them best first.
 
     ``names`` are the group's main answers; ``alternates`` its accepted forms, which earn a
     smaller bonus because answer lines often accept narrower things ("the rabbit in the moon").
+    ``giveaways`` is the lowercased text of the questions' giveaways: a film, village, name
+    page or record they never ask for loses ``KIND_PENALTY`` (see ``article_kind``).
     """
     usable = [c for c in candidates if c.qid and not c.disambiguation]
     if not usable:
@@ -177,6 +326,12 @@ def score_candidates(
     sims = (vectors @ group_vector.T).toarray().ravel()
     for cand, sim in zip(usable, sims, strict=True):
         title = normalize(_PAREN.sub("", cand.title), singularize=True)
+        if cand.direct_bonus == NAME_FORM_BONUS and not (
+            reads_like_biography(cand.extract) and sim >= SHORT_NAME_MIN_SIMILARITY
+        ):
+            # A shortened name that lands on a non-person ("Perfect number") or a namesake
+            # earns nothing for it: the page is scored as any search hit would be.
+            cand.direct_bonus = 0.0
         cand.exact_title = title in names or cand.direct_bonus > 0
         if cand.direct_bonus:
             bonus = cand.direct_bonus
@@ -189,8 +344,35 @@ def score_candidates(
             bonus = 0.0
         cand.similarity = float(sim)
         penalty = 0.05 if cand.from_hint else 0.0
+        kind = article_kind(cand.extract) if giveaways is not None else None
+        cand.kind_mismatch = kind is not None and not asks_for(kind, giveaways or "")
+        if cand.kind_mismatch:
+            penalty += KIND_PENALTY
+        cand.promoted = False
         cand.score = float(sim) + bonus - penalty + 0.01 * max(0, 5 - cand.rank)
-    return sorted(usable, key=lambda c: -c.score)
+    ranked = sorted(usable, key=lambda c: -c.score)
+    unpenalized = max(usable, key=lambda c: c.score + KIND_PENALTY * c.kind_mismatch)
+    if unpenalized.kind_mismatch and unpenalized is not ranked[0]:
+        winner = ranked[0]
+        if not (winner.exact_title or winner.direct_bonus):
+            # The demotion may move a link only to a page titled for the answer (the play
+            # "Desire Under the Elms", not the film): a partial match winning by default is
+            # as often wrong as right ("Michael" -> Michael Jackson, but "The Dreamtime" ->
+            # The Dreaming). Then nothing changes: the original order stands.
+            for cand in usable:
+                cand.score += KIND_PENALTY * cand.kind_mismatch
+            return sorted(usable, key=lambda c: -c.score)
+        winner.promoted = True
+    return ranked
+
+
+def giveaway_text(question: str) -> str:
+    """The question's giveaway: where it says what kind of answer it wants."""
+    layout = split_question(question)
+    return " ".join(c.text for c in layout.clues if c.kind == "giveaway")
+
+
+SHORT_NAME_MIN_SIMILARITY = 0.05
 
 
 def make_client(settings: PipelineSettings, user_agent: str) -> WikiClient:
@@ -203,10 +385,16 @@ def accept_link(best: Candidate, settings: PipelineSettings) -> bool:
     An exact match on Wikipedia's main article (no parenthetical) needs none: a single stray
     question ("Napoleon Bonaparte" in a literature set) gives too little text to compare.
     """
-    if best.ambiguous:
+    if best.kind_mismatch:
+        # A title match proves nothing when the page is the wrong kind of thing: the text
+        # has to agree on its own.
+        needed = settings.link_min_similarity
+    elif best.ambiguous:
         # "Doctor", "Bliss", "The Republic" are disambiguation pages: the name alone proves
         # nothing, so the page has to agree with the questions.
         needed = settings.link_min_similarity
+    elif best.direct_bonus == NAME_FORM_BONUS:
+        needed = settings.link_min_similarity  # a shortened name can land on a namesake
     elif best.direct_bonus:
         needed = 0.0  # the answer is literally this page's title or a redirect to it
     elif best.exact_title:
@@ -309,7 +497,9 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
     matrix = vectorizer.fit_transform(texts)
     row_of = {tid: i for i, tid in enumerate(tossup_ids)}
 
+    question_text = dict(zip(tossup_ids, texts, strict=True))
     members: dict[int, list[int]] = defaultdict(list)
+    giveaways: dict[int, list[str]] = defaultdict(list)
     names: dict[int, set[str]] = defaultdict(set)
     alternates: dict[int, set[str]] = defaultdict(set)
     for group_id, tossup_id, main_norm, accept, required in conn.execute(
@@ -317,6 +507,7 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
         "FROM tossup_groups g JOIN answer_parses a ON a.tossup_id = g.tossup_id"
     ):
         members[group_id].append(row_of[tossup_id])
+        giveaways[group_id].append(giveaway_text(question_text[tossup_id]))
         names[group_id].add(main_norm)
         alternates[group_id].update(
             normalize(a["text"], singularize=True) for a in json.loads(accept)
@@ -374,8 +565,14 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
             vector = l2_normalize(csr_matrix(matrix[members[group_id]].sum(axis=0)))
             candidates = parse_candidates(client.get_json(WIKIPEDIA_API, params))
             candidates = merge_direct(candidates, display, direct)
+            asked = " ".join(giveaways[group_id]).lower()
             scored = score_candidates(
-                vector, candidates, names[group_id], vectorizer, frozenset(alternates[group_id])
+                vector,
+                candidates,
+                names[group_id],
+                vectorizer,
+                frozenset(alternates[group_id]),
+                asked,
             )
             hint = search_hint(category, subcategory)
             if hint and needs_second_search(scored, n_tossups):
@@ -393,6 +590,7 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
                         names[group_id],
                         vectorizer,
                         frozenset(alternates[group_id]),
+                        asked,
                     )
             best = scored[0] if scored and accept_link(scored[0], settings) else None
             status = "linked" if best else "no_match"
@@ -422,5 +620,15 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
     reporter.stat("Linked / no match / skipped", " / ".join(f"{v:,}" for v in counts.values()))
     reporter.stat("New web requests", f"{client.network_requests:,}")
 
-    topics.build(conn, reporter)
+    vectors: dict[int, csr_matrix] = {}
+
+    def group_vector(group_id: int) -> csr_matrix:
+        if group_id not in vectors:
+            vectors[group_id] = l2_normalize(csr_matrix(matrix[members[group_id]].sum(axis=0)))
+        return vectors[group_id]
+
+    def similar(a: int, b: int) -> float:
+        return float((group_vector(a) @ group_vector(b).T).toarray()[0, 0])
+
+    topics.build(conn, reporter, similar)
     conn.close()

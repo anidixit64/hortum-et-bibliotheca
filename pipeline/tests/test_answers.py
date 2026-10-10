@@ -187,3 +187,20 @@ def test_odd_lines_get_low_confidence(line: str, issue: str) -> None:
 
 def test_line_key_ignores_whitespace() -> None:
     assert line_key("<b>X</b>  [or Y]") == line_key("<b>X</b> [or Y]")
+
+
+@pytest.mark.parametrize(
+    ("html", "main"),
+    [
+        ("<b><u>spider</u></b>s &lt;RB/MJ&gt;", "spiders"),
+        (
+            "<u>Tay-Sachs</u> disease PACE NSC 2011 Edited by Mike Bentley, Matt Bollinger,"
+            " and Andy Watkins Packet 16",
+            "Tay-Sachs disease",
+        ),
+        ("<u>Vancouver Island</u> Delta Burke 2017 Round 5", "Vancouver Island"),
+        ("<u>A Family Chronicle</u> ACF Nationals 2015 Editors' Packet 3", "A Family Chronicle"),
+    ],
+)
+def test_packet_headers_and_editor_tags_are_dropped(html: str, main: str) -> None:
+    assert parse_answer(html).main == main

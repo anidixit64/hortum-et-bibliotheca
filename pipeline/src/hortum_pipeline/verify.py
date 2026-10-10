@@ -660,8 +660,9 @@ def check_relate(conn: sqlite3.Connection, settings: PipelineSettings) -> list[C
 # Confusions checked by hand on the full corpus (October 2026), one per kind of signal.
 GOLDEN_CONFUSIONS: list[tuple[str, str, str]] = [
     ("Q308", "Q925", "Mercury: planet <-> element (same name)"),
-    ("Q308", "local:mercury", "Mercury: planet <-> god (same name)"),
-    ("Q925", "local:mercury", "Mercury: element <-> god (same name)"),
+    # The god used to be a 3-question local topic, but two of those questions are about
+    # quicksilver (Qin Shi Huang's immortality pills). Since the Phase 1 cleanup keeps
+    # unlike same-answer groups apart, the god has one question, below the same-name floor.
     ("Q179256", "Q29465", "Narcissus: myth <-> plant (same name)"),
     ("Q1784288", "Q1539509", "Invisible Man <-> The Invisible Man (reject)"),
     ("Q14763008", "Q16424695", "mitosis <-> meiosis (reject)"),
