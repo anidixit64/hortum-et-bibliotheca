@@ -188,6 +188,7 @@ class BuzzIn(BaseModel):
 
 
 class BuzzOut(BaseModel):
+    buzz_id: int | None  # None for a prompt, which isn't recorded
     result: Literal["correct", "incorrect", "no_buzz", "prompt"]
     recorded: bool
     judged_by: Literal["auto", "self"]
@@ -231,14 +232,22 @@ async def buzz(body: BuzzIn, db: Db, catalog: CatalogDep) -> BuzzOut:
         )  # fmt: skip
     position = wi / max(len(words) - 1, 1) if wi is not None else None
     if result == "prompt":
-        return BuzzOut(result="prompt", recorded=False, judged_by=judged_by, position=position,
-                       clue_ordinal=reading and reading["ordinal"], in_power=in_power,
-                       answer=answer, missed_cards=0)  # fmt: skip
+        return BuzzOut(
+            buzz_id=None,
+            result="prompt",
+            recorded=False,
+            judged_by=judged_by,
+            position=position,
+            clue_ordinal=reading and reading["ordinal"],
+            in_power=in_power,
+            answer=answer,
+            missed_cards=0,
+        )
 
     topic_id = tossup.get("topic_id")
     missed = 0
     with db:
-        db.execute(
+        cursor = db.execute(
             "INSERT INTO buzzes (tossup_id, topic_id, word_index, position, clue_ordinal, "
             "clue_cluster_id, result, in_power, answer_given, judged_by, created_at) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -248,9 +257,35 @@ async def buzz(body: BuzzIn, db: Db, catalog: CatalogDep) -> BuzzOut:
         )  # fmt: skip
         if topic_id:
             missed = await _missed_cards(db, catalog, tossup, topic_id, answer, wi, result, reading)
-    return BuzzOut(result=result, recorded=True, judged_by=judged_by, position=position,
-                   clue_ordinal=reading and reading["ordinal"], in_power=in_power, answer=answer,
-                   missed_cards=missed)  # fmt: skip
+    return BuzzOut(
+        buzz_id=cursor.lastrowid,
+        result=result,
+        recorded=True,
+        judged_by=judged_by,
+        position=position,
+        clue_ordinal=reading and reading["ordinal"],
+        in_power=in_power,
+        answer=answer,
+        missed_cards=missed,
+    )
+
+
+class BuzzOverride(BaseModel):
+    result: Literal["correct", "incorrect"]
+
+
+@router.patch("/buzzes/{buzz_id}", tags=["buzzes"])
+def override_buzz(buzz_id: int, body: BuzzOverride, db: Db) -> dict[str, object]:
+    """'I was right' / 'I was wrong': corrects the automatic judgment of a recorded buzz."""
+    with db:
+        cursor = db.execute(
+            "UPDATE buzzes SET result = ?, judged_by = 'self' "
+            "WHERE id = ? AND word_index IS NOT NULL",
+            (body.result, buzz_id),
+        )
+    if not cursor.rowcount:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"no buzz {buzz_id}")
+    return {"buzz_id": buzz_id, "result": body.result, "judged_by": "self"}
 
 
 async def _missed_cards(

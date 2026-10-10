@@ -1,0 +1,772 @@
+{
+ "schema_version": 1,
+ "topic": {
+  "id": "Q1784288",
+  "slug": "invisible-man",
+  "name": "Invisible Man",
+  "wikidata_qid": "Q1784288",
+  "wikipedia_title": "Invisible Man",
+  "description": "1952 novel by Ralph Ellison",
+  "category": "Literature",
+  "aliases": [
+   "Narrator"
+  ],
+  "stats": {
+   "n_tossups": 52,
+   "n_sets": 52,
+   "difficulty": [
+    2,
+    10
+   ],
+   "years": [
+    2003,
+    2025
+   ]
+  },
+  "thin": false
+ },
+ "clues": [
+  {
+   "rank": 1,
+   "cluster_id": 104157,
+   "label": "Ras the Exhorter",
+   "text": "Ras the Exhorter becoming Ras the Destroyer as a member of the Brotherhood of this novel.",
+   "examples": [
+    "After Dr. Bledsoe expels him from college, this novel's protagonist delivers rousing speeches for the Brotherhood, who oppose Ras the Exhorter.",
+    "This novel's protagonist quits the Brotherhood during a riot led by Ras the Exhorter.",
+    "The unnamed narrator of this novel is sealed underground following a riot encouraged by the Brotherhood, whose members include Ras the Exhorter."
+   ],
+   "n_sets": 37,
+   "n_tossups": 37,
+   "impact": 5.866,
+   "median_position": 0.6135,
+   "heatmap": {
+    "position_hist": [
+     0,
+     0,
+     0,
+     3,
+     5,
+     8,
+     15,
+     8,
+     0,
+     0
+    ],
+    "share_in_power": 0.1538,
+    "share_last_line": 0.7436,
+    "difficulty": {
+     "high_school": 24,
+     "college": 14,
+     "open": 1
+    },
+    "years": [
+     2003,
+     2025
+    ],
+    "trend": "steady"
+   }
+  },
+  {
+   "rank": 2,
+   "cluster_id": 104175,
+   "label": "Dr. Bledsoe",
+   "text": "For taking Mr. Norton to the Golden Day and letting him speak with Jim Trueblood, the protagonist of this novel is kicked out of a college run by Dr. Bledsoe.",
+   "examples": [
+    "In this novel, the protagonist leads a rich trustee to Jim Trueblood's cabin and a seedy bar, causing him to be expelled from college by Dr. Bledsoe.",
+    "For taking Mr. Norton to the Golden Day, this character is expelled from an unnamed school by Dr. Bledsoe.",
+    "Dr. Bledsoe expels this character after he chauffeurs Mr. Norton, and he is targeted by Ras the Exhorter after joining the Brotherhood."
+   ],
+   "n_sets": 29,
+   "n_tossups": 29,
+   "impact": 4.8667,
+   "median_position": 0.333,
+   "heatmap": {
+    "position_hist": [
+     2,
+     6,
+     5,
+     8,
+     5,
+     3,
+     1,
+     0,
+     0,
+     0
+    ],
+    "share_in_power": 0.6,
+    "share_last_line": 0.0,
+    "difficulty": {
+     "college": 7,
+     "high_school": 21,
+     "open": 2
+    },
+    "years": [
+     2007,
+     2024
+    ],
+    "trend": "steady"
+   }
+  },
+  {
+   "rank": 3,
+   "cluster_id": 104144,
+   "label": "Tod Clifton",
+   "text": "In this novel, Sambo dolls are sold by a character who \"plunges outside history\", Tod Clifton.",
+   "examples": [
+    "Jack's glass eye falls out as he decries this novel's protagonist for supporting Tod Clifton, who had been selling Sambo dolls.",
+    "Tod Clifton is later shot by the police and Dr. Bledsoe expels the narrator from the school.",
+    "Characters in this novel include the aforementioned Tod Clifton, as well as a character who deliberately gives the protagonist bad letters of recommendation, Dr. Bledsoe."
+   ],
+   "n_sets": 15,
+   "n_tossups": 15,
+   "impact": 3.6071,
+   "median_position": 0.2476,
+   "heatmap": {
+    "position_hist": [
+     4,
+     4,
+     2,
+     2,
+     3,
+     1,
+     1,
+     0,
+     0,
+     0
+    ],
+    "share_in_power": 0.2941,
+    "share_last_line": 0.0,
+    "difficulty": {
+     "high_school": 7,
+     "college": 9,
+     "open": 1
+    },
+    "years": [
+     2005,
+     2025
+    ],
+    "trend": "steady"
+   }
+  },
+  {
+   "rank": 4,
+   "cluster_id": 104149,
+   "label": "Battle Royal",
+   "text": "The first chapter of this novel describes a \"Battle Royal\" where black teenage boys fight each other.",
+   "examples": [
+    "That character in this novel wins a college scholarship by fighting in a \"Battle Royal.\"",
+    "White men in tuxedos watch as this character grabs fake gold coins on an electrified carpet after being blindfolded and made to fight nine other Black boys at once in a \"battle royal.\"",
+    "This character won a scholarship to that school after winning a sadistic \"battle royal.\""
+   ],
+   "n_sets": 18,
+   "n_tossups": 18,
+   "impact": 3.9546,
+   "median_position": 0.5925,
+   "heatmap": {
+    "position_hist": [
+     0,
+     0,
+     1,
+     3,
+     0,
+     5,
+     6,
+     2,
+     1,
+     0
+    ],
+    "share_in_power": 0.1111,
+    "share_last_line": 0.5556,
+    "difficulty": {
+     "college": 7,
+     "high_school": 9,
+     "open": 2
+    },
+    "years": [
+     2007,
+     2024
+    ],
+    "trend": "steady"
+   }
+  },
+  {
+   "rank": 5,
+   "cluster_id": 104164,
+   "label": "Rinehart",
+   "text": "While incognito, this character is mistaken for a pimp and reverend named Rinehart.",
+   "examples": [
+    "While wearing a dark hat and sunglasses, this novel's protagonist is repeatedly mistaken for Rinehart.",
+    "This character recalls his dying grandfather's advice to \"overcome 'em with yeses, undermine 'em with grins\" after donning a large hat and green sunglasses that make him look like a con man named Rinehart.",
+    "This character is frequently mistaken for a gambler, pimp, and reverend named Rinehart."
+   ],
+   "n_sets": 10,
+   "n_tossups": 10,
+   "impact": 3.0716,
+   "median_position": 0.2091,
+   "heatmap": {
+    "position_hist": [
+     1,
+     4,
+     2,
+     1,
+     1,
+     1,
+     0,
+     0,
+     0,
+     0
+    ],
+    "share_in_power": 0.9,
+    "share_last_line": 0.1,
+    "difficulty": {
+     "high_school": 9,
+     "college": 1
+    },
+    "years": [
+     2008,
+     2025
+    ],
+    "trend": "steady"
+   }
+  },
+  {
+   "rank": 6,
+   "cluster_id": 104155,
+   "label": "1,369",
+   "text": "This novel's narrator lives in an underground room lit by 1,369 lightbulbs after a riot led by Ras the Exhorter.",
+   "examples": [
+    "This novel's protagonist describes owning 1,369 light bulbs before participating in a \"Battle Royal.\"",
+    "The narrator of this novel's prologue listens to Louis [Lewis] Armstrong's \"Black and Blue\" on five record players at once in a room illuminated by 1,369 light bulbs.",
+    "The protagonist of this novel steals electricity from Monopolated Light and Power using 1,369 light bulbs."
+   ],
+   "n_sets": 16,
+   "n_tossups": 16,
+   "impact": 3.7551,
+   "median_position": 0.5837,
+   "heatmap": {
+    "position_hist": [
+     2,
+     1,
+     2,
+     0,
+     1,
+     2,
+     3,
+     4,
+     1,
+     0
+    ],
+    "share_in_power": 0.3125,
+    "share_last_line": 0.5625,
+    "difficulty": {
+     "high_school": 12,
+     "college": 3,
+     "open": 1
+    },
+    "years": [
+     2004,
+     2025
+    ],
+    "trend": "steady"
+   }
+  },
+  {
+   "rank": 7,
+   "cluster_id": 104151,
+   "label": "Lucius Brockway",
+   "text": "This novel's protagonist is fired from a paint factory after Lucius Brockway tricks him into destroying a boiler.",
+   "examples": [
+    "Lucius Brockway tricks this book's protagonist into destroying a boiler room after he wanders into a union meeting.",
+    "In one scene in this novel, a paint factory boiler explodes while the protagonist was working with Lucius Brockway.",
+    "The protagonist of this novel works with Lucius Brockway, with whom he ends up fighting."
+   ],
+   "n_sets": 9,
+   "n_tossups": 9,
+   "impact": 2.8342,
+   "median_position": 0.2034,
+   "heatmap": {
+    "position_hist": [
+     3,
+     1,
+     1,
+     2,
+     2,
+     0,
+     0,
+     0,
+     0,
+     0
+    ],
+    "share_in_power": 0.3333,
+    "share_last_line": 0.0,
+    "difficulty": {
+     "high_school": 6,
+     "college": 3
+    },
+    "years": [
+     2005,
+     2018
+    ],
+    "trend": "fading"
+   }
+  },
+  {
+   "rank": 8,
+   "cluster_id": 104170,
+   "label": "Sybil",
+   "text": "The protagonist of this work attempts to get information by visiting Sybil, who instead gets drunk and wants him to rape her.",
+   "examples": [
+    "This novel's protagonist enacts a \"yes, agree, and grin\" strategy by filling out fake membership cards and seducing Sybil.",
+    "The protagonist of this novel writes \"Sybil, you were raped by Santa Claus.",
+    "At a birthday party, this character is seduced by a woman with a rape fantasy named Sybil."
+   ],
+   "n_sets": 6,
+   "n_tossups": 6,
+   "impact": 2.4495,
+   "median_position": 0.0,
+   "heatmap": {
+    "position_hist": [
+     4,
+     2,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0
+    ],
+    "share_in_power": 1.0,
+    "share_last_line": 0.0,
+    "difficulty": {
+     "high_school": 5,
+     "college": 1
+    },
+    "years": [
+     2012,
+     2025
+    ],
+    "trend": "rising"
+   }
+  },
+  {
+   "rank": 9,
+   "cluster_id": 104165,
+   "label": "Liberty Paints",
+   "text": "This character is subject to electroshock therapy after an explosion at his workplace, Liberty Paints.",
+   "examples": [
+    "After the protagonist of this novel leaves his factory job at Liberty Paints, he becomes a spokesperson for the Brotherhood.",
+    "After a boiler explosion at a paint factory, a character in this novel undergoes electroshock therapy and realizes he has forgotten his name.",
+    "A hospitalization after an accident at the Liberty Paint factory leads to this character receiving electroshock treatment."
+   ],
+   "n_sets": 9,
+   "n_tossups": 9,
+   "impact": 2.7308,
+   "median_position": 0.3135,
+   "heatmap": {
+    "position_hist": [
+     2,
+     0,
+     2,
+     4,
+     1,
+     0,
+     1,
+     0,
+     0,
+     0
+    ],
+    "share_in_power": 0.6,
+    "share_last_line": 0.0,
+    "difficulty": {
+     "college": 4,
+     "high_school": 5,
+     "open": 1
+    },
+    "years": [
+     2010,
+     2024
+    ],
+    "trend": "rising"
+   }
+  },
+  {
+   "rank": 10,
+   "cluster_id": 104158,
+   "label": "social equality",
+   "text": "The narrator of this novel mistakenly says \"social equality\" rather than \"social responsibility\" during a speech to a white audience, members of which had previously had him and other black young men blindfolded and forced to pummel each other.",
+   "examples": [
+    "In its first chapter, the protagonist shouts \"social equality!\" after being forced to repeat the words \"social responsiblity\" when laughter drowns out his speech.",
+    "The protagonist of this novel, who works at Liberty Paints, accidentally mentions \"equality\" instead of \"responsibility\" in a speech given after a battle royale with nine of his schoolmates.",
+    "The protagonist of this novel imagines a scholarship as referring to him by a slur and telling people to \"keep him running.\""
+   ],
+   "n_sets": 7,
+   "n_tossups": 7,
+   "impact": 2.5583,
+   "median_position": 0.2609,
+   "heatmap": {
+    "position_hist": [
+     1,
+     1,
+     2,
+     1,
+     1,
+     1,
+     0,
+     0,
+     0,
+     0
+    ],
+    "share_in_power": 0.4286,
+    "share_last_line": 0.1429,
+    "difficulty": {
+     "high_school": 4,
+     "college": 3
+    },
+    "years": [
+     2003,
+     2022
+    ],
+    "trend": "steady"
+   }
+  }
+ ],
+ "related": [
+  {
+   "id": "Q3241463",
+   "name": "Battle royal",
+   "rank": 1,
+   "score": 32.9443,
+   "n_questions": 33,
+   "n_reverse": 0,
+   "why": "named in 33 of its questions",
+   "example": {
+    "clue_id": 6782,
+    "tossup_id": "62d98017f67c8a6f6e0a48f5",
+    "text": "This novel ends after Ras the Destroyer sparks a race riot, and it begins with its narrator forced into a \"Battle Royale.\""
+   }
+  },
+  {
+   "id": "Q299965",
+   "name": "Ralph Ellison",
+   "rank": 2,
+   "score": 29.8157,
+   "n_questions": 52,
+   "n_reverse": 0,
+   "why": "named in 52 of its questions",
+   "example": {
+    "clue_id": 6783,
+    "tossup_id": "62d98017f67c8a6f6e0a48f5",
+    "text": "For 10 points, name this novel by Ralph Ellison."
+   }
+  },
+  {
+   "id": "local:brotherhood",
+   "name": "the Brotherhood",
+   "rank": 3,
+   "score": 27.7971,
+   "n_questions": 31,
+   "n_reverse": 0,
+   "why": "named in 31 of its questions",
+   "example": {
+    "clue_id": 175428,
+    "tossup_id": "62edc1ba974521c293e49761",
+    "text": "Jack leads a group known as the Brotherhood in this novel, which is opposed by the black nationalist Ras the Exhorter."
+   }
+  },
+  {
+   "id": "Q1326621",
+   "name": "Electric light",
+   "rank": 4,
+   "score": 19.7092,
+   "n_questions": 12,
+   "n_reverse": 0,
+   "why": "named in 12 of its questions",
+   "example": {
+    "clue_id": 281397,
+    "tossup_id": "62f86327cdb0cbb3f46459e4",
+    "text": "This novel closes with a riot involving Ras the Exhorter in Harlem, and opens with the title character, who lives in a basement illuminated by over a thousand light bulbs, forced into a \"battle royal\" with other blacks."
+   }
+  },
+  {
+   "id": "Q189074",
+   "name": "Harlem",
+   "rank": 5,
+   "score": 19.0859,
+   "n_questions": 13,
+   "n_reverse": 0,
+   "why": "named in 13 of its questions",
+   "example": {
+    "clue_id": 75156,
+    "tossup_id": "62e0023a69364e383bef69fb",
+    "text": "That character, Tod Clifton, was part of an organization in this novel whose enemies include a character who starts a riot in Harlem named Ras the Exhorter."
+   }
+  },
+  {
+   "id": "Q3282558",
+   "name": "Black and Blue (video)",
+   "rank": 6,
+   "score": 12.9512,
+   "n_questions": 3,
+   "n_reverse": 0,
+   "why": "named in 3 of its questions",
+   "example": {
+    "clue_id": 133853,
+    "tossup_id": "62ec2b2977063e8d403f077d",
+    "text": "The narrator of this novel is reminded of Louis Armstrong's song \"Black and Blue\" while imagining talking to a slave woman mourning her master's death."
+   }
+  },
+  {
+   "id": "Q223880",
+   "name": "Emma (novel)",
+   "rank": 7,
+   "score": 12.0864,
+   "n_questions": 4,
+   "n_reverse": 0,
+   "why": "named in 4 of its questions",
+   "example": {
+    "clue_id": 237151,
+    "tossup_id": "62f3ed6a57b6d50239b52d37",
+    "text": "A man in this novel decides against using Emma for secret information, opting instead for a drunken woman who fantasizes about being raped, named Sybil."
+   }
+  },
+  {
+   "id": "Q1779",
+   "name": "Louis Armstrong",
+   "rank": 8,
+   "score": 9.4223,
+   "n_questions": 3,
+   "n_reverse": 0,
+   "why": "named in 3 of its questions",
+   "example": {
+    "clue_id": 133853,
+    "tossup_id": "62ec2b2977063e8d403f077d",
+    "text": "The narrator of this novel is reminded of Louis Armstrong's song \"Black and Blue\" while imagining talking to a slave woman mourning her master's death."
+   }
+  },
+  {
+   "id": "Q1648240",
+   "name": "Shock therapy (economics)",
+   "rank": 9,
+   "score": 8.6112,
+   "n_questions": 2,
+   "n_reverse": 0,
+   "why": "named in 2 of its questions",
+   "example": {
+    "clue_id": 250541,
+    "tossup_id": "62f74375d79299d6a96fbbc1",
+    "text": "This novel's protagonist is shown a card bearing the question \"What is your name?\" after undergoing electric shock therapy, and narrates this novel from a cellar lit with thousands of light bulbs."
+   }
+  }
+ ],
+ "confusions": [
+  {
+   "id": "Q1539509",
+   "name": "The Invisible Man",
+   "rank": 1,
+   "score": 4.4657,
+   "reasons": [
+    "reject",
+    "same_name"
+   ],
+   "evidence": {
+    "reject": [
+     {
+      "tossup_id": "62d98017f67c8a6f6e0a48f5",
+      "text": "The Invisible Man"
+     },
+     {
+      "tossup_id": "62d98018f67c8a6f6e0ab7d0",
+      "text": "The Invisible Man"
+     },
+     {
+      "tossup_id": "62d98019f67c8a6f6e0adba6",
+      "text": "The Invisible Man"
+     }
+    ],
+    "n_rejects": 31,
+    "same_name": "invisible man"
+   },
+   "distinguishing_clues": {
+    "this": [
+     "Ras the Exhorter",
+     "Dr. Bledsoe",
+     "Tod Clifton"
+    ],
+    "other": [
+     "Griffin",
+     "Thomas Marvel",
+     "Port Burdock"
+    ]
+   }
+  },
+  {
+   "id": "Q42511",
+   "name": "H. G. Wells",
+   "rank": 2,
+   "score": 0.6931,
+   "reasons": [
+    "reject"
+   ],
+   "evidence": {
+    "reject": [
+     {
+      "tossup_id": "63d895987a0d8ea074be74fa",
+      "text": "The Invisible Man, a work by H. G. Wells"
+     }
+    ],
+    "n_rejects": 1
+   },
+   "distinguishing_clues": {
+    "this": [
+     "Ras the Exhorter",
+     "Dr. Bledsoe",
+     "Tod Clifton"
+    ],
+    "other": [
+     "Morlocks",
+     "Edward Prendick",
+     "Martians"
+    ]
+   }
+  }
+ ],
+ "timeline": [
+  {
+   "id": "Q189074",
+   "label": "Harlem",
+   "event": "founded",
+   "time": "1653-01-01T00:00:00Z",
+   "precision": 9,
+   "is_topic": false
+  },
+  {
+   "id": "Q223880",
+   "label": "Emma (novel)",
+   "event": "published",
+   "time": "1815-12-23T00:00:00Z",
+   "precision": 11,
+   "is_topic": false
+  },
+  {
+   "id": "Q1779",
+   "label": "Louis Armstrong",
+   "event": "born",
+   "time": "1901-08-04T00:00:00Z",
+   "precision": 11,
+   "is_topic": false
+  },
+  {
+   "id": "Q299965",
+   "label": "Ralph Ellison",
+   "event": "born",
+   "time": "1914-03-01T00:00:00Z",
+   "precision": 11,
+   "is_topic": false
+  },
+  {
+   "id": "Q1784288",
+   "label": "Invisible Man",
+   "event": "published",
+   "time": "1952-04-14T00:00:00Z",
+   "precision": 11,
+   "is_topic": true
+  },
+  {
+   "id": "Q1779",
+   "label": "Louis Armstrong",
+   "event": "died",
+   "time": "1971-07-06T00:00:00Z",
+   "precision": 11,
+   "is_topic": false
+  },
+  {
+   "id": "Q3282558",
+   "label": "Black and Blue (video)",
+   "event": "published",
+   "time": "1980-01-01T00:00:00Z",
+   "precision": 9,
+   "is_topic": false
+  },
+  {
+   "id": "Q299965",
+   "label": "Ralph Ellison",
+   "event": "died",
+   "time": "1994-04-16T00:00:00Z",
+   "precision": 11,
+   "is_topic": false
+  }
+ ],
+ "map": [
+  {
+   "id": "Q299965",
+   "label": "Ralph Ellison",
+   "place": "New York City",
+   "kind": "place of death",
+   "lat": 40.712777777,
+   "lon": -74.006111111,
+   "role": "related"
+  },
+  {
+   "id": "Q299965",
+   "label": "Ralph Ellison",
+   "place": "Oklahoma City",
+   "kind": "birthplace",
+   "lat": 35.482222222,
+   "lon": -97.535277777,
+   "role": "related"
+  },
+  {
+   "id": "Q189074",
+   "label": "Harlem",
+   "place": "Harlem",
+   "kind": "location",
+   "lat": 40.809033333,
+   "lon": -73.948372222,
+   "role": "related"
+  },
+  {
+   "id": "Q189074",
+   "label": "Harlem",
+   "place": "United States",
+   "kind": "country",
+   "lat": 39.828175,
+   "lon": -98.5795,
+   "role": "related"
+  },
+  {
+   "id": "Q189074",
+   "label": "Harlem",
+   "place": "Manhattan",
+   "kind": "located in",
+   "lat": 40.728333333,
+   "lon": -73.994166666,
+   "role": "related"
+  },
+  {
+   "id": "Q1779",
+   "label": "Louis Armstrong",
+   "place": "New Orleans",
+   "kind": "birthplace",
+   "lat": 29.976111111,
+   "lon": -90.078333333,
+   "role": "related"
+  },
+  {
+   "id": "Q1779",
+   "label": "Louis Armstrong",
+   "place": "Corona",
+   "kind": "place of death",
+   "lat": 40.73497,
+   "lon": -73.86497,
+   "role": "related"
+  }
+ ],
+ "tossup_ids": [
+  "689a0d712d8608f4ad85196a",
+  "6676341afe8264b343f11245",
+  "671d6e2b704068afc3e92a72"
+ ]
+}
