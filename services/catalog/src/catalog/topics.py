@@ -1,5 +1,6 @@
 """Topic pages, their questions, and practice questions, read from corpus.db."""
 
+import json
 import random
 import sqlite3
 from pathlib import Path
@@ -10,10 +11,22 @@ _MAX_EXCLUDE = 500
 
 
 class ClueSpan(BaseModel):
+    ordinal: int
     kind: str  # clue | giveaway | note
     word_start: int
     word_end: int
     in_power: bool
+    cluster_id: int | None  # the clue cluster (same fact across questions), if any
+
+
+class AnswerLine(BaseModel):
+    """The parsed answer line, for judging a typed answer."""
+
+    main: str
+    required: list[str]  # the underlined part(s) of the main answer
+    accept: list[str]
+    prompt: list[str]
+    reject: list[str]
 
 
 class Tossup(BaseModel):
@@ -29,6 +42,7 @@ class Tossup(BaseModel):
     answer_html: str | None
     topic_id: str | None
     clues: list[ClueSpan]
+    answer_line: AnswerLine | None
 
 
 class TossupPage(BaseModel):
@@ -134,15 +148,40 @@ class TopicStore:
             ).fetchone()
             return self._tossup(conn, row)
 
+    def tossup(self, tossup_id: str) -> Tossup | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                f"SELECT {_TOSSUP_COLUMNS} {_TOSSUP_FROM} WHERE t.id = ?", (tossup_id,)
+            ).fetchone()
+            return self._tossup(conn, row) if row else None
+
     @staticmethod
     def _tossup(conn: sqlite3.Connection, row: tuple[object, ...]) -> Tossup:
-        fields = dict(zip(_TOSSUP_FIELDS, row, strict=True))
+        fields: dict[str, object] = dict(zip(_TOSSUP_FIELDS, row, strict=True))
         spans = conn.execute(
-            "SELECT kind, word_start, word_end, in_power FROM clues "
-            "WHERE tossup_id = ? ORDER BY ordinal",
+            "SELECT c.ordinal, c.kind, c.word_start, c.word_end, c.in_power, m.cluster_id "
+            "FROM clues c LEFT JOIN clue_cluster_members m ON m.clue_id = c.id "
+            "WHERE c.tossup_id = ? ORDER BY c.ordinal",
             (fields["id"],),
         ).fetchall()
         fields["clues"] = [
-            {"kind": k, "word_start": a, "word_end": b, "in_power": bool(p)} for k, a, b, p in spans
-        ]
+            {"ordinal": o, "kind": k, "word_start": a, "word_end": b, "in_power": bool(p),
+             "cluster_id": cluster}
+            for o, k, a, b, p, cluster in spans
+        ]  # fmt: skip
+        parse = conn.execute(
+            "SELECT main, required, accept, prompt, reject FROM answer_parses WHERE tossup_id = ?",
+            (fields["id"],),
+        ).fetchone()
+        fields["answer_line"] = (
+            {
+                "main": parse[0],
+                "required": json.loads(parse[1]),
+                "accept": [a["text"] for a in json.loads(parse[2])],
+                "prompt": [a["text"] for a in json.loads(parse[3])],
+                "reject": [a["text"] for a in json.loads(parse[4])],
+            }
+            if parse
+            else None
+        )
         return Tossup.model_validate(fields)

@@ -73,3 +73,12 @@ def practice_next(
     if tossup is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no question matches")
     return tossup
+
+
+@router.get("/tossups/{tossup_id}", tags=["practice"])
+def tossup(tossup_id: str, store: Annotated[TopicStore, Depends(get_topics)]) -> Tossup:
+    """One question with its parsed answer line and clue spans, for judging a buzz."""
+    found = store.tossup(tossup_id)
+    if found is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"no question {tossup_id!r}")
+    return found
