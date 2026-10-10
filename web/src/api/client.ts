@@ -1,10 +1,11 @@
-// The browser talks only to the gateway: /api/catalog/... and /api/study/...
+// The browser talks only to the gateway: /api/catalog/..., /api/content/... and /api/study/...
 import type {
   BuzzOut,
   DueCard,
   FollowedTopic,
   SearchResult,
   Stats,
+  TopicContent,
   TopicRecord,
   TopicStats,
   Tossup,
@@ -36,6 +37,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 const catalog = (path: string) => `/api/catalog${path}`
+const content = (path: string) => `/api/content${path}`
 const study = (path: string) => `/api/study${path}`
 
 export interface PracticeFilter {
@@ -59,6 +61,9 @@ export const api = {
     if (f.exclude?.length) params.set('exclude', f.exclude.join(','))
     return request<Tossup>(catalog(`/practice/next?${params}`))
   },
+
+  content: (topicId: string) =>
+    request<TopicContent>(content(`/topics/${encodeURIComponent(topicId)}/content`)),
 
   follow: (topicId: string) =>
     request<{ cards_created: number; cards_total: number }>(

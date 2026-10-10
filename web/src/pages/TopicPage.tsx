@@ -3,11 +3,13 @@ import { Link, useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import type { TopicRecord, TopicStats } from '../api/types'
 import { ClueList } from '../components/ClueList'
+import { Gallery, Reading, Videos, WikiSummary } from '../components/Enrichment'
 import { Heatmap } from '../components/Heatmap'
 import { ConfusionList, RelatedList } from '../components/Related'
 import { Timeline } from '../components/Timeline'
 import { TopicMap } from '../components/TopicMap'
 import { percent } from '../lib/format'
+import { useTopicContent } from '../lib/useTopicContent'
 
 export function TopicPage() {
   const { key = '' } = useParams()
@@ -16,6 +18,8 @@ export function TopicPage() {
   const [stats, setStats] = useState<TopicStats | null>(null)
   const [error, setError] = useState<{ key: string; message: string } | null>(null)
   const [busy, setBusy] = useState(false)
+  const current = loaded?.key === key ? loaded.record : null
+  const content = useTopicContent(current?.topic.id ?? '')
 
   const loadStats = useCallback((id: string) => {
     api.topicStats(id).then(setStats).catch(() => setStats(null)) // study may be offline
@@ -33,7 +37,7 @@ export function TopicPage() {
   }, [key, loadStats])
 
   if (error?.key === key) return <p className="error">{error.message}</p>
-  const record = loaded?.key === key ? loaded.record : null
+  const record = current
   if (!record) return <p className="muted">Loading…</p>
   const { topic } = record
 
@@ -86,6 +90,13 @@ export function TopicPage() {
         )}
       </div>
 
+      {content && (
+        <section className="card">
+          <h2>About</h2>
+          <WikiSummary section={content.sections.wiki} />
+        </section>
+      )}
+
       <section className="card">
         <h2>Clues worth knowing</h2>
         <ClueList clues={record.clues} />
@@ -117,6 +128,23 @@ export function TopicPage() {
         <h2>Map</h2>
         <TopicMap points={record.map} />
       </section>
+
+      {content && (
+        <>
+          <section className="card">
+            <h2>Images</h2>
+            <Gallery section={content.sections.images} />
+          </section>
+          <section className="card">
+            <h2>Further reading</h2>
+            <Reading section={content.sections.books} />
+          </section>
+          <section className="card">
+            <h2>Videos</h2>
+            <Videos section={content.sections.videos} />
+          </section>
+        </>
+      )}
     </>
   )
 }

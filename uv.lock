@@ -319,6 +319,7 @@ source = { editable = "services/content" }
 dependencies = [
     { name = "fastapi" },
     { name = "hortum-common" },
+    { name = "httpx" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -326,6 +327,7 @@ dependencies = [
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
     { name = "hortum-common", editable = "libs/common" },
+    { name = "httpx", specifier = ">=0.27" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]
 
