@@ -473,6 +473,7 @@ Each topic page is laid out like a museum exhibit (in the spirit of DK Eyewitnes
 | **Images** | Phase 5 (Commons, with license and credit) | No | SVG diagrams allowed for science and math; audio for music. |
 | **Videos** | Phase 5 (YouTube) | No | — |
 | **Bibliography** | Phase 5 (cited books + Open Library) | Small model: blurbs for the top 3–5 | Picks must be IDs from the real list. |
+| **Confusion tips** | The confusion pair and its distinguishing clues | Small model (with the fun facts) | One sentence per confusion; IDs must match the page's confusions. |
 | **Clues, heatmap, related, don't-confuse-with, map** | The pipeline (Phases 2 and 4) | No | Restyled only. |
 
 **Diagrams are deterministic.** Wherever possible a diagram is drawn by the page from data: Wikidata (family trees, taxonomies, influence webs), fixed templates (step flow, cycle, labeled parts, comparison table, timeline) whose labels the model fills in, math typesetting (KaTeX), and interactive pieces (3D molecules, graphs, sliders). The model never draws free-form images.
@@ -529,12 +530,14 @@ Generation runs the first time a topic is opened (or when queued ahead with the 
 
 | Tier | Model | Writes | Output |
 |---|---|---|---|
-| **Better** (1 request) | *Open:* Claude Code on your plan, or Gemini Pro if its free tier allows | Hook, summary, and the ✦ special section | ~2,300 words |
-| **Small** (2–3 requests) | Gemini Flash or Flash-Lite; Groq or OpenRouter free models as backups | Clue explanations (in batches), fun facts, timeline events, diagram labels, book blurbs | ~3,500 words |
+| **Better** (1 request) | Claude Code on your plan, with Gemini (the best free model) as backup | Hook, summary, and the ✦ special section | ~2,300 words |
+| **Small** (2–3 requests) | Gemini Flash or Flash-Lite; Groq or OpenRouter free models as backups | Clue explanations (in batches), fun facts, timeline events, diagram labels, book blurbs, confusion tips | ~3,500 words |
 | **Small, vision** (1 request) | Gemini Flash | Colors | ~300 tokens |
 | **None** | Code and free APIs | Header image, images, videos, Wikidata sections, heatmap, map | — |
 
 Each request returns JSON matching a schema. On a failed check it retries once with the error attached; parts that still fail are marked failed and the page renders without them. Every result records its backend, model, prompt version and an input hash, so a prompt change regenerates lazily and `regenerate --where model=…` redoes pages from a model you've stopped trusting.
+
+**Turning Claude off is one setting.** `CONTENT_USE_CLAUDE_CODE=false` removes `claude_code` from every chain, so the better tier runs on Gemini and the worker can move back into Compose. Nothing else changes: the chains, prompts and checks are shared, and pages already generated stay cached (`regenerate --where model=…` redoes them later if you want).
 
 **Fallback chains** (`CONTENT_WRITING_CHAIN`, `CONTENT_LIGHT_CHAIN`, `CONTENT_THEME_CHAIN`): on a rate-limit or quota error the worker moves to the next backend; if all are exhausted the job waits (`not_before`) until the earliest reset. Free-tier limits change often; confirm them when building.
 
@@ -759,6 +762,7 @@ Built in three parts, each merged on its own:
 33. Read-aloud for practice and the summary (the browser's built-in text-to-speech).
 34. Difficulty-aware views: filter the heatmap and practice by level.
 35. A weekly stats view: buzz position trends and review streaks.
+36. Cut-out objects (background removal with `rembg`) for the header and gallery, with credits noting the change.
 
 ---
 
