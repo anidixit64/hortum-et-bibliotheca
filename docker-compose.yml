@@ -51,6 +51,26 @@ services:
     volumes:
       - ./data:/data
 
+  # Same image, no port: works through the jobs the API queues (one request at a time per host).
+  content-worker:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/content/Dockerfile
+    command: ["hortum-content", "worker"]
+    healthcheck:
+      disable: true
+    environment:
+      CONTENT_DB_PATH: /data/content.db
+      CONTENT_CATALOG_URL: http://catalog:8000
+    volumes:
+      - ./data:/data
+    depends_on:
+      catalog:
+        condition: service_healthy
+      content:
+        condition: service_healthy
+
   study:
     <<: *service-defaults
     build:

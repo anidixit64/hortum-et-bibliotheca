@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 SERVICES := gateway catalog content study
 
-.PHONY: help install lint fmt typecheck test check pipeline up down logs build run-% web web-dev web-check
+.PHONY: help install lint fmt typecheck test check pipeline up down logs build run-% web web-dev web-check content-worker
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_%-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -33,6 +33,9 @@ web-dev: ## Frontend dev server on :5173, proxying /api to the gateway on :8000
 
 web-check: ## Type-check, lint and test the frontend
 	cd web && npm run typecheck && npm run lint && npm test
+
+content-worker: ## Run the content worker locally (fetches Wikipedia, images, books, videos)
+	uv run hortum-content worker
 
 run-%: ## Run one service locally with reload, e.g. make run-catalog
 	@case "$*" in \
