@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import SettingsConfigDict
 
@@ -13,6 +14,9 @@ class Settings(ServiceSettings):
     content_url: str = "http://localhost:8002"
     study_url: str = "http://localhost:8003"
     upstream_timeout_seconds: float = 10.0
+    # The built frontend (web/dist). When set, the gateway serves it: one origin for the
+    # app and /api, and any unknown path returns index.html for client-side routing.
+    web_dist: Path | None = None
 
     def upstreams(self) -> dict[str, str]:
         """Maps the first path segment under /api to a backend base URL."""

@@ -61,14 +61,14 @@ Every service gets these from `libs/common` (`hortum_common`):
 
 ## Getting started
 
-Prerequisites: Python 3.12+, [uv](https://docs.astral.sh/uv/getting-started/installation/), Docker. Put the raw dump at `data/raw/tossups.json`.
+Prerequisites: Python 3.12+, [uv](https://docs.astral.sh/uv/getting-started/installation/), Node.js 22+ (for the frontend), Docker. Put the raw dump at `data/raw/tossups.json`.
 
 ```sh
 make install           # uv sync --all-packages
 make check             # lint + typecheck + tests
 
 make pipeline          # build data/build/corpus.db (stages arrive phase by phase)
-make up                # full stack via docker compose
+make up                # full stack via docker compose: open http://localhost:8000
 curl localhost:8000/healthz
 make down
 ```
@@ -83,6 +83,21 @@ make run-study         # :8003
 ```
 
 Each service serves interactive API docs at `/docs`.
+
+The frontend (`web/`, Vite + React + TypeScript) talks only to the gateway under `/api`:
+
+```sh
+make web-dev           # :5173, proxying /api to the gateway on :8000 (run the services too)
+make web-check         # type-check, lint, test
+make web               # build web/dist; the gateway serves it with GATEWAY_WEB_DIST=web/dist
+```
+
+The app has five pages:
+- **Search**
+- **Topic page:** clues, heatmap, related topics, "don't confuse with", timeline and map
+- **Practice:** word-by-word buzzer
+- **Review:** FSRS flashcards
+- **Studying:** followed topics and stats
 
 ## Building the corpus
 

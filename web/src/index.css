@@ -1,0 +1,345 @@
+/* The theme is CSS variables: a neutral default now; generated per-topic themes later set
+   these same variables on the topic page. */
+:root {
+  --bg: #f7f6f2;
+  --surface: #ffffff;
+  --text: #1f2328;
+  --muted: #5f6670;
+  --border: #e3e1da;
+  --accent: #2f6f5e;
+  --accent-2: #b5651d;
+  --accent-soft: #e4efe9;
+  --good: #2e7d32;
+  --bad: #b3261e;
+  --warn: #a15c00;
+  --radius: 10px;
+  --shadow: 0 1px 2px rgb(0 0 0 / 6%), 0 2px 8px rgb(0 0 0 / 4%);
+  --font-body: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15171a;
+    --surface: #1d2024;
+    --text: #e8e6e1;
+    --muted: #a3a8af;
+    --border: #2f3338;
+    --accent: #7fc4ad;
+    --accent-2: #e2a160;
+    --accent-soft: #23332e;
+    --good: #7bc77f;
+    --bad: #f08a84;
+    --warn: #e7b05c;
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  line-height: 1.5;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 0.45rem 0.9rem;
+}
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+  font-weight: 600;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+input[type='search'],
+input[type='text'] {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+/* --- Shell ----------------------------------------------------------------------------- */
+
+.shell-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  gap: 1.25rem;
+  align-items: center;
+  padding: 0.7rem 1rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.shell-header .brand {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: var(--text);
+}
+.shell-header nav {
+  display: flex;
+  gap: 1rem;
+  margin-left: auto;
+}
+.badge {
+  display: inline-block;
+  min-width: 1.4rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+main {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 4rem;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.1rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+.card h2 {
+  margin: 0 0 0.75rem;
+  font-family: var(--font-body);
+  font-size: 1.25rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+.small {
+  font-size: 0.85rem;
+}
+.pill {
+  display: inline-block;
+  padding: 0.05rem 0.55rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.8rem;
+  margin-right: 0.35rem;
+}
+.error {
+  color: var(--bad);
+}
+
+/* --- Search ---------------------------------------------------------------------------- */
+
+.hero {
+  text-align: center;
+  margin: 3rem 0 2rem;
+}
+.hero h1 {
+  font-family: var(--font-body);
+  font-size: 2.2rem;
+  margin: 0 0 0.25rem;
+}
+.results {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+}
+.results li a {
+  display: block;
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+.results li a:hover {
+  background: var(--accent-soft);
+  text-decoration: none;
+}
+
+/* --- Topic ----------------------------------------------------------------------------- */
+
+.topic-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.topic-head h1 {
+  font-family: var(--font-body);
+  font-size: 2rem;
+  margin: 0;
+}
+.topic-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.stats-row {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+}
+.stats-row div strong {
+  display: block;
+  font-size: 1.2rem;
+}
+
+.clues {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.clues li {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.clues li:last-child {
+  border-bottom: none;
+}
+.clue-label {
+  font-weight: 650;
+}
+.clue-text {
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  margin: 0.25rem 0;
+}
+.examples {
+  margin: 0.4rem 0 0 1rem;
+  font-family: var(--font-body);
+  color: var(--muted);
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+@media (max-width: 760px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.heatmap text {
+  fill: var(--muted);
+  font-size: 11px;
+}
+.heatmap .label {
+  fill: var(--text);
+}
+
+.timeline text {
+  fill: var(--text);
+  font-size: 11px;
+}
+.timeline .axis {
+  stroke: var(--border);
+}
+
+.map {
+  height: 320px;
+  border-radius: var(--radius);
+}
+
+/* --- Practice -------------------------------------------------------------------------- */
+
+.reader {
+  font-family: var(--font-body);
+  font-size: 1.2rem;
+  line-height: 1.7;
+  min-height: 8rem;
+}
+.reader .power {
+  color: var(--accent-2);
+  font-weight: 700;
+  margin: 0 0.15rem;
+}
+.reader .buzz-mark {
+  color: var(--bad);
+  font-weight: 700;
+}
+.reader .unread {
+  color: var(--muted);
+}
+.controls {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 1rem;
+}
+.result-correct {
+  color: var(--good);
+  font-weight: 700;
+}
+.result-incorrect {
+  color: var(--bad);
+  font-weight: 700;
+}
+.result-prompt {
+  color: var(--warn);
+  font-weight: 700;
+}
+
+/* --- Review ---------------------------------------------------------------------------- */
+
+.flashcard {
+  min-height: 12rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+  font-family: var(--font-body);
+  font-size: 1.25rem;
+}
+.flashcard .back {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed var(--border);
+  white-space: pre-line;
+  font-weight: 650;
+}
+.ratings {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}

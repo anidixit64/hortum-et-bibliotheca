@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 SERVICES := gateway catalog content study
 
-.PHONY: help install lint fmt typecheck test check pipeline up down logs build run-%
+.PHONY: help install lint fmt typecheck test check pipeline up down logs build run-% web web-dev web-check
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_%-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -23,7 +23,16 @@ typecheck: ## Type-check with mypy
 test: ## Run all tests
 	uv run pytest
 
-check: lint typecheck test ## Everything CI runs
+check: lint typecheck test ## Everything CI runs (Python; see web-check)
+
+web: ## Build the frontend into web/dist (the gateway serves it: GATEWAY_WEB_DIST=web/dist)
+	cd web && npm ci && npm run build
+
+web-dev: ## Frontend dev server on :5173, proxying /api to the gateway on :8000
+	cd web && npm run dev
+
+web-check: ## Type-check, lint and test the frontend
+	cd web && npm run typecheck && npm run lint && npm test
 
 run-%: ## Run one service locally with reload, e.g. make run-catalog
 	@case "$*" in \

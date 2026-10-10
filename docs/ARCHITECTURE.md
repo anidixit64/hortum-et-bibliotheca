@@ -655,6 +655,28 @@ From Phase 2 on, two **tracer questions** are followed through every stage (`pip
 23. **Buzzer practice page** (word-by-word reveal, buzz, answer, override) and the **review page** (flashcards).
 24. **Gateway serves the built frontend** in Compose. *Done when* you can search for a topic, read its clues, practice it, follow it, and review its cards the next day, with no AI anywhere yet.
 
+    **Built (October 2026):** `web/` is Vite + React + TypeScript (strict) with React Router and react-leaflet.
+    - **Typed API client:** it covers the gateway's `/api/catalog` and `/api/study`. Types are hand-written, because the topic record is free-form JSON the OpenAPI schemas don't describe.
+    - **Theme:** CSS variables, with a neutral default and a dark mode.
+    - **Pages:**
+      - **Search:** debounced, with typo-tolerant results.
+      - **Topic:**
+        - header, stats and aliases
+        - follow and practice buttons
+        - ranked clues with their other wordings, plus an SVG heatmap with your own buzz markers
+        - related topics with the linking clue, and confusions with evidence and distinguishing clues
+        - an SVG timeline and a Leaflet/OSM map
+      - **Practice:**
+        - word-by-word reveal at an adjustable reading speed, with the power mark shown once passed
+        - space to buzz; prompts let you answer again
+        - "I was right / wrong" overrides through the new `PATCH /buzzes/{id}`; reading to the end records "no buzz"
+      - **Review:** flip, then rate Again, Hard, Good or Easy.
+      - **Studying:** followed topics and overall stats, with a header badge for cards due.
+    - **Gateway:** serves `web/dist` when `GATEWAY_WEB_DIST` is set, falling back to `index.html` for client-side routes. Its Docker image builds the frontend in a Node stage.
+    - **CI:** a `web` job type-checks, lints, tests and builds.
+    - **Tests:** Vitest with Testing Library covers search, review, the practice flow (fake timers) and a real *Invisible Man* record rendering on the topic page.
+    - **Smoke test:** the full stack through the gateway: search → topic → follow → due cards → practice buzz → stats.
+
 ### Phase 5: Enrichment
 25. **Content worker and job queue** (`jobs` table, dedup on topic, backoff).
 26. **Wikipedia** text and images, **books** (Wikipedia citations plus Open Library), **videos** (YouTube with the channel allowlist). Each fetcher is cached in `enrichments` and fails independently. *Done when* 20 sample topics show real books, images and videos.

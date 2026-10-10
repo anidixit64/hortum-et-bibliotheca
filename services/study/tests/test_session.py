@@ -134,14 +134,17 @@ def test_scripted_session(client: TestClient) -> None:
     override = post(client, "/buzzes", tossup_id="q1", word_index=15, answer_given="Ellison",
                     self_judgment="correct")  # fmt: skip
     assert override["judged_by"] == "self" and override["result"] == "correct"
+    fixed = client.patch(f"/buzzes/{wrong['buzz_id']}", json={"result": "correct"})
+    assert fixed.json() == {"buzz_id": wrong["buzz_id"], "result": "correct", "judged_by": "self"}
+    assert client.patch("/buzzes/999", json={"result": "correct"}).status_code == 404
     silent = post(client, "/buzzes", tossup_id="q1")
     assert silent["result"] == "no_buzz" and silent["missed_cards"] == 0  # cards exist already
 
     stats = client.get("/stats").json()
     assert stats["followed_topics"] == 1 and stats["reviews_today"] == 4
-    assert stats["buzzing"]["buzzes"] == 5 and stats["buzzing"]["correct"] == 2
+    assert stats["buzzing"]["buzzes"] == 5 and stats["buzzing"]["correct"] == 3
     topic = client.get("/topics/Q1784288/stats").json()
-    assert topic["followed"] and topic["buzzing"]["accuracy"] == pytest.approx(2 / 4)
+    assert topic["followed"] and topic["buzzing"]["accuracy"] == pytest.approx(3 / 4)
     assert topic["buzzed_clusters"] == {"13": 1, "11": 2}  # the override was in the giveaway
 
     # Unfollow suspends the topic's cards; history stays.
