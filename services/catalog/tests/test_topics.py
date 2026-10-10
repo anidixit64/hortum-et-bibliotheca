@@ -32,8 +32,11 @@ def client(tmp_path: Path) -> TestClient:
         CREATE TABLE tossup_topics (tossup_id TEXT PRIMARY KEY, topic_id TEXT);
         CREATE TABLE question_layout (tossup_id TEXT PRIMARY KEY, clean_text TEXT,
                                       power_word INTEGER);
-        CREATE TABLE clues (tossup_id TEXT, ordinal INTEGER, kind TEXT, word_start INTEGER,
-                            word_end INTEGER, in_power INTEGER);
+        CREATE TABLE clues (id INTEGER PRIMARY KEY, tossup_id TEXT, ordinal INTEGER, kind TEXT,
+                            word_start INTEGER, word_end INTEGER, in_power INTEGER);
+        CREATE TABLE clue_cluster_members (clue_id INTEGER PRIMARY KEY, cluster_id INTEGER);
+        CREATE TABLE answer_parses (tossup_id TEXT PRIMARY KEY, main TEXT, required TEXT,
+                                    accept TEXT, prompt TEXT, reject TEXT);
         CREATE TABLE practice_pool (tossup_id TEXT PRIMARY KEY, topic_id TEXT, category TEXT,
                                     difficulty INTEGER);
         INSERT INTO sets VALUES ('s1', 'ACF Fall', 2024), ('s2', 'NSC', 2010);
@@ -54,8 +57,13 @@ def client(tmp_path: Path) -> TestClient:
             "INSERT INTO practice_pool VALUES (?, ?, ?, ?)", (qid, topic, category, difficulty)
         )
         conn.execute("INSERT INTO question_layout VALUES (?, ?, 3)", (qid, text))
-        conn.execute("INSERT INTO clues VALUES (?, 0, 'clue', 0, 4, 1)", (qid,))
-        conn.execute("INSERT INTO clues VALUES (?, 1, 'giveaway', 4, 9, 0)", (qid,))
+        cur = conn.execute("INSERT INTO clues VALUES (NULL, ?, 0, 'clue', 0, 4, 1)", (qid,))
+        conn.execute("INSERT INTO clue_cluster_members VALUES (?, 7)", (cur.lastrowid,))
+        conn.execute("INSERT INTO clues VALUES (NULL, ?, 1, 'giveaway', 4, 9, 0)", (qid,))
+        conn.execute(
+            "INSERT INTO answer_parses VALUES (?, 'Invisible Man', '[]', '[]', '[]', ?)",
+            (qid, '[{"text": "The Invisible Man"}]'),
+        )
     conn.commit()
     return TestClient(build_app(Settings(corpus_path=path)))
 
@@ -89,3 +97,13 @@ def test_practice_filters_and_skips_seen_questions(client: TestClient) -> None:
     assert (
         client.get("/practice/next", params={"topic": "Q308", "exclude": "q3"}).status_code == 404
     )
+
+
+def test_one_tossup_with_its_answer_line_and_clue_clusters(client: TestClient) -> None:
+    tossup = get(client, "/tossups/q1")
+    assert tossup["answer_line"]["reject"] == ["The Invisible Man"]
+    assert [(c["kind"], c["cluster_id"]) for c in tossup["clues"]] == [
+        ("clue", 7),
+        ("giveaway", None),
+    ]
+    assert client.get("/tossups/nope").status_code == 404

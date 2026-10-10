@@ -11,8 +11,12 @@ class Settings(ServiceSettings):
 
     service_name: str = "study"
     db_path: Path = Path("data/study.db")
+    catalog_url: str = "http://localhost:8001"
+    catalog_timeout_seconds: float = 10.0
     # Nightly copies of study.db go here; it is the only data that can't be rebuilt.
     backup_dir: Path | None = None
+    backup_hour_utc: int = 9
+    backups_kept: int = 14
 
 
 @lru_cache

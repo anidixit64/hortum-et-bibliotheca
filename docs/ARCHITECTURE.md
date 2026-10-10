@@ -334,13 +334,15 @@ A generation is reused as long as `(prompt_version, input_hash)` hasn't changed.
 ### `study.db` (writable, owned by study; back this one up)
 
 ```sql
-followed_topics(topic_id PRIMARY KEY, added_at)
+followed_topics(topic_id PRIMARY KEY, name, added_at)
 cards(card_id PRIMARY KEY /* stable hash, see §8.2 */, topic_id, kind /* clue|reverse|missed */,
       front, back, source_ref JSON, created_at, suspended)
-card_state(card_id PRIMARY KEY, due, stability, difficulty, reps, lapses, state, last_review)
+card_state(card_id PRIMARY KEY, due, fsrs JSON /* fsrs.Card.to_dict(): state, step, stability,
+           difficulty, due, last_review; review counts come from reviews */)
 reviews(id, card_id, rating /* 1 again | 2 hard | 3 good | 4 easy */, reviewed_at, elapsed_days)
-buzzes(id, tossup_id, topic_id, word_index, position, clue_cluster_id, result /* correct|incorrect|no_buzz */,
-       in_power, answer_given, judged_by /* auto|self */, created_at)
+buzzes(id, tossup_id, topic_id, word_index, position, clue_ordinal, clue_cluster_id,
+       result /* correct|incorrect|no_buzz */, in_power, answer_given, judged_by /* auto|self */,
+       created_at)
 ```
 
 Cards store their own `front` and `back` text, so a pipeline rebuild that changes clue IDs never breaks your deck.
@@ -637,6 +639,14 @@ From Phase 2 on, two **tracer questions** are followed through every stage (`pip
 17. **Schema and FSRS:** create the `study.db` tables and wrap the `fsrs` package in `scheduler.py`. Unit-test that ratings move due dates sensibly.
 18. **Answer checking** (`answers.py`), reusing the pipeline's normalizer (move it into `libs/common` so both share it). Test with real answer lines, including prompts and rejects.
 19. **Endpoints:** follow a topic (creates cards), due reviews, submit a review, record a buzz (creates `missed` cards), stats. Then add the nightly `study.db` backup. *Done when* a scripted session can follow a topic, review cards, and record buzzes.
+
+    **Built (October 2026):**
+    - **Data access:** the study service reads topics and questions from the catalog over HTTP (`STUDY_CATALOG_URL`) and owns only `study.db`. The catalog gained `GET /tossups/{id}`: a question with its parsed answer line, and each clue's ordinal and clue-cluster id. That lets a buzz be judged and tied to the clue being read.
+    - **Endpoints:** `POST/DELETE /topics/{id}/follow`, `GET /topics`, `GET /reviews/due`, `POST /reviews`, `POST /buzzes`, `GET /stats`, `GET /topics/{id}/stats` (which includes buzzes per clue cluster for the heatmap markers), and `POST /admin/backup`.
+    - **Answer checking:** exact matches keep articles, so "The Invisible Man" (rejected) is wrong while "Invisible Man" is right. A reject wins; then the required underlined part anywhere in the answer; then fuzzy matches at ≥ 85. A prompt isn't recorded, so the player answers again, and "I was right / wrong" overrides are stored as `judged_by=self`.
+    - **Missed cards:** a wrong buzz, no buzz, or a right buzz after the topic's top clues were read turns those clues, as worded in that question, into `missed` cards.
+    - **Backups:** nightly SQLite online backups go to `STUDY_BACKUP_DIR` (the newest 14 are kept).
+    - **Tests:** the scripted session test follows, reviews, buzzes (wrong, prompt, self-judged, no buzz), checks stats, unfollows and backs up. On the real corpus, following *Invisible Man* creates 11 cards.
 
 ### Phase 4: Frontend with all the free features
 20. **Scaffold `web/`** (Vite + React + TypeScript) with a typed API client and the page shell. The theme comes in through CSS variables, with a neutral default until generation exists.
