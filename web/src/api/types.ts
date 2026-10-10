@@ -180,3 +180,83 @@ export interface Stats {
   reviews_today: number
   buzzing: BuzzStats
 }
+
+// --- Content service (Phase 5): fetched per topic, cached, filled in by a background worker.
+
+export interface WikiSection {
+  heading: string
+  text: string
+}
+
+export interface WikiPayload {
+  title: string
+  url: string
+  lead: string
+  sections: WikiSection[]
+  license: string
+  license_url: string
+  attribution: string
+}
+
+export interface WikiImage {
+  file: string
+  url: string
+  width: number
+  height: number
+  page: string | null
+  caption: string | null
+  artist: string | null
+  license: string
+  license_url: string | null
+  attribution_required: boolean
+  is_main: boolean
+}
+
+export interface Book {
+  title: string | null
+  author: string | null
+  year: number | null
+  isbn: string | null
+  cover: string | null
+  open_library: string | null
+  cited: number
+  source: 'cited' | 'subject' | 'work'
+}
+
+export interface Reference {
+  name: string
+  url: string
+}
+
+export interface Video {
+  id: string
+  title: string
+  channel: string
+  seconds: number
+  url: string
+  embed: string
+}
+
+export interface SectionPayloads {
+  wiki: WikiPayload
+  images: { images: WikiImage[] }
+  books: { books: Book[]; references: Reference[] }
+  videos: { videos: Video[] }
+}
+
+export type ContentKind = keyof SectionPayloads
+
+export type SectionStatus = 'ok' | 'empty' | 'unavailable' | 'pending' | 'failed'
+
+export interface Section<K extends ContentKind = ContentKind> {
+  status: SectionStatus
+  // For "unavailable", the payload is { reason }.
+  payload: SectionPayloads[K] | { reason?: string } | null
+  fetched_at: string | null
+}
+
+export interface TopicContent {
+  topic_id: string
+  status: 'ready' | 'partial'
+  sections: { [K in ContentKind]: Section<K> }
+}

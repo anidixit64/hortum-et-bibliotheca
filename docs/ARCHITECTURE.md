@@ -681,6 +681,18 @@ From Phase 2 on, two **tracer questions** are followed through every stage (`pip
 25. **Content worker and job queue** (`jobs` table, dedup on topic, backoff).
 26. **Wikipedia** text and images, **books** (Wikipedia citations plus Open Library), **videos** (YouTube with the channel allowlist). Each fetcher is cached in `enrichments` and fails independently. *Done when* 20 sample topics show real books, images and videos.
 
+    **Built (October 2026):** `services/content` plus a worker (`hortum-content worker`, the `content-worker` Compose service), sharing `content.db`.
+    - **Jobs:** a `jobs` table with a partial unique index, so a topic has at most one open job per kind. Page views queue at priority 10, ahead of batch jobs. The worker claims jobs atomically and retries failures with exponential backoff (1, 2, 4… minutes, up to 5 attempts). Jobs left "running" by a crash are recovered on start.
+    - **Polite HTTP:** one shared client with a minimum interval per host (Open Library 1 s, Wikipedia 0.2 s), retries on 429 and 5xx, and an `http_cache` table. Wikimedia requests carry the contact User-Agent; everything else a plain project one.
+    - **Fetchers** (each stored in `enrichments` and failing independently):
+      - **wiki:** the article's lead and sections (24,000-character cap), with CC BY-SA attribution.
+      - **images:** the page image and article images from Commons, with license, artist and caption. Icons, logos, flags, sister-project badges and SVGs are skipped.
+      - **books:** books the article cites (`{{cite book}}`), matched in Open Library, plus a subject search. Subject results must name the topic in their title (Open Library's subject tags put self-help under "Prohibition"); outside literature, fiction and children's books are excluded. Ranked by `3 × cited + log(editions) + log(1 + ratings)`, top 15, plus links to Britannica (and the SEP for philosophy).
+      - **videos:** YouTube search, preferring an allowlist of educational channels; 4–40 minutes; shown through the no-cookie embed. Without `CONTENT_YOUTUBE_API_KEY` the section is "unavailable".
+    - **API:** `GET /topics/{id}/content` returns what's ready and queues the rest; `POST /topics/{id}/refresh` refetches; `GET /jobs` shows counts.
+    - **Frontend:** "About" (the Wikipedia lead, with the rest of the article folded) near the top; images, further reading and videos below the map. The page polls every 3 s while anything is pending.
+    - **Sample run:** 20 audit topics, 80 jobs, 275 requests in 3.4 minutes. Text, images and books came back for all 20; videos wait on an API key.
+
 ### Phase 6: Generation
 27. **Gemini backend:** two requests per topic (writing and light), JSON-schema output, validators, retry once on validation failure.
 28. **Prompts v1** for the summary, story, clue narratives, theme, book blurbs and confusion tips. Generate 10 hand-picked topics, read them all, revise the prompts, and repeat until you're happy.

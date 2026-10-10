@@ -26,7 +26,7 @@ The full design and build plan are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.m
 |------------|------|------------------------------------------------------------------------|
 | `gateway`  | 8000 | Single entry point. Routes `/api/{catalog,content,study}/...`.          |
 | `catalog`  | 8001 | Search and precomputed topic data from the read-only `corpus.db`.       |
-| `content`  | 8002 | Wikipedia, books, videos and AI-written sections, cached per topic.     |
+| `content`  | 8002 | Wikipedia text and images, books and videos, cached per topic; a worker fetches them. |
 | `study`    | 8003 | Flashcards, review scheduling and buzz history.                        |
 | `pipeline` | —    | Offline CLI that builds `corpus.db` from `data/raw/tossups.json`.       |
 
@@ -80,6 +80,7 @@ make run-gateway       # :8000
 make run-catalog       # :8001
 make run-content       # :8002
 make run-study         # :8003
+make content-worker    # fetches what the topic page asks for
 ```
 
 Each service serves interactive API docs at `/docs`.
@@ -94,7 +95,8 @@ make web               # build web/dist; the gateway serves it with GATEWAY_WEB_
 
 The app has five pages:
 - **Search**
-- **Topic page:** clues, heatmap, related topics, "don't confuse with", timeline and map
+- **Topic page:** clues, heatmap, related topics, "don't confuse with", timeline and map, plus the
+  Wikipedia summary, images, further reading and videos (fetched on first view)
 - **Practice:** word-by-word buzzer
 - **Review:** FSRS flashcards
 - **Studying:** followed topics and stats
@@ -120,6 +122,23 @@ corrected** writes just those fixes into `corpus.db`.
 Linking needs contact details in `PIPELINE_WIKIMEDIA_USER_AGENT` (see `.env.example`):
 Wikimedia refuses requests without them.
 
+## Fetched content
+
+The topic page asks the content service for its Wikipedia text, images, books and videos.
+Anything missing is queued, and the page fills in as `hortum-content worker` (the
+`content-worker` Compose service) fetches it. Each kind is fetched once and kept in
+`data/content.db`.
+
+```sh
+uv run hortum-content enqueue Q1784288 Q36348 --kinds books   # queue by Wikidata ID
+uv run hortum-content worker --once                          # drain the queue and stop
+uv run hortum-content status                                 # job counts
+curl -X POST localhost:8002/topics/Q36348/refresh             # fetch again
+```
+
+Videos need a YouTube Data API key in `CONTENT_YOUTUBE_API_KEY`. Without one the section
+says "coming soon".
+
 ## Configuration
 
 Settings come from environment variables (or a `.env` file; see `.env.example`). Each service has its own prefix:
@@ -128,7 +147,7 @@ Settings come from environment variables (or a `.env` file; see `.env.example`).
 |------------|-------------|----------------------------------------------------------|
 | `gateway`  | `GATEWAY_`  | `CATALOG_URL`, `CONTENT_URL`, `STUDY_URL`, `UPSTREAM_TIMEOUT_SECONDS` |
 | `catalog`  | `CATALOG_`  | `CORPUS_PATH`                                            |
-| `content`  | `CONTENT_`  | `DB_PATH`, `CATALOG_URL`                                 |
+| `content`  | `CONTENT_`  | `DB_PATH`, `CATALOG_URL`, `WIKIMEDIA_USER_AGENT`, `YOUTUBE_API_KEY` |
 | `study`    | `STUDY_`    | `DB_PATH`, `BACKUP_DIR`                                  |
 | `pipeline` | `PIPELINE_` | `DATA_DIR`, `WIKIMEDIA_USER_AGENT`                       |
 
