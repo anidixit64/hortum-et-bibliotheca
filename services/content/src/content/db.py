@@ -32,6 +32,20 @@ CREATE TABLE IF NOT EXISTS jobs (
 CREATE UNIQUE INDEX IF NOT EXISTS jobs_open ON jobs(topic_id, kind)
     WHERE status IN ('queued', 'running');
 CREATE INDEX IF NOT EXISTS jobs_next ON jobs(status, priority, not_before);
+-- What a model wrote or edited, per topic and kind; reused while its inputs are the same.
+CREATE TABLE IF NOT EXISTS generations (
+    topic_id TEXT NOT NULL,
+    kind TEXT NOT NULL,               -- clues | (summary, explanations, ... later)
+    fingerprint TEXT NOT NULL,        -- the inputs it was made from; a change regenerates
+    prompt_version INTEGER NOT NULL,  -- bump a prompt to regenerate lazily
+    backend TEXT NOT NULL,            -- claude_code | gemini
+    model TEXT NOT NULL,
+    payload TEXT NOT NULL,            -- JSON
+    input_tokens INTEGER NOT NULL,
+    output_tokens INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (topic_id, kind)
+);
 CREATE TABLE IF NOT EXISTS http_cache (
     url TEXT PRIMARY KEY,
     status INTEGER NOT NULL,

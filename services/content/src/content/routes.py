@@ -2,14 +2,32 @@ import json
 import sqlite3
 from typing import Annotated, Any, Literal
 
+import httpx
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 
-from content import jobs
+from content import cleanup, jobs
 
 router = APIRouter()
 
-PAGE_VIEW_PRIORITY = 10  # someone is looking at the page: ahead of batch jobs
+PAGE_VIEW_PRIORITY = 10
+PROMPT_VERSIONS = {"clues": cleanup.PROMPT_VERSION}
+
+
+def clue_fingerprint(request: Request, topic_id: str, stored: str) -> str:
+    """The catalog's current fingerprint of the topic's clue candidates. If the catalog
+    can't be reached, the stored one counts as current (better shown than hidden)."""
+    settings = request.app.state.settings
+    try:
+        response = httpx.get(
+            f"{settings.catalog_url}/topics/{topic_id}/clue-candidates",
+            params={"limit": cleanup.CANDIDATES},
+            timeout=2.0,
+        )
+        response.raise_for_status()
+        return str(response.json()["fingerprint"])
+    except (httpx.HTTPError, KeyError, ValueError):
+        return stored  # someone is looking at the page: ahead of batch jobs
 
 
 def get_db(request: Request) -> sqlite3.Connection:
@@ -24,6 +42,7 @@ class Section(BaseModel):
     status: Literal["ok", "empty", "unavailable", "pending", "failed"]
     payload: dict[str, Any] | None = None
     fetched_at: str | None = None
+    stale: bool = False  # generated from older inputs; a fresh one is queued
 
 
 class TopicContent(BaseModel):
@@ -33,7 +52,9 @@ class TopicContent(BaseModel):
 
 
 @router.get("/topics/{topic_id}/content", tags=["content"])
-def topic_content(topic_id: str, db: Db, enqueue: Annotated[bool, Query()] = True) -> TopicContent:
+def topic_content(
+    topic_id: str, db: Db, request: Request, enqueue: Annotated[bool, Query()] = True
+) -> TopicContent:
     """What's been fetched for a topic. Anything missing is queued (unless ``enqueue=false``)
     and shows as "pending": the page can poll until the status is "ready"."""
     rows = db.execute(
@@ -41,6 +62,19 @@ def topic_content(topic_id: str, db: Db, enqueue: Annotated[bool, Query()] = Tru
         (topic_id,),
     ).fetchall()
     have = {kind: Section(status=s, payload=json.loads(p), fetched_at=f) for kind, s, p, f in rows}
+    for kind, fingerprint, version, payload, created in db.execute(
+        "SELECT kind, fingerprint, prompt_version, payload, created_at FROM generations "
+        "WHERE topic_id = ?",
+        (topic_id,),
+    ):
+        current = PROMPT_VERSIONS.get(kind) == version and fingerprint == clue_fingerprint(
+            request, topic_id, fingerprint
+        )
+        have[kind] = Section(
+            status="ok", payload=json.loads(payload), fetched_at=created, stale=not current
+        )
+        if not current and enqueue:
+            jobs.enqueue(db, topic_id, kind, PAGE_VIEW_PRIORITY)
     open_jobs = jobs.open_kinds(db, topic_id)
     sections: dict[str, Section] = {}
     for kind in jobs.KINDS:
@@ -62,13 +96,14 @@ def topic_content(topic_id: str, db: Db, enqueue: Annotated[bool, Query()] = Tru
 def refresh(
     topic_id: str, db: Db, kinds: Annotated[list[str] | None, Query()] = None
 ) -> dict[str, Any]:
-    """Fetch again: drops what's stored and queues new jobs."""
+    """Fetch (or generate) again: drops what's stored and queues new jobs."""
     chosen = [k for k in (kinds or list(jobs.KINDS)) if k in jobs.KINDS]
     with db:
-        db.executemany(
-            "DELETE FROM enrichments WHERE topic_id = ? AND kind = ?",
-            [(topic_id, k) for k in chosen],
-        )
+        for table in ("enrichments", "generations"):
+            db.executemany(
+                f"DELETE FROM {table} WHERE topic_id = ? AND kind = ?",
+                [(topic_id, k) for k in chosen],
+            )
     queued = [k for k in chosen if jobs.enqueue(db, topic_id, k, PAGE_VIEW_PRIORITY)]
     return {"topic_id": topic_id, "queued": queued}
 

@@ -3,10 +3,12 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 
-from content import jobs, worker
+from content import jobs, routes, worker
 from content.config import Settings
+from content.generate import Reply
 from content.main import build_app
 
 RECORD = {
@@ -35,16 +37,82 @@ def fake_web(request: httpx.Request) -> Any:
     return {"docs": []}
 
 
+CANDIDATES = {
+    "topic_id": "Q1784288",
+    "name": "Invisible Man",
+    "category": "Literature",
+    "fingerprint": "abc123",
+    "candidates": [
+        {
+            "id": 1,
+            "rank": 1,
+            "label": "Ras the Exhorter",
+            "key": "ras the exhorter",
+            "n_questions": 3,
+            "spellings": {"Ras the Exhorter": ["q1", "q2", "q3"]},
+            "sentences": ["Ras the Exhorter leads a riot."],
+        },
+        {
+            "id": 2,
+            "rank": 2,
+            "label": "battle royal",
+            "key": "battle royal",
+            "n_questions": 2,
+            "spellings": {"battle royal": ["q1", "q4"]},
+            "sentences": ["He fights in a battle royal."],
+        },
+        {
+            "id": 3,
+            "rank": 3,
+            "label": "Battle Royale",
+            "key": "battle royale",
+            "n_questions": 2,
+            "spellings": {"Battle Royale": ["q5", "q6"]},
+            "sentences": ["The Battle Royale is blindfolded."],
+        },
+        {
+            "id": 4,
+            "rank": 4,
+            "label": "narrator",
+            "key": "narrator",
+            "n_questions": 2,
+            "spellings": {"narrator": ["q2", "q3"]},
+            "sentences": ["The narrator lives underground."],
+        },
+    ],
+}
+
+
+def fake_reply(backends: Any, request: Any, check: Any = None) -> Reply:
+    """A model that merges the two battle royals and drops the stand-in."""
+    edits = {
+        "edits": [
+            {"id": 1, "action": "keep"},
+            {"id": 2, "action": "rename", "label": "battle royal"},
+            {"id": 3, "action": "merge", "into": 2},
+            {"id": 4, "action": "drop", "reason": "answer_itself"},
+        ]
+    }
+    assert check is None or check(edits) is None
+    return Reply(edits, "fake", "fake-model", 100, 20)
+
+
 def catalog() -> httpx.Client:
     def respond(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/topics/Q1784288":
             return httpx.Response(200, json=RECORD)
+        if request.url.path == "/topics/Q1784288/clue-candidates":
+            return httpx.Response(200, json=CANDIDATES)
         return httpx.Response(404, json={})
 
     return httpx.Client(transport=httpx.MockTransport(respond), base_url="http://catalog")
 
 
-def test_page_view_queues_then_the_worker_fills_in(tmp_path: Path, web: Any) -> None:
+def test_page_view_queues_then_the_worker_fills_in(
+    tmp_path: Path, web: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(worker.chain, "run", fake_reply)
+    monkeypatch.setattr(routes, "clue_fingerprint", lambda request, topic_id, stored: stored)
     settings = Settings(_env_file=None, db_path=tmp_path / "content.db")  # type: ignore[call-arg]
     app = build_app(settings)
     api = TestClient(app)
@@ -66,7 +134,14 @@ def test_page_view_queues_then_the_worker_fills_in(tmp_path: Path, web: Any) -> 
         "images": "empty",
         "videos": "unavailable",
         "books": "pending",
+        "clues": "ok",
     }
+    # Recounted from the questions behind each spelling: q1 counts once.
+    cleaned = second["sections"]["clues"]["payload"]["clues"]
+    assert [(c["label"], c["n_questions"], c["clue_ids"]) for c in cleaned] == [
+        ("battle royal", 4, [2, 3]),
+        ("Ras the Exhorter", 3, [1]),
+    ]
     assert second["sections"]["wiki"]["payload"]["sections"][0]["heading"] == "Plot"
     assert api.get("/jobs").json()["books"] == {"queued": 1}
 

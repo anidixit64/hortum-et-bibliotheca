@@ -1,3 +1,5 @@
+import { applyCleanup } from './cleanClues'
+import type { Clue } from '../api/types'
 import { binOf, cellShades } from './heatmap'
 import { formatTime, percent, yearOf } from './format'
 import { clueAt, msPerWord, pastPower, words } from './reveal'
@@ -36,4 +38,27 @@ test('formatting', () => {
   expect(formatTime('-0490-01-01T00:00:00Z', 9)).toBe('490 BC')
   expect(yearOf('-0490-01-01T00:00:00Z')).toBe(-490)
   expect(yearOf(null)).toBeNull()
+})
+
+describe('applyCleanup', () => {
+  const record = (id: number, label: string, hist: number[], text = `${label} text`): Clue => ({
+    rank: id, cluster_id: id, label, text, examples: [], n_sets: 2, n_tossups: 2,
+    median_position: 0.5,
+    heatmap: { position_hist: hist, share_in_power: 0, share_last_line: 0, difficulty: {},
+               years: [2000, 2020], trend: 'steady' },
+  })
+  it('builds merged clues from their records and drops unknown ones', () => {
+    const records = [record(1, 'lodgers', [1, 0]), record(2, 'boarders', [0, 2]), record(3, 'furs', [1, 1])]
+    const out = applyCleanup(records, [
+      { rank: 1, label: 'lodgers', n_questions: 5, clue_ids: [1, 2], spellings: ['lodgers', 'boarders'] },
+      { rank: 2, label: 'picture of a woman in furs', n_questions: 2, clue_ids: [3], spellings: ['furs'] },
+      { rank: 3, label: 'missing', n_questions: 1, clue_ids: [99], spellings: [] },
+    ])
+    expect(out.map((c) => [c.label, c.n_questions, c.rank])).toEqual([
+      ['lodgers', 5, 1],
+      ['picture of a woman in furs', 2, 2],
+    ])
+    expect(out[0].heatmap.position_hist).toEqual([1, 2])
+    expect(out[0].examples).toEqual(['boarders text'])
+  })
 })
