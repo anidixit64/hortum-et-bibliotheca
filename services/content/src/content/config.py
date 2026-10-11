@@ -133,8 +133,10 @@ class Settings(ServiceSettings):
     use_claude_code: bool = True  # false: Gemini only, and the worker can run in Docker
     claude_code_path: str = ""  # default: `claude` on the PATH or the VS Code extension's copy
     gemini_api_key: str = ""  # free key from Google AI Studio
-    light_chain: str = "claude_code:haiku,gemini:gemini-flash-latest"
-    writing_chain: str = "claude_code:opus,gemini:gemini-pro-latest"
+    # Gemini's free tier serves only Flash models (Pro answers "quota exceeded"), and the
+    # "-latest" aliases are the busiest; a named model is steadier.
+    light_chain: str = "claude_code:haiku,gemini:gemini-3.8-flash"
+    writing_chain: str = "claude_code:opus,gemini:gemini-3.8-flash"
     generation_timeout_seconds: float = 300.0
     # NER at first open: a Python with spaCy and en_core_web_trf (make ner-env); empty = off.
     ner_python: str = ""
