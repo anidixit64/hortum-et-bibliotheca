@@ -155,3 +155,69 @@ def source_text(wiki: dict[str, Any] | None) -> str:
     ]
     words = " ".join(parts).split()
     return " ".join(words[:SOURCE_WORDS])
+
+
+# --- fun facts ---------------------------------------------------------------------------
+
+FACTS_VERSION = 1
+FACT_COUNT = (5, 8)
+
+FACTS_SYSTEM = """You pick fun facts for a study page: surprising, memorable facts that \
+teach something real about the topic and show why it matters. Every fact must rest on a \
+sentence of the source text, which you quote exactly."""
+
+FACTS = """Topic: {name} (category: {category})
+
+Give {low}-{high} facts. For each:
+- "fact": one or two sentences (at most 40 words), vivid and accurate, in your own words.
+- "source_sentence": the sentence of the source text below that the fact rests on, copied \
+exactly (word for word).
+Prefer facts that surprise, connect to something familiar, or explain why {name} matters; \
+avoid dry dates and lists.
+
+Source (Wikipedia, CC BY-SA):
+{source}"""
+
+FACTS_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "facts": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"fact": {"type": "string"}, "source_sentence": {"type": "string"}},
+                "required": ["fact", "source_sentence"],
+            },
+        }
+    },
+    "required": ["facts"],
+}
+
+
+def _squash(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
+
+
+def grounded(facts: list[dict[str, Any]], source: str) -> list[dict[str, str]]:
+    """Facts whose quoted sentence really is in the source (ignoring case, punctuation and
+    spacing), at most 45 words each."""
+    haystack = _squash(source)
+    out = []
+    for item in facts:
+        fact = str(item.get("fact", "")).strip()
+        quote = str(item.get("source_sentence", "")).strip()
+        quoted = len(quote.split()) >= 5 and _squash(quote) in haystack
+        if fact and quoted and len(fact.split()) <= 45:
+            out.append({"fact": fact, "source_sentence": quote})
+    return out
+
+
+def facts_problem(data: dict[str, Any], source: str) -> str | None:
+    """Too few facts survive the grounding check: ask again once."""
+    kept = grounded(data.get("facts", []), source)
+    if len(kept) < FACT_COUNT[0] - 1:
+        return (
+            f"only {len(kept)} facts quote a sentence that is actually in the source; copy each "
+            "source_sentence exactly from the source text"
+        )
+    return None

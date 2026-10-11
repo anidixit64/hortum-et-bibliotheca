@@ -319,6 +319,39 @@ Generator = Callable[
 ]
 
 
+def write_facts(
+    conn: sqlite3.Connection, settings: Settings, catalog: httpx.Client, topic_id: str
+) -> tuple[dict[str, Any], str, Reply | None]:
+    """Fun facts, each resting on a sentence of the Wikipedia text it quotes."""
+    row = conn.execute(
+        "SELECT status, payload, fetched_at FROM enrichments WHERE topic_id = ? AND kind = 'wiki'",
+        (topic_id,),
+    ).fetchone()
+    if row is None:
+        jobs.enqueue(conn, topic_id, "wiki", 10)
+        raise NotReady("Wikipedia text not fetched yet")
+    identity = f"wiki:{row[2]}"
+    if row[0] != "ok":
+        return {"facts": []}, identity, None  # nothing to ground facts in
+    wiki = json.loads(row[1])
+    source = writing.source_text(wiki)
+    topic = catalog.get(f"/topics/{topic_id}/clue-candidates", params={"limit": 1}).json()
+    prompt = writing.FACTS.format(
+        name=topic["name"],
+        category=topic.get("category") or "unknown",
+        low=writing.FACT_COUNT[0],
+        high=writing.FACT_COUNT[1],
+        source=source,
+    )
+    reply = chain.run(
+        chain.build(settings.light_chain, settings),
+        Request("fun_facts", writing.FACTS_SYSTEM, prompt, writing.FACTS_SCHEMA),
+        functools.partial(writing.facts_problem, source=source),
+    )
+    facts = writing.grounded(reply.data.get("facts", []), source)[: writing.FACT_COUNT[1]]
+    return {"facts": facts, "source": {"title": wiki["title"], "url": wiki["url"]}}, identity, reply
+
+
 def write_cleanup(
     conn: sqlite3.Connection, settings: Settings, catalog: httpx.Client, topic_id: str
 ) -> tuple[dict[str, Any], str, Reply | None]:
@@ -329,6 +362,7 @@ GENERATORS: dict[str, tuple[Generator, int]] = {
     "clues": (write_cleanup, cleanup.PROMPT_VERSION),
     "explanations": (write_explanations, writing.EXPLANATIONS_VERSION),
     "summary": (write_summary, writing.SUMMARY_VERSION),
+    "facts": (write_facts, writing.FACTS_VERSION),
 }  # fmt: skip
 
 

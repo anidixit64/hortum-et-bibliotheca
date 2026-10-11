@@ -29,7 +29,15 @@ def fake_web(request: httpx.Request) -> Any:
     params = request.url.params
     if params.get("prop") == "extracts|info":
         return {
-            "query": {"pages": [{"title": "Invisible Man", "extract": "A novel.\n\n== Plot ==\nX"}]}
+            "query": {
+                "pages": [
+                    {
+                        "title": "Invisible Man",
+                        "extract": "A novel about a man who "
+                        "lives underground and steals power.\n\n== Plot ==\nX",
+                    }
+                ]
+            }
         }
     if params.get("prop") == "pageimages|images":
         return {"query": {"pages": [{"images": []}]}}
@@ -94,6 +102,9 @@ def fake_reply(backends: Any, request: Any, check: Any = None) -> Reply:
                 for r in (1, 2)
             ]
         }
+    elif request.task == "fun_facts":
+        quote = "A novel about a man who lives underground and steals power."
+        data = {"facts": [{"fact": f"Fact {i}.", "source_sentence": quote} for i in range(5)]}
     elif request.task == "summary":
         body = "[[1|The battle royal]] opens the novel. " + " ".join(["word"] * 600)
         data = {"hook": "A young man fights blindfolded for a scholarship.", "summary": body}
@@ -150,6 +161,7 @@ def test_page_view_queues_then_the_worker_fills_in(
         "clues": "ok",
         "explanations": "ok",
         "summary": "ok",
+        "facts": "ok",
     }
     explained = second["sections"]["explanations"]["payload"]["clues"]
     assert [c["one_line"] for c in explained] == ["Clue 1 in one line.", "Clue 2 in one line."]

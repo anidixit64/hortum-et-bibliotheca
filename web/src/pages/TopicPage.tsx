@@ -4,7 +4,7 @@ import { api } from '../api/client'
 import type { Clue, SectionPayloads, TopicRecord, TopicStats } from '../api/types'
 import { ClueList } from '../components/ClueList'
 import { Gallery, Reading, Videos, WikiSummary } from '../components/Enrichment'
-import { Hook, Summary } from '../components/Written'
+import { FunFacts, Hook, Summary } from '../components/Written'
 import { Heatmap } from '../components/Heatmap'
 import { ConfusionList, RelatedList } from '../components/Related'
 import { Timeline } from '../components/Timeline'
@@ -38,6 +38,8 @@ export function TopicPage() {
     explainedSection?.status === 'ok'
       ? (explainedSection.payload as SectionPayloads['explanations']).clues
       : []
+  const factsSection = content?.sections.facts
+  const facts = factsSection?.status === 'ok' ? (factsSection.payload as SectionPayloads['facts']) : null
   const cleanedSection = content?.sections.clues
   const cleaned =
     cleanedSection?.status === 'ok'
@@ -180,6 +182,13 @@ export function TopicPage() {
           </button>
         )}
       </section>
+
+      {facts && facts.facts.length > 0 && (
+        <section className="card">
+          <h2>Did you know?</h2>
+          <FunFacts facts={facts.facts} source={facts.source} />
+        </section>
+      )}
 
       {shown.length > 0 && (
         <section className="card">

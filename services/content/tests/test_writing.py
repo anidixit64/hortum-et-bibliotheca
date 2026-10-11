@@ -28,3 +28,21 @@ def test_source_text_is_capped() -> None:
     wiki = {"lead": "lead " * 3000, "sections": [{"heading": "H", "text": "s " * 3000}]}
     assert len(writing.source_text(wiki).split()) == writing.SOURCE_WORDS
     assert "no Wikipedia" in writing.source_text(None)
+
+
+def test_facts_must_quote_the_source() -> None:
+    source = "Ellison wrote the novel in a barn in Vermont. It won the National Book Award in 1953."
+    facts = [
+        {"fact": "Ellison drafted it in a Vermont barn.",
+         "source_sentence": "Ellison wrote the novel in a barn in Vermont."},
+        {"fact": "It sold a billion copies.",
+         "source_sentence": "It sold a billion copies worldwide."},
+        {"fact": "It won the National Book Award.",
+         "source_sentence": "it won the National Book Award in 1953"},  # case and dot differ
+    ]  # fmt: skip
+    kept = writing.grounded(facts, source)
+    assert [f["fact"] for f in kept] == [
+        "Ellison drafted it in a Vermont barn.",
+        "It won the National Book Award.",
+    ]
+    assert "only 2 facts" in str(writing.facts_problem({"facts": facts}, source))

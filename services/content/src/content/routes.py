@@ -15,6 +15,7 @@ PROMPT_VERSIONS = {
     "clues": cleanup.PROMPT_VERSION,
     "explanations": writing.EXPLANATIONS_VERSION,
     "summary": writing.SUMMARY_VERSION,
+    "facts": writing.FACTS_VERSION,
 }
 DERIVED = ("explanations", "summary")  # written from the clue cleanup
 
@@ -76,9 +77,14 @@ def topic_content(
     # written from; the cleanup, while it matches the catalog's clue candidates.
     clues_row = next((r for r in rows if r[0] == "clues"), None)
     cleanup_identity = f"{clues_row[1]}:{clues_row[4]}" if clues_row else None
+    wiki_row = db.execute(
+        "SELECT fetched_at FROM enrichments WHERE topic_id = ? AND kind = 'wiki'", (topic_id,)
+    ).fetchone()
     for kind, fingerprint, version, payload, created in rows:
         if kind in DERIVED:
             matches = fingerprint == cleanup_identity
+        elif kind == "facts":  # written from the Wikipedia text
+            matches = wiki_row is not None and fingerprint == f"wiki:{wiki_row[0]}"
         else:
             matches = fingerprint == clue_fingerprint(request, topic_id, fingerprint)
         current = PROMPT_VERSIONS.get(kind) == version and matches

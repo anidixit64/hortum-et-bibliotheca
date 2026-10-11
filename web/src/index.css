@@ -486,3 +486,29 @@ details h3 {
   background: var(--accent-soft);
   border-radius: 8px;
 }
+
+.plaques {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+.plaque {
+  position: relative;
+  margin: 0;
+  padding: 1rem 1rem 0.8rem 2.6rem;
+  background: var(--accent-soft);
+  border-radius: var(--radius);
+  font-family: var(--font-body);
+}
+.plaque p {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+}
+.plaque-mark {
+  position: absolute;
+  left: 0.8rem;
+  top: 0.75rem;
+  font-weight: 800;
+  font-size: 1.3rem;
+  color: var(--accent);
+}

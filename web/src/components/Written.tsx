@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { Explanation, WrittenSummary } from '../api/types'
+import type { Explanation, FunFact, WrittenSummary } from '../api/types'
 import { linkClues, parseMarks, type Piece } from '../lib/marks'
 
 /** A clue named in the text: bold; hover or tap shows its one-line summary and a link to
@@ -91,5 +91,31 @@ export function ExplanationText({
     <p className="prose explanation">
       <Pieces pieces={linkClues(explanation.explanation, names, explanation.rank)} lines={lines} />
     </p>
+  )
+}
+
+/** "Did you know?" plaques: each fact with the Wikipedia sentence it rests on. */
+export function FunFacts({ facts, source }: { facts: FunFact[]; source?: { title: string; url: string } }) {
+  if (!facts.length) return null
+  return (
+    <>
+      <div className="plaques">
+        {facts.map((f) => (
+          <figure key={f.fact} className="plaque">
+            <span className="plaque-mark" aria-hidden>?</span>
+            <p>{f.fact}</p>
+            <figcaption className="muted small" title={f.source_sentence}>
+              From Wikipedia: “{f.source_sentence.length > 140 ? `${f.source_sentence.slice(0, 140)}…` : f.source_sentence}”
+            </figcaption>
+          </figure>
+        ))}
+      </div>
+      {source && (
+        <p className="muted small attribution">
+          Facts picked by AI from{' '}
+          <a href={source.url} target="_blank" rel="noreferrer">“{source.title}”</a> (CC BY-SA 4.0).
+        </p>
+      )}
+    </>
   )
 }

@@ -260,6 +260,12 @@ export interface SectionPayloads {
   clues: { clues: CleanedClue[] }
   explanations: { clues: Explanation[] }
   summary: WrittenSummary
+  facts: { facts: FunFact[]; source?: { title: string; url: string } }
+}
+
+export interface FunFact {
+  fact: string
+  source_sentence: string // the Wikipedia sentence it rests on
 }
 
 // Written from the cleaned clues: rank is the cleaned clue's rank.
