@@ -61,6 +61,37 @@ def evaluate(conn: sqlite3.Connection, labels_path: Path) -> list[TopicResult]:
     return results
 
 
+def term_text(conn: sqlite3.Connection, clue_id: int) -> str:
+    """A ranked clue term as text to match: its label, spellings and a few sentences."""
+    label, variants = conn.execute(
+        "SELECT label, variants FROM topic_clues WHERE id = ?", (clue_id,)
+    ).fetchone()
+    sentences = conn.execute(
+        "SELECT c.text FROM topic_clue_sentences l JOIN clues c ON c.id = l.clue_id "
+        "WHERE l.topic_clue_id = ? LIMIT ?",
+        (clue_id, _MEMBER_SAMPLE),
+    ).fetchall()
+    return " | ".join([label, variants, *(r[0] for r in sentences)])
+
+
+def evaluate_terms(conn: sqlite3.Connection, labels_path: Path) -> list[TopicResult]:
+    """The same measures for the terms stage's top 10 clues."""
+    results = []
+    for topic in load(labels_path):
+        result = TopicResult(topic)
+        for clue_id, label in conn.execute(
+            "SELECT id, label FROM topic_clues WHERE topic_id = ? AND rank <= 10 ORDER BY rank",
+            (topic.id,),
+        ):
+            text = term_text(conn, clue_id)
+            hits = {i for i, clue in enumerate(topic.clues) if clue.found_in(text)}
+            result.picks.append(label)
+            result.pick_hits.append(bool(hits))
+            result.found |= hits
+        results.append(result)
+    return results
+
+
 def summary(results: list[TopicResult]) -> tuple[float, float]:
     n = max(len(results), 1)
     return (

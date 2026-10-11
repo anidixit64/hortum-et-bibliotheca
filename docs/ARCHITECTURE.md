@@ -1,11 +1,11 @@
 # Topic Explorer: Architecture & Build Plan
 
-A user searches for a topic (e.g. "soccer"). The system finds every quiz bowl tossup whose answer is that topic, picks the clues most worth learning, and builds a study page around them: a layered summary, a narrative telling of the topic, a write-up for each key clue, a bibliography, educational videos, related topics, and a color theme chosen to suit the topic. Around the page sit study tools: buzzer practice on real tossups, spaced-repetition flashcards, a clue heatmap, a timeline and map, and a "don't confuse with" list.
+A user searches for a topic (e.g. "soccer"). The system finds every quiz bowl tossup whose answer is that topic, picks the clues most worth learning, and builds a study page around them, laid out like a museum exhibit: a hook and summary, an explanation of each key clue, fun facts, two special sections chosen by category, images, a bibliography, educational videos, related topics, and colors chosen to suit the topic. Around the page sit study tools: buzzer practice on real tossups, spaced-repetition flashcards, a clue heatmap, a timeline and map, and a "don't confuse with" list.
 
 **Two goals shape every decision below:**
 
 1. **Lookups must be trivial.** All the hard work (parsing answers, grouping them into topics, extracting and ranking clues, linking related topics) happens once, offline, in a batch pipeline. At request time, the core page is a single primary-key read.
-2. **$0 to run.** Every step that can be done without an LLM is done without one, using free data sources and local, open-source NLP. The LLM is used only for five writing and judgment tasks, each runs **once per topic**, and the result is cached permanently. Generation uses the **Gemini API free tier**, with Claude Code as a fallback (§7.3).
+2. **$0 to run.** Every step that can be done without an LLM is done without one, using free data sources and local, open-source NLP. The LLM is used only for writing and for choosing colors, each piece runs **once per topic**, and the result is cached permanently. Free models do most of it, with a better model only for the hook, summary and main special section (§7.4).
 
 ---
 
@@ -72,7 +72,7 @@ flowchart LR
 | `pipeline/` (batch CLI, not a server) | — | Builds `corpus.db` | Wikipedia/Wikidata (free) | No |
 | `catalog` service | `service-a` | `corpus.db` (read-only) | Nothing | No |
 | `content` service (API) | `service-b` | `content.db` (cache + job queue) | Nothing on the request path | No |
-| `content-worker` (runs on your Mac while the Claude Code fallback is enabled, see §7.3) | — | Writes `content.db` | Free APIs + Gemini (+ Claude Code fallback) | No |
+| `content-worker` (runs on your Mac while Claude Code is in a chain, see §7.4) | — | Writes `content.db` | Free APIs + Gemini (+ Claude Code fallback) | No |
 | `study` service | — (new) | `study.db`: your cards, review schedule and buzz history | Nothing | No |
 | `gateway` | (existing) | Nothing | catalog, content, study | No |
 
@@ -163,6 +163,20 @@ A quiz-aware splitter: abbreviations ("Dr.", "St.", "No. 9"), initials ("T. H. M
 | `key_terms` | Capitalized names (allowing "of", "van"...), quoted titles and long numbers, e.g. `T. H. Morgan`, `Battle Royale`, `1,369`. Rule-based for speed and no heavy dependencies; spaCy remains an option if Stage 6 needs lowercase technical terms. |
 
 On the full corpus (October 2026): 869k clues, 187k giveaways, 3k notes in about two minutes; every span reproduces its text exactly, all 114,840 power marks are located, every question has a giveaway, and 0.15% of clues are fragments.
+
+### Stage 5b: `terms` → each topic's clues, ranked by how many questions name them
+The topic page's clues. A clue is a term the questions name: a proper noun or title ("Nelson Miles", "The Mysterious Affair at Styles"), a quoted term, or a noun phrase ("circumambulation rituals"). Giveaway sentences never count.
+- **Extract:** the key terms from Stage 5 plus spaCy (`en_core_web_sm`) noun phrases for every clue sentence. spaCy runs once per sentence (about 25 minutes for 870k, three worker processes) and its output is cached in `data/cache/terms`, so re-ranking takes minutes.
+- **Clean:** pronunciation guides and possessives removed; numbers alone, long quotations, dangling fragments ("stream of"), capitalized adjectives ("Mexican troops"), generic words, stand-ins for the answer ("this novel") and the answer's own names are never clues; "It's not X" doesn't count for X.
+- **Merge spellings within a topic:**
+  - folded the same way (case, accents, plurals, a leading article)
+  - titles and middle initials dropped ("General Nelson A. Miles" → "Nelson Miles")
+  - a short form inside exactly one longer clue, and not used more than it, joins it ("Miles" → "Nelson Miles"; "Cascades" → "Cascade Mountains", since a geographic word doesn't make a new clue), but not across a possessive ("Burnside" ≠ "Burnside's Bridge") and not when the short form is itself a different known topic
+  - one spelling apart ("murti"/"murtis", "battle royal"/"battle royale")
+  - names of the same Wikidata topic ("Filiki Eteria"/"Friendly Society")
+- **Rank purely by frequency:** distinct questions naming the clue, then sets, then mentions. No rarity weighting.
+- **Store** the top 100 per topic in `topic_clues`: label (the spelling questions use most, completed when cut off), every spelling with counts, question/set/mention counts, mean/median/earliest position and a histogram, share in power and in the last line, years, difficulty, trend, and the clues it most often shares a sentence with. `topic_clue_sentences` links each clue to its sentences, and `sentence_clues` gives each sentence its best-ranked clue (practice uses it to know which clue was being read at a buzz).
+- The page shows the top 10 and a **Show 5 more** button (`GET /topics/{id}/clues?offset=&limit=`). Two names for one fact ("Cassetti"/"Ratchett") stay separate clues for now; the stored co-occurrences show them as "often with", and a later choice can fold them.
 
 ### Stage 6: `cluster` → the same fact, worded differently
 Different questions phrase one fact many ways ("invited to the McGurk Institute by Max Gottlieb" vs. "his mentor Gottlieb brings him to McGurk"). Within each topic:
@@ -264,7 +278,7 @@ The record holds:
 - **`map`:** places with coordinates.
 - **`tossup_ids`:** newest first.
 
-Generated sections (summary, story, clue write-ups, theme) live in the content service and are merged in by the gateway.
+Generated sections (hook, summary, clue explanations, fun facts, special sections, colors) live in the content service and are merged in by the gateway.
 
 On the full corpus (October 2026):
 - **Records:** 45,523, of which 32,143 are thin. They total about 390 MB, averaging 8.5 KB, and are built in about 3 minutes.
@@ -320,7 +334,7 @@ topic_snapshots(topic_id PRIMARY KEY, json, schema_version)
 ```sql
 enrichments(topic_id, kind /* wiki|images|books|videos */, payload JSON,
             source_version, fetched_at, PRIMARY KEY (topic_id, kind))
-generations(topic_id, kind /* summary|clue_narratives|theme|book_blurbs */,
+generations(topic_id, kind /* summary|clues|fun_facts|special_a|special_b|theme|book_blurbs */,
             model, prompt_version, input_hash, payload JSON,
             input_tokens, output_tokens, cost_usd, created_at,
             PRIMARY KEY (topic_id, kind))
@@ -394,12 +408,13 @@ sequenceDiagram
   "status": "ready",
   "topic": {"id": "Q…(Wikidata QID)", "name": "Association football", "aliases": ["soccer", "football", "futbol"],
             "stats": {"n_tossups": 41, "n_sets": 37, "difficulty": [2, 9], "years": [2004, 2025]}},
-  "story": {"form": "eyewitness_scene", "markdown": "...", "clues_used": ["..."]},
-  "summary": {"tiers": [{"level": "middle_school", "markdown": "..."}, {"level": "high_school"},
-                        {"level": "undergraduate"}, {"level": "graduate"}],
+  "hook": "Two or three sentences to pull you in.",
+  "summary": {"markdown": "... [[clue:1|Calcio fiorentino]] ...",
               "source": {"title": "Association football", "license": "CC BY-SA 4.0", "url": "..."}},
+  "fun_facts": [{"text": "...", "source_sentence": "..."}],
+  "special": [{"kind": "timeline_events", "data": {...}}, {"kind": "be_there", "markdown": "...", "diagram": {...}}],
   "clues": [{"rank": 1, "label": "Calcio fiorentino", "impact": 0.83, "median_position": 0.18,
-             "examples": ["...", "..."], "narrative": "...",
+             "examples": ["...", "..."], "one_line": "...", "explanation": "...",
              "heatmap": {"position_hist": [0, 3, 5, 2, 1, 0, 0, 0, 0, 0], "in_power": 0.9,
                          "difficulty": {"hs": 4, "college": 7, "open": 0}, "years": [2009, 2024], "trend": "steady"}}],
   "confusions": [{"id": "Q…", "name": "American football", "reason": "same_name",
@@ -413,7 +428,7 @@ sequenceDiagram
   "videos": [{"youtube_id": "...", "title": "...", "channel": "CrashCourse", "duration_s": 642}],
   "related": [{"id": "Q…", "name": "FIFA World Cup", "why": "mentioned in 9 clues"}],
   "theme": {"light": {"bg": "#...", "surface": "#...", "text": "#...", "accent": "#...", "accent2": "#...", "muted": "#..."},
-            "dark": {...}, "font_pairing": "classical-serif", "hero_image": {...}}
+            "dark": {...}, "header_tint": "#...", "font_pairing": "classical-serif", "hero_image": {...}}
 }
 ```
 
@@ -429,7 +444,7 @@ The worker fetches these and caches them in `enrichments`. Wikimedia and Open Li
 | **Images** | `prop=pageimages`, `prop=images` + `imageinfo&iiprop=url\|extmetadata`, Wikidata `P18` | Up to ~10 candidates with caption, dimensions and **license/attribution**. |
 | **Bibliography candidates** | (1) The article's *Further reading*, *Bibliography* and *Sources* sections plus `{{cite book}}` templates (title, author, year, ISBN, how often cited). (2) Open Library `search.json` (subject and title search: `edition_count`, `ratings_count`, `want_to_read_count`, `cover_i`). | Merge and dedupe by ISBN or work key, then rank by `cited_in_article×3 + log(edition_count) + log(1+ratings_count)` and keep the top ~15. Add category-specific free references: Stanford Encyclopedia of Philosophy for philosophy, MacTutor for mathematicians, Britannica for everything. |
 | **Videos** | YouTube Data API v3 (free key; default quota **10,000 units/day**, `search.list` = 100 units, `videos.list` = 1) | See below. |
-| **Clue grounding** | Wikipedia lead (~150 tokens) for each impact clue whose key term links to a topic or article | Gives the clue narratives facts to work from instead of guesses. |
+| **Clue grounding** | Wikipedia lead (~150 tokens) for each impact clue whose key term links to a topic or article | Gives the clue explanations facts to work from instead of guesses. |
 
 **Videos, specifically.** No LLM is needed, and they're ranked deterministically:
 1. Run `search.list(q="<topic name> <disambiguator>", type=video, videoEmbeddable=true, maxResults=50)` and keep results from an **allowlist of educational channel IDs** (CrashCourse, Khan Academy, TED-Ed, PBS Eons/Space Time, Kurzgesagt, Smithsonian, Great Courses, SciShow, Overly Sarcastic Productions, Kings and Generals, and so on). The list lives in config.
@@ -440,63 +455,100 @@ The quota allows ~50–100 new topics a day, which is plenty for one user. Cache
 
 ---
 
-## 7. Generation (the only part that uses an LLM)
+## 7. Generation and the exhibit page
 
-### 7.1 The five LLM tasks
+Each topic page is laid out like a museum exhibit (in the spirit of DK Eyewitness): you walk through numbered rooms, each immersing you in one side of the topic with images, timelines, diagrams, videos and explanations. **The AI only writes and chooses colors; facts and media come from free sources, and code checks everything the AI returns.**
 
-| Task | Input (grounding) | Output | Guardrails |
+### 7.1 What each page has
+
+| Section | Source | AI | Checked in code |
 |---|---|---|---|
-| **Layered summary** (500–1000 words) | Wikipedia extract | 4 tiers: middle school, high school, undergraduate, graduate/PhD, each building on the last | Word count checked; "use only facts supported by the source, or widely established"; attribution line (CC BY-SA). |
-| **The story** (600–900 words) | Same Wikipedia extract, plus the labels and representative text of the top 3–5 impact clues | A narrative telling of the topic, in a form chosen to suit it (see below) | Must work in every listed clue (checked in code by label match); labeled "dramatized" on the page; invented details limited to atmosphere, never facts. |
-| **Clue narratives** (200–500 words each) | Each clue's representative text plus 2–3 variant phrasings, the clue's Wikipedia lead, and the topic name | What the clue refers to, how it connects to the topic, how question writers phrase it, and what to listen for | Per-narrative word count; one narrative per clue ID (validated against the input list). |
-| **Theme** (palette, font, photo) | Topic name, category, summary lead, image candidates (captions plus a palette extracted from each image) | Hex colors for 6 tokens, light and dark; one of ~8 **predefined** font pairings; hero image chosen **from the candidates** | Hex format; **WCAG AA contrast enforced in code** (lightness auto-adjusted in OKLCH, not left to the model); dark mode derived and checked. |
-| **Book highlights** | The ~15 ranked candidates with Open Library metadata | 3–5 candidate **IDs** with blurbs (40–80 words) and a level (intro, intermediate, scholarly) | IDs must be a subset of the input, so **the model can't invent books**. |
+| **Hook** (2–3 short sentences at the top) | Wikipedia text and the top clues | Better model (with the summary) | Sentence count; length |
+| **Summary** (500–750 words) | Wikipedia text, the clue list | Better model | Word count. Engaging and intuitive rather than technical (the clue section carries the depth), readable at a high-school level. Each clue from the clue section is marked in the text as `[[clue:<id>|words]]` and shown **bold**; every marked ID must be one of the page's clues. Hovering (or tapping) shows that clue's one-sentence summary and a **See more** button that scrolls to its full explanation. A clue that can't be worked in naturally after one retry just isn't bolded. |
+| **Clue explanations** (200–300 words each) | Each clue's wordings, plus the Wikipedia intro of what the clue refers to (fetched free; the relate stage already knows the clue's subject) | Small model, about 5 clues per request | Word count; one per clue ID. Each also returns the **one-sentence summary** used by the summary's popups. PhD-level: what it is, how it ties to the topic, why it matters. |
+| **Fun facts** (5–8) | Wikipedia text | Small model | Each must quote the source sentence it rests on, and that sentence must be in the article, so facts can't be invented. Facts should teach something and show why the topic matters. |
+| **Two special sections** | By category (§7.2) | Varies | Per section (§7.2) |
+| **Colors** | Topic, category, hook, the header image (sent as a small thumbnail), and colors extracted from the images by code | Small vision model | The model picks aesthetic colors that match the topic and blend with the header image and the text, not just the image's raw colors (which can be too grey or clash). It returns 6 tokens for light and dark plus a tint for the header fade. Code checks hex format and enforces WCAG AA contrast by nudging lightness only (hue and saturation kept). Cached like any generation. |
+| **Header image** | The article's main image (Phase 5) | No | Code picks it by size; it fades into the page's background color. A low-resolution image gets a two-tone tint in the theme colors. |
+| **Images** | Phase 5 (Commons, with license and credit) | No | SVG diagrams allowed for science and math; audio for music. |
+| **Videos** | Phase 5 (YouTube) | No | — |
+| **Bibliography** | Phase 5 (cited books + Open Library) | Small model: blurbs for the top 3–5 | Picks must be IDs from the real list. |
+| **Confusion tips** | The confusion pair and its distinguishing clues | Small model (with the fun facts) | One sentence per confusion; IDs must match the page's confusions. |
+| **Clues, heatmap, related, don't-confuse-with, map** | The pipeline (Phases 2 and 4) | No | Restyled only. |
 
-Notes:
-- **The story complements the summary.** The summary explains; the story makes the topic memorable, and because it has to include the top clues, it also works as a memory aid for them. The model picks a form from a short list keyed to the category, so the variety is controlled:
-  - *History, Religion, Current Events:* a scene at a pivotal moment, told by someone who was there.
-  - *Literature, Mythology:* a reader's journey through the work or myth, meeting its key figures in order.
-  - *Science, Social Science, Philosophy:* the story of how the idea was discovered or argued for, or a journey through the system itself (e.g. following a molecule through a reaction).
-  - *Fine Arts:* walking through the painting, building or performance, noticing what a question writer would.
-  - *Geography:* a traveller's route through the place.
-- **Palette extraction is free.** Run k-means in OKLCH on each candidate image thumbnail. The model then chooses and adjusts from real colors plus what it knows about the topic, rather than inventing them. That gets you polar blues and greys or Aztec jade, red and ochre for very little output. The page **layout never changes**: the theme only fills CSS variables (`--bg`, `--surface`, `--text`, `--accent`, `--accent-2`, `--muted`) and picks a font pairing.
-- **Photos:** the model selects by caption and metadata (text only). Sending images to a vision model would let it judge composition but would use more of the free quota. Start text-only.
-- **No hallucinated sources:** books, images and videos are always picked from candidates that came from real APIs. The model only chooses among them and writes about them.
+**Diagrams are deterministic.** Wherever possible a diagram is drawn by the page from data: Wikidata (family trees, taxonomies, influence webs), fixed templates (step flow, cycle, labeled parts, comparison table, timeline) whose labels the model fills in, math typesetting (KaTeX), and interactive pieces (3D molecules, graphs, sliders). The model never draws free-form images.
 
-### 7.2 Two requests per topic, structured output
+News articles were considered and dropped for now.
 
-| Request | Tasks | Model tier | Output |
+### 7.2 Special sections by category
+
+Sections marked ✦ are the long immersive piece, written by the better model. The rest cost no AI or only a small model. A topic's main subcategory (most common among its questions; added to the snapshot) picks its pair.
+
+| Category | Section A | Section B |
+|---|---|---|
+| **History** | Timeline of events (Wikidata dates plus events pulled from the article; each date must appear in the source) | ✦ **Be there:** one moment in sights, sounds and smells |
+| **Physics, Chemistry, Astronomy, Earth science** | Timeline of discoveries (Wikidata discovery dates and discoverers, plus the article) | ✦ **Deep dive:** one core concept in great detail at an intuitive high-school level, with a template diagram |
+| **Biology** | Tree of life (Wikidata taxonomy) or timeline of discoveries | ✦ Deep dive on one process or structure, with a step diagram |
+| **Chemistry** (extra) | 3D molecule (PubChem + 3Dmol.js) | — |
+| **Math** | ✦ **Build the idea:** from a simple example to the formal statement, with KaTeX | Where it shows up: interactive graph or worked example, plus applications |
+| **Computer science** | Algorithm stepper (animated) | Timeline of discoveries |
+| **Literature** | Character map (from the plot summary; every name must appear in it). For authors: a bookshelf of their works (Wikidata + Open Library) | ✦ **Walk through the work**, room by room |
+| **Visual arts** | ✦ **Look closer:** zoomable high-resolution image with a guided tour of details | The artist's other works (Wikidata + Commons) |
+| **Music, opera, jazz** | Listening room (Commons or YouTube recordings) | ✦ **Listening guide:** what to listen for, section by section |
+| **Architecture** | Floor plan and views (Commons) | ✦ Walk through the building |
+| **Film** | ✦ Key scenes | Production timeline |
+| **Mythology** | Family tree (Wikidata parent, spouse and child) | Depicted in art (Wikidata "depicts" + Commons) |
+| **Religion** | Sacred texts (public-domain passages from Wikisource) | Spread map and timeline |
+| **Philosophy** | Argument map (premises to conclusion, as a diagram) | Influence web (Wikidata "influenced by") |
+| **Economics** | The model, interactive (e.g. supply and demand sliders) | Real data chart (World Bank or FRED) |
+| **Psychology** | ✦ **The experiment:** setup, procedure, results, how it has held up | Timeline |
+| **Linguistics** | Sounds and scripts (IPA, Commons recordings) | Language family tree (Wikidata) |
+| **Geography** | By the numbers: climate chart (Wikipedia weather box) and population (Wikidata) | ✦ A traveller's route |
+| **Current events** | How the story developed (timeline) | ✦ Be there |
+| **Pop culture** | By the numbers | Behind the scenes |
+
+Politics isn't its own category in the data; those questions fall under History, Current Events and Social Science.
+
+### 7.3 The exhibit layout
+
+- **Entrance:** full-width header image fading into the theme colors, the title as an exhibit sign, the **hook**, and a small floor plan of the rooms.
+- **Room 1, Introduction:** the summary, with bold clue terms and their popups.
+- **Room 2, Gallery:** images with museum-style labels (title, date, artist, credit).
+- **Rooms 3 and 4:** the two special sections.
+- **Room 5, The clue hall:** clue cards with their explanations and the heatmap.
+- **"Did you know?" plaques:** fun facts as boxed callouts between rooms.
+- **Room 6, Connections:** related topics, don't confuse with, the map.
+- **Room 7, Screening room:** videos.
+- **Room 8, Library:** books and reference works.
+- **Exit, Test yourself:** practice and follow.
+
+The theme only fills CSS variables and picks a font pairing by category; each room has a fixed layout of its own, like a two-page spread.
+
+### 7.4 Requests per topic and models
+
+Generation runs the first time a topic is opened (or when queued ahead with the CLI), and every result is cached. Each section is stored separately, so the page fills in as each arrives and one failure doesn't block the others.
+
+| Tier | Model | Writes | Output |
 |---|---|---|---|
-| **Writing** | Summary, story, clue narratives | The best Gemini model with a free tier (a Pro model if one is available free) | ~7k tokens |
-| **Light** | Theme, book highlights, one-line "how to tell them apart" tips for confusions | A Flash or Flash-Lite model (much higher free limits) | ~1.2k tokens |
+| **Better** (1 request) | Claude Code on your plan, with Gemini (the best free model) as backup | Hook, summary, and the ✦ special section | ~2,300 words |
+| **Small** (2–3 requests) | Gemini Flash or Flash-Lite; Groq or OpenRouter free models as backups | Clue explanations (in batches), fun facts, timeline events, diagram labels, book blurbs, confusion tips | ~3,500 words |
+| **Small, vision** (1 request) | Gemini Flash | Colors | ~300 tokens |
+| **None** | Code and free APIs | Header image, images, videos, Wikidata sections, heatmap, map | — |
 
-Each request returns JSON matching a schema (Gemini's JSON-schema response mode, or the schema in the prompt for the Claude Code fallback). Validate the output in code (word counts, clue coverage, ID subsets, contrast, hex format). On failure, retry once with the validator's error message appended, then store whatever passed and mark the rest `failed` so the page still renders. Every generation row records the backend and model that produced it.
+Each request returns JSON matching a schema. On a failed check it retries once with the error attached; parts that still fail are marked failed and the page renders without them. Every result records its backend, model, prompt version and an input hash, so a prompt change regenerates lazily and `regenerate --where model=…` redoes pages from a model you've stopped trusting.
 
-### 7.3 Backends: Gemini free tier first, Claude Code as fallback
+**Turning Claude off is one setting.** `CONTENT_USE_CLAUDE_CODE=false` removes `claude_code` from every chain, so the better tier runs on Gemini and the worker can move back into Compose. Nothing else changes: the chains, prompts and checks are shared, and pages already generated stay cached (`regenerate --where model=…` redoes them later if you want).
 
-**Caching makes every view after the first free, but not the first generation.** Each *new* topic needs two LLM requests. Free tiers cover that easily for one person.
-
-The `generator` module is one interface (`generate(request, topic_inputs) -> JSON`) with a backend per provider. A **fallback chain** per request type decides which backend runs:
-
-```
-CONTENT_WRITING_CHAIN=gemini:<pro model>,claude_code
-CONTENT_LIGHT_CHAIN=gemini:<flash-lite model>,claude_code
-```
-
-The worker tries the first backend. On a rate-limit or quota error, it moves to the next. If every backend is exhausted, the job stays `queued` with a `not_before` set to the earliest reset (Gemini's daily quotas reset at midnight Pacific time). The page shows its free precomputed sections in the meantime.
+**Fallback chains** (`CONTENT_WRITING_CHAIN`, `CONTENT_LIGHT_CHAIN`, `CONTENT_THEME_CHAIN`): on a rate-limit or quota error the worker moves to the next backend; if all are exhausted the job waits (`not_before`) until the earliest reset. Free-tier limits change often; confirm them when building.
 
 | Backend | Cost | Notes |
 |---|---|---|
-| `gemini` (primary) | $0 on the free tier | Free API key from Google AI Studio. Free-tier limits are per model and have changed several times, from ~20 to ~1,500 requests/day for Flash models and ~25–50/day for Pro (third-party reports, autumn 2026); check the AI Studio rate-limit page. Even the lowest limits cover a few new topics a day. **Prompts and outputs on the free tier may be used by Google to improve its products**, which is acceptable here because the inputs are Wikipedia text and quiz clues. |
-| `claude_code` (fallback) | $0 within your Claude plan | Runs `claude -p` with tools turned off (check `claude --help` for the current flags), prompt on stdin, JSON out. Needs your local login, so **while this fallback is enabled the worker runs natively on your Mac** (`make worker`) against the `content.db` volume. Personal use only. Remove it from the chains when you drop the subscription, and the worker can move into Docker Compose with everything else. |
-| `anthropic_api` (optional, later) | Opus 5.5 ~$0.21 per new topic, Sonnet 5.5 ~$0.10 (estimates; Anthropic's list prices $4/$20 and $2/$10 per million input/output tokens) | For when you share the site with others. Turn on the daily budget cap (`CONTENT_DAILY_BUDGET_USD`) and per-IP limits on cold generations. |
-| `local` (optional) | $0, no limits | Ollama or LM Studio. Weaker writing; useful offline or as a test stub. |
+| `gemini` | $0 on the free tier | Free key from Google AI Studio. **Free-tier prompts and outputs may be used by Google**, acceptable here because the inputs are Wikipedia text and quiz clues. |
+| `claude_code` | $0 within your Claude plan | Runs `claude -p` with tools off, JSON out. Needs your local login, so while it's in a chain the worker runs natively on your Mac rather than in Compose. Personal use only. |
+| `groq`, `openrouter` | $0 on free tiers | Backups for the small tier. |
+| `anthropic_api` (later) | Paid, with `CONTENT_DAILY_BUDGET_USD` | If the site is ever shared. |
 
-**Quality tracking:** since the model that generated each page is stored, `hortum-content regenerate --where model=<id>` redoes pages from a backend you've stopped trusting, or regenerates on a better model if a stronger free tier appears. Prompt changes bump `prompt_version`, and older cached pages regenerate the next time you open them.
-
-**What not to do:** don't pre-generate thousands of topics; it would burn days of free quota for pages you may never open. Generation happens the first time you open a topic. `hortum-content queue "<topic>"` adds one ahead of time.
-
-**Pick a quality bar once:** generate ~10 hand-picked topics across categories and difficulties, read them, and tune the prompts before relying on the output. Gemini's writing differs from Claude's, so tune the prompts against Gemini, the primary.
+**Before relying on it:** generate about 10 hand-picked topics across categories, read them, and tune the prompts.
 
 ---
 
@@ -514,6 +566,7 @@ Real tossups are revealed word by word, like a moderator reading. You buzz, answ
   1. Normalize what you typed the same way as aliases (casefold, strip accents and articles, singularize).
   2. Exact or fuzzy match (similarity ≥ 0.85) against `required` + `accept` counts as **correct**. A match against `prompt` shows "Prompt: be more specific" and lets you try again. A match against `reject` counts as **incorrect**.
   3. You can always override with "I was right" or "I was wrong", since parsed answer lines will never be perfect. Overrides are logged as `judged_by=self`, which also gives a list of answer lines the parser should handle better.
+- **After every answer**, right or wrong, the answer links to its Wikipedia article (a Wikipedia search when the answer isn't linked to one) as well as its topic page.
 - **What gets recorded** (`buzzes`): the word index and position of your buzz, the **clue being read** at that moment (word spans from Stage 5 map the word to its clue cluster), whether it was in power, and the result.
 - **What it feeds:**
   - Your personal markers on the clue heatmap (§8.3).
@@ -524,7 +577,7 @@ Real tossups are revealed word by word, like a moderator reading. You buzz, answ
 ### 8.2 Flashcards with spaced repetition
 
 - **Following a topic** creates its cards:
-  - **Clue → answer** for each impact clue. The front is the representative clue text, which already hides the answer because tossups say "this profession" or "this man". The back is the answer plus the first lines of the clue narrative.
+  - **Clue → answer** for each impact clue. The front is the representative clue text, which already hides the answer because tossups say "this profession" or "this man". The back is the answer plus the clue's one-sentence summary (§7.1).
   - **Answer → clues**, one reverse card: "Name 3 clues for Arrowsmith". The back lists the top clues.
 - **Missed cards** come in automatically from buzzer practice (§8.1).
 - **Scheduling uses FSRS**, the open-source algorithm now used by Anki. The `fsrs` Python package runs in the study service, and you rate each card as again, hard, good or easy.
@@ -693,18 +746,23 @@ From Phase 2 on, two **tracer questions** are followed through every stage (`pip
     - **Frontend:** "About" (the Wikipedia lead, with the rest of the article folded) near the top; images, further reading and videos below the map. The page polls every 3 s while anything is pending.
     - **Sample run:** 20 audit topics, 80 jobs, 275 requests in 3.4 minutes. Text, images and books came back for all 20; videos wait on an API key.
 
-### Phase 6: Generation
-27. **Gemini backend:** two requests per topic (writing and light), JSON-schema output, validators, retry once on validation failure.
-28. **Prompts v1** for the summary, story, clue narratives, theme, book blurbs and confusion tips. Generate 10 hand-picked topics, read them all, revise the prompts, and repeat until you're happy.
-29. **Theme pipeline:** palette extraction from images, contrast enforcement, dark-mode derivation. *Done when* every sample topic passes WCAG AA in both modes.
-30. **Claude Code fallback and fallback chains,** plus quota backoff. *Done when* forcing a Gemini quota error makes the next topic generate through Claude Code, and blocking both leaves the job queued until the reset time.
-31. **Frontend renders the generated sections,** with the story labeled as dramatized and attribution shown for Wikipedia and images.
+### Phase 6: The exhibit page
+Built in three parts, each merged on its own:
+- **6a, no AI:**
+  27. Practice answers link to Wikipedia.
+  28. The topic's main subcategory in the snapshot; clue-subject Wikipedia intros fetched as a content kind.
+  29. Exhibit layout: entrance with header image, rooms and floor plan, museum labels, restyled existing sections, and the free special sections that come from Wikidata and Commons.
+- **6b, generation core:**
+  30. Backends (Gemini, Claude Code, small-model backups), fallback chains, schemas, checks, the one retry, and quota backoff.
+  31. Hook and summary with clue popups, clue explanations with one-sentence summaries, fun facts, book blurbs, and AI colors with contrast enforcement. Prompts tuned on about 10 hand-picked topics. *Done when* every sample topic reads well and passes WCAG AA in both modes.
+- **6c, special sections:** the ✦ sections and template diagrams, one category at a time, largest first (History, Science, Literature, Fine Arts, then the rest).
 
 ### Phase 7: Polish (any order)
 32. `regenerate --where model=...` and prompt-version bumps.
-33. Read-aloud for practice and the story (the browser's built-in text-to-speech).
+33. Read-aloud for practice and the summary (the browser's built-in text-to-speech).
 34. Difficulty-aware views: filter the heatmap and practice by level.
 35. A weekly stats view: buzz position trends and review streaks.
+36. Cut-out objects (background removal with `rembg`) for the header and gallery, with credits noting the change.
 
 ---
 

@@ -25,3 +25,4 @@ data/
 .idea/
 .vscode/
 .DS_Store
+.venv-ner/

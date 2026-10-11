@@ -4,7 +4,9 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-KINDS = ("wiki", "images", "books", "videos")
+FETCHED = ("wiki", "images", "books", "videos")  # Phase 5: free sources
+GENERATED = ("clues",)  # Phase 6: written or edited by a model
+KINDS = FETCHED + GENERATED
 BACKOFF_BASE_SECONDS = 60  # 1, 2, 4, 8... minutes after each failure
 
 
@@ -79,6 +81,17 @@ def fail(conn: sqlite3.Connection, job: Job, error: str, max_attempts: int) -> N
                 stamp.isoformat(),
                 job.id,
             ),
+        )
+
+
+def defer(conn: sqlite3.Connection, job: Job, until: datetime, reason: str) -> None:
+    """Back in the queue until ``until`` without using up an attempt: every backend is out
+    of quota, which isn't the job's fault."""
+    with conn:
+        conn.execute(
+            "UPDATE jobs SET status = 'queued', attempts = attempts - 1, last_error = ?, "
+            "not_before = ?, updated_at = ? WHERE id = ?",
+            (reason[:500], until.isoformat(), now().isoformat(), job.id),
         )
 
 

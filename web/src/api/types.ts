@@ -21,14 +21,19 @@ export interface Heatmap {
 
 export interface Clue {
   rank: number
-  cluster_id: number
+  cluster_id: number // the clue's id
   label: string
   text: string
   examples: string[]
   n_sets: number
   n_tossups: number
-  impact: number
+  n_questions?: number // questions naming the clue outside the giveaway
+  n_mentions?: number
+  impact?: number
   median_position: number
+  mean_position?: number
+  variants?: string[] // spellings questions use
+  cooccurs?: { id: number; label: string; count: number }[] // clues in the same sentences
   heatmap: Heatmap
 }
 
@@ -95,6 +100,7 @@ export interface TopicRecord {
     thin: boolean
   }
   clues: Clue[]
+  n_clues?: number // ranked clues available; past the first page via api.moreClues
   related: Related[]
   confusions: Confusion[]
   timeline: TimelineEvent[]
@@ -237,11 +243,21 @@ export interface Video {
   embed: string
 }
 
+// A clue after the AI cleanup pass: recounted from the corpus clues it's made of.
+export interface CleanedClue {
+  rank: number
+  label: string
+  n_questions: number
+  clue_ids: number[] // corpus clue ids; the first is its home
+  spellings: string[]
+}
+
 export interface SectionPayloads {
   wiki: WikiPayload
   images: { images: WikiImage[] }
   books: { books: Book[]; references: Reference[] }
   videos: { videos: Video[] }
+  clues: { clues: CleanedClue[] }
 }
 
 export type ContentKind = keyof SectionPayloads
@@ -253,6 +269,7 @@ export interface Section<K extends ContentKind = ContentKind> {
   // For "unavailable", the payload is { reason }.
   payload: SectionPayloads[K] | { reason?: string } | null
   fetched_at: string | null
+  stale?: boolean
 }
 
 export interface TopicContent {

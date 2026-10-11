@@ -20,6 +20,7 @@ import numpy as np
 from scipy.sparse import csr_matrix
 from sklearn.cluster import AgglomerativeClustering
 
+from hortum_common.text import normalize
 from hortum_pipeline import db
 from hortum_pipeline.config import PipelineSettings
 from hortum_pipeline.progress import Reporter
@@ -106,12 +107,13 @@ def minilm_embedder() -> Embedder:
 
 
 def similarity(vectors: np.ndarray, terms: list[list[str]], term_bonus: float) -> np.ndarray:
-    """Cosine similarity plus ``term_bonus`` per shared key term, capped at 1."""
+    """Cosine similarity plus ``term_bonus`` per shared key term, capped at 1. Terms are
+    compared folded ("womb chambers" shares "womb chamber")."""
     sim = vectors @ vectors.T
     vocab: dict[str, int] = {}
     rows, cols = [], []
     for i, clue_terms in enumerate(terms):
-        for term in {t.lower() for t in clue_terms}:
+        for term in {normalize(t, singularize=True) for t in clue_terms}:
             rows.append(i)
             cols.append(vocab.setdefault(term, len(vocab)))
     if vocab and term_bonus:

@@ -14,12 +14,17 @@ export function ClueList({ clues }: { clues: Clue[] }) {
           <div>
             <span className="clue-label">{clue.rank}. {clue.label}</span>{' '}
             <span className="muted small">
-              {clue.n_sets} sets · usually at {percent(clue.median_position)} of the question ·{' '}
-              {TREND[clue.heatmap.trend]}
+              {clue.n_questions ?? clue.n_tossups} questions · {clue.n_sets} sets · usually at{' '}
+              {percent(clue.median_position)} of the question · {TREND[clue.heatmap.trend]}
               {clue.heatmap.share_in_power > 0.5 && ' · often in power'}
             </span>
           </div>
           <p className="clue-text">{clue.text}</p>
+          {clue.cooccurs && clue.cooccurs.length > 0 && (
+            <p className="muted small">
+              Often with: {clue.cooccurs.slice(0, 3).map((c) => c.label).join(' · ')}
+            </p>
+          )}
           {clue.examples.length > 0 && (
             <button className="small" onClick={() => setOpen(open === clue.cluster_id ? null : clue.cluster_id)}>
               {open === clue.cluster_id ? 'Hide' : `${clue.examples.length} other wording${clue.examples.length > 1 ? 's' : ''}`}

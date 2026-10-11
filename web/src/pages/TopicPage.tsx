@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api/client'
-import type { TopicRecord, TopicStats } from '../api/types'
+import type { Clue, SectionPayloads, TopicRecord, TopicStats } from '../api/types'
 import { ClueList } from '../components/ClueList'
 import { Gallery, Reading, Videos, WikiSummary } from '../components/Enrichment'
 import { Heatmap } from '../components/Heatmap'
 import { ConfusionList, RelatedList } from '../components/Related'
 import { Timeline } from '../components/Timeline'
 import { TopicMap } from '../components/TopicMap'
+import { applyCleanup, CLEANED_FROM } from '../lib/cleanClues'
 import { percent } from '../lib/format'
 import { useTopicContent } from '../lib/useTopicContent'
+
+const PAGE = 10 // clues shown at first
+const MORE = 5 // added by each "show more"
 
 export function TopicPage() {
   const { key = '' } = useParams()
@@ -18,8 +22,28 @@ export function TopicPage() {
   const [stats, setStats] = useState<TopicStats | null>(null)
   const [error, setError] = useState<{ key: string; message: string } | null>(null)
   const [busy, setBusy] = useState(false)
+  // Raw clue records past the first page, and how many clues to show; both tagged with
+  // the topic they belong to.
+  const [more, setMore] = useState<{ key: string; clues: Clue[] }>({ key: '', clues: [] })
+  const [visible, setVisible] = useState<{ key: string; n: number }>({ key: '', n: PAGE })
+  const [loadingMore, setLoadingMore] = useState(false)
   const current = loaded?.key === key ? loaded.record : null
   const content = useTopicContent(current?.topic.id ?? '')
+  const cleanedSection = content?.sections.clues
+  const cleaned =
+    cleanedSection?.status === 'ok'
+      ? (cleanedSection.payload as SectionPayloads['clues']).clues
+      : null
+
+  // The cleanup was made from the top 25 raw clues: load the ones past the first page.
+  const needRaw = cleaned !== null && current !== null && more.key !== key
+  useEffect(() => {
+    if (!needRaw || !current) return
+    api
+      .moreClues(current.topic.id, current.clues.length, CLEANED_FROM - current.clues.length)
+      .then((clues) => setMore({ key, clues }))
+      .catch(() => setMore({ key, clues: [] }))
+  }, [needRaw, current, key])
 
   const loadStats = useCallback((id: string) => {
     api.topicStats(id).then(setStats).catch(() => setStats(null)) // study may be offline
@@ -40,6 +64,29 @@ export function TopicPage() {
   const record = current
   if (!record) return <p className="muted">Loading…</p>
   const { topic } = record
+
+  const extra = more.key === key ? more.clues : []
+  const raw = [...record.clues, ...extra]
+  const rawTotal = record.n_clues ?? record.clues.length
+  // With a cleanup: its clues, then raw ones it didn't look at (ranked past CLEANED_FROM).
+  const list = cleaned
+    ? [...applyCleanup(raw, cleaned), ...raw.filter((c) => c.rank > CLEANED_FROM)]
+    : raw
+  const total = cleaned ? cleaned.length + Math.max(0, rawTotal - CLEANED_FROM) : rawTotal
+  const n = visible.key === key ? visible.n : PAGE
+  const shown = list.slice(0, n)
+  const showMore = async () => {
+    if (n + MORE > list.length && raw.length < rawTotal) {
+      setLoadingMore(true)
+      try {
+        const next = await api.moreClues(topic.id, raw.length, n + MORE - list.length)
+        setMore({ key, clues: [...extra, ...next] })
+      } finally {
+        setLoadingMore(false)
+      }
+    }
+    setVisible({ key, n: n + MORE })
+  }
 
   const toggleFollow = async () => {
     setBusy(true)
@@ -99,13 +146,23 @@ export function TopicPage() {
 
       <section className="card">
         <h2>Clues worth knowing</h2>
-        <ClueList clues={record.clues} />
+        {cleaned && (
+          <p className="muted small" title="An AI pass merged duplicate spellings, dropped generic terms and fixed labels; counts are recomputed from the questions.">
+            Tidied by AI{cleanedSection?.stale ? ' (updating…)' : ''}
+          </p>
+        )}
+        <ClueList clues={shown} />
+        {shown.length < total && (
+          <button onClick={showMore} disabled={loadingMore}>
+            {loadingMore ? 'Loading…' : `Show ${Math.min(MORE, total - shown.length)} more`}
+          </button>
+        )}
       </section>
 
-      {record.clues.length > 0 && (
+      {shown.length > 0 && (
         <section className="card">
           <h2>Where the clues come up</h2>
-          <Heatmap clues={record.clues} buzzed={stats?.buzzed_clusters ?? {}} />
+          <Heatmap clues={shown} buzzed={stats?.buzzed_clusters ?? {}} />
         </section>
       )}
 

@@ -13,6 +13,7 @@ from hortum_pipeline import (
     relate,
     score,
     snapshot,
+    terms,
 )
 from hortum_pipeline.config import PipelineSettings
 from hortum_pipeline.progress import Reporter
@@ -41,6 +42,7 @@ STAGES: tuple[Stage, ...] = (
     Stage("link", "Link topics to Wikipedia/Wikidata and merge by QID", 1, linking.run),
     Stage("facts", "Fetch Wikidata dates, places and descriptions", 1, facts.run),
     Stage("clues", "Split questions into clues with positions and key terms", 2, clues.run),
+    Stage("terms", "Rank each topic's clue terms by how many questions name them", 2, terms.run),
     Stage("cluster", "Cluster clues that state the same fact", 2, cluster.run),
     Stage("score", "Score clue clusters for impact and heatmap statistics", 2, score.run),
     Stage("relate", "Find related topics mentioned in clues", 2, relate.run),

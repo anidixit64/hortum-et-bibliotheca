@@ -199,14 +199,14 @@ def _split_long(text: str, start: int, end: int) -> Iterator[tuple[int, int]]:
 # syllable (FAIN-boss). Other square brackets are editorial insertions: kept inside a
 # quotation ("one must imagine [Sisyphus] happy"), dropped when looking for names.
 _BRACKETS = re.compile(r"\[[^\]]*\]")
-_PRONUNCIATION = re.compile(
+PRONUNCIATION = re.compile(
     r"\[[^\]]*[-\"“][^\]]*\]"
     r"|\(\s*[\"“][^)]*\)|\(\s*[A-Za-z']*(?:[A-Z]{2,}[a-z]*-|-[A-Z]{2,})[A-Za-z' -]*\)"
 )
 
 
 def key_terms(text: str) -> list[str]:
-    text = _PRONUNCIATION.sub(" ", text)
+    text = PRONUNCIATION.sub(" ", text)
     terms: list[str] = []
     for match in _QUOTED.finditer(text):
         if text[: match.start()].rstrip().endswith("("):

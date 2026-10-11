@@ -34,7 +34,9 @@ def client(tmp_path: Path) -> TestClient:
                                       power_word INTEGER);
         CREATE TABLE clues (id INTEGER PRIMARY KEY, tossup_id TEXT, ordinal INTEGER, kind TEXT,
                             word_start INTEGER, word_end INTEGER, in_power INTEGER);
-        CREATE TABLE clue_cluster_members (clue_id INTEGER PRIMARY KEY, cluster_id INTEGER);
+        CREATE TABLE sentence_clues (clue_id INTEGER PRIMARY KEY, topic_clue_id INTEGER);
+        CREATE TABLE topic_clue_records (topic_id TEXT, rank INTEGER, json TEXT,
+                                         PRIMARY KEY (topic_id, rank));
         CREATE TABLE answer_parses (tossup_id TEXT PRIMARY KEY, main TEXT, required TEXT,
                                     accept TEXT, prompt TEXT, reject TEXT);
         CREATE TABLE practice_pool (tossup_id TEXT PRIMARY KEY, topic_id TEXT, category TEXT,
@@ -47,6 +49,11 @@ def client(tmp_path: Path) -> TestClient:
         conn.execute("INSERT INTO topics VALUES (?, ?, ?)", (tid, slug, name))
         record = {"topic": {"id": tid, "name": name}, "clues": [], "tossup_ids": []}
         conn.execute("INSERT INTO topic_snapshots VALUES (?, ?, 1)", (tid, json.dumps(record)))
+    for rank in range(1, 18):
+        clue = {"rank": rank, "label": f"clue {rank}"}
+        conn.execute(
+            "INSERT INTO topic_clue_records VALUES ('Q1784288', ?, ?)", (rank, json.dumps(clue))
+        )
     for qid, topic, set_id, _, difficulty, category, text in QUESTIONS:
         conn.execute(
             "INSERT INTO tossups VALUES (?, ?, ?, ?, NULL, 'answer', NULL)",
@@ -58,7 +65,7 @@ def client(tmp_path: Path) -> TestClient:
         )
         conn.execute("INSERT INTO question_layout VALUES (?, ?, 3)", (qid, text))
         cur = conn.execute("INSERT INTO clues VALUES (NULL, ?, 0, 'clue', 0, 4, 1)", (qid,))
-        conn.execute("INSERT INTO clue_cluster_members VALUES (?, 7)", (cur.lastrowid,))
+        conn.execute("INSERT INTO sentence_clues VALUES (?, 7)", (cur.lastrowid,))
         conn.execute("INSERT INTO clues VALUES (NULL, ?, 1, 'giveaway', 4, 9, 0)", (qid,))
         conn.execute(
             "INSERT INTO answer_parses VALUES (?, 'Invisible Man', '[]', '[]', '[]', ?)",
@@ -99,7 +106,15 @@ def test_practice_filters_and_skips_seen_questions(client: TestClient) -> None:
     )
 
 
-def test_one_tossup_with_its_answer_line_and_clue_clusters(client: TestClient) -> None:
+def test_more_clues_five_at_a_time(client: TestClient) -> None:
+    more = get(client, "/topics/invisible-man/clues")
+    assert [c["rank"] for c in more] == [11, 12, 13, 14, 15]
+    assert [c["rank"] for c in get(client, "/topics/Q1784288/clues", offset=15)] == [16, 17]
+    assert get(client, "/topics/Q308/clues") == []
+    assert client.get("/topics/nope/clues").status_code == 404
+
+
+def test_one_tossup_with_its_answer_line_and_clues(client: TestClient) -> None:
     tossup = get(client, "/tossups/q1")
     assert tossup["answer_line"]["reject"] == ["The Invisible Man"]
     assert [(c["kind"], c["cluster_id"]) for c in tossup["clues"]] == [
