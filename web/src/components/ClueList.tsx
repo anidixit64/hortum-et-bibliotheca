@@ -1,16 +1,27 @@
 import { useState } from 'react'
-import type { Clue } from '../api/types'
+import type { Clue, Explanation } from '../api/types'
+import { ExplanationText } from './Written'
 import { percent } from '../lib/format'
 
 const TREND = { rising: '↑ rising', steady: '→ steady', fading: '↓ fading' } as const
 
-export function ClueList({ clues }: { clues: Clue[] }) {
+export function ClueList({
+  clues,
+  explanations,
+}: {
+  clues: Clue[]
+  explanations?: Explanation[] // written for the cleaned clues; rank = clue rank
+}) {
   const [open, setOpen] = useState<number | null>(null)
+  const [explained, setExplained] = useState<number | null>(null)
+  const byRank = new Map((explanations ?? []).map((e) => [e.rank, e]))
+  const lines = new Map((explanations ?? []).map((e) => [e.rank, e.one_line]))
+  const names = clues.map((c) => ({ rank: c.rank, names: [c.label, ...(c.variants ?? [])] }))
   if (!clues.length) return <p className="muted">Not asked often enough to rank clues yet.</p>
   return (
     <ol className="clues">
       {clues.map((clue) => (
-        <li key={clue.cluster_id}>
+        <li key={clue.cluster_id} id={`clue-${clue.rank}`}>
           <div>
             <span className="clue-label">{clue.rank}. {clue.label}</span>{' '}
             <span className="muted small">
@@ -19,7 +30,18 @@ export function ClueList({ clues }: { clues: Clue[] }) {
               {clue.heatmap.share_in_power > 0.5 && ' · often in power'}
             </span>
           </div>
+          {byRank.get(clue.rank) && <p className="one-line">{byRank.get(clue.rank)!.one_line}</p>}
           <p className="clue-text">{clue.text}</p>
+          {byRank.get(clue.rank) && (
+            <>
+              <button className="small" onClick={() => setExplained(explained === clue.rank ? null : clue.rank)}>
+                {explained === clue.rank ? 'Hide explanation' : 'Explain this clue'}
+              </button>{' '}
+              {explained === clue.rank && (
+                <ExplanationText explanation={byRank.get(clue.rank)!} names={names} lines={lines} />
+              )}
+            </>
+          )}
           {clue.cooccurs && clue.cooccurs.length > 0 && (
             <p className="muted small">
               Often with: {clue.cooccurs.slice(0, 3).map((c) => c.label).join(' · ')}

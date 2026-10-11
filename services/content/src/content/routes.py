@@ -6,12 +6,17 @@ import httpx
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 
-from content import cleanup, jobs
+from content import cleanup, jobs, writing
 
 router = APIRouter()
 
 PAGE_VIEW_PRIORITY = 10
-PROMPT_VERSIONS = {"clues": cleanup.PROMPT_VERSION}
+PROMPT_VERSIONS = {
+    "clues": cleanup.PROMPT_VERSION,
+    "explanations": writing.EXPLANATIONS_VERSION,
+    "summary": writing.SUMMARY_VERSION,
+}
+DERIVED = ("explanations", "summary")  # written from the clue cleanup
 
 
 def clue_fingerprint(request: Request, topic_id: str, stored: str) -> str:
@@ -62,14 +67,21 @@ def topic_content(
         (topic_id,),
     ).fetchall()
     have = {kind: Section(status=s, payload=json.loads(p), fetched_at=f) for kind, s, p, f in rows}
-    for kind, fingerprint, version, payload, created in db.execute(
+    rows = db.execute(
         "SELECT kind, fingerprint, prompt_version, payload, created_at FROM generations "
         "WHERE topic_id = ?",
         (topic_id,),
-    ):
-        current = PROMPT_VERSIONS.get(kind) == version and fingerprint == clue_fingerprint(
-            request, topic_id, fingerprint
-        )
+    ).fetchall()
+    # Explanations and the summary are current while they match the cleanup they were
+    # written from; the cleanup, while it matches the catalog's clue candidates.
+    clues_row = next((r for r in rows if r[0] == "clues"), None)
+    cleanup_identity = f"{clues_row[1]}:{clues_row[4]}" if clues_row else None
+    for kind, fingerprint, version, payload, created in rows:
+        if kind in DERIVED:
+            matches = fingerprint == cleanup_identity
+        else:
+            matches = fingerprint == clue_fingerprint(request, topic_id, fingerprint)
+        current = PROMPT_VERSIONS.get(kind) == version and matches
         have[kind] = Section(
             status="ok", payload=json.loads(payload), fetched_at=created, stale=not current
         )

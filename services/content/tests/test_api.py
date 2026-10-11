@@ -84,17 +84,29 @@ CANDIDATES = {
 
 
 def fake_reply(backends: Any, request: Any, check: Any = None) -> Reply:
-    """A model that merges the two battle royals and drops the stand-in."""
-    edits = {
-        "edits": [
-            {"id": 1, "action": "keep"},
-            {"id": 2, "action": "rename", "label": "battle royal"},
-            {"id": 3, "action": "merge", "into": 2},
-            {"id": 4, "action": "drop", "reason": "answer_itself"},
-        ]
-    }
-    assert check is None or check(edits) is None
-    return Reply(edits, "fake", "fake-model", 100, 20)
+    """A model that merges the two battle royals, drops the stand-in, and writes."""
+    if request.task == "clue_explanations":
+        text = " ".join(["word"] * 220)
+        data: dict[str, Any] = {
+            "explanations": [
+                {"rank": r, "one_line": f"Clue {r} in one line.", "explanation": text}
+                for r in (1, 2)
+            ]
+        }
+    elif request.task == "summary":
+        body = "[[1|The battle royal]] opens the novel. " + " ".join(["word"] * 600)
+        data = {"hook": "A young man fights blindfolded for a scholarship.", "summary": body}
+    else:
+        data = {
+            "edits": [
+                {"id": 1, "action": "keep"},
+                {"id": 2, "action": "rename", "label": "battle royal"},
+                {"id": 3, "action": "merge", "into": 2},
+                {"id": 4, "action": "drop", "reason": "answer_itself"},
+            ]
+        }
+    assert check is None or check(data) is None
+    return Reply(data, "fake", "fake-model", 100, 20)
 
 
 def catalog() -> httpx.Client:
@@ -135,7 +147,13 @@ def test_page_view_queues_then_the_worker_fills_in(
         "videos": "unavailable",
         "books": "pending",
         "clues": "ok",
+        "explanations": "ok",
+        "summary": "ok",
     }
+    explained = second["sections"]["explanations"]["payload"]["clues"]
+    assert [c["one_line"] for c in explained] == ["Clue 1 in one line.", "Clue 2 in one line."]
+    summary = second["sections"]["summary"]["payload"]
+    assert summary["marked"] == [1] and summary["hook"].startswith("A young man")
     # Recounted from the questions behind each spelling: q1 counts once.
     cleaned = second["sections"]["clues"]["payload"]["clues"]
     assert [(c["label"], c["n_questions"], c["clue_ids"]) for c in cleaned] == [

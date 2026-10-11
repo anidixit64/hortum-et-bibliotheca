@@ -258,6 +258,23 @@ export interface SectionPayloads {
   books: { books: Book[]; references: Reference[] }
   videos: { videos: Video[] }
   clues: { clues: CleanedClue[] }
+  explanations: { clues: Explanation[] }
+  summary: WrittenSummary
+}
+
+// Written from the cleaned clues: rank is the cleaned clue's rank.
+export interface Explanation {
+  rank: number
+  label: string
+  one_line: string
+  explanation: string
+}
+
+export interface WrittenSummary {
+  hook: string
+  summary: string // clue mentions marked [[rank|words]]
+  marked: number[]
+  source: { title: string; url: string; license: string } | null
 }
 
 export type ContentKind = keyof SectionPayloads

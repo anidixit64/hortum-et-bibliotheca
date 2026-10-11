@@ -431,3 +431,58 @@ details h3 {
   border: 0;
   border-radius: 8px;
 }
+
+/* --- Written sections ------------------------------------------------------------------ */
+
+.hook {
+  font-family: var(--font-body);
+  font-size: 1.2rem;
+  font-style: italic;
+  margin: 0.4rem 0 0.6rem;
+  max-width: 48rem;
+}
+.mention {
+  position: relative;
+  display: inline;
+}
+.mention-text {
+  all: unset;
+  font-weight: 700;
+  cursor: help;
+  border-bottom: 1px dotted var(--accent);
+}
+.mention-text:focus-visible {
+  outline: 2px solid var(--accent);
+}
+.popover {
+  position: absolute;
+  left: 0;
+  top: 1.6em;
+  z-index: 20;
+  width: min(22rem, 80vw);
+  padding: 0.6rem 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  font-weight: 400;
+  font-style: normal;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.one-line {
+  margin: 0.2rem 0;
+  color: var(--muted);
+}
+.explanation {
+  margin-top: 0.6rem;
+  padding-left: 0.8rem;
+  border-left: 3px solid var(--accent-soft);
+}
+.clues li:target {
+  background: var(--accent-soft);
+  border-radius: 8px;
+}

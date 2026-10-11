@@ -1,5 +1,6 @@
 """The content worker: takes jobs from content.db and fetches enrichments, one at a time."""
 
+import functools
 import json
 import logging
 import sqlite3
@@ -10,7 +11,7 @@ from typing import Any
 
 import httpx
 
-from content import cleanup, jobs
+from content import cleanup, jobs, writing
 from content.config import Settings
 from content.fetchers import Topic, Unavailable, books, images, videos, wiki
 from content.generate import GenerationError, QuotaExceeded, Reply, Request, chain
@@ -162,16 +163,171 @@ def store_generation(
         )  # fmt: skip
 
 
+class NotReady(Exception):
+    """A section this one is written from isn't there yet: try again shortly."""
+
+
+def cleaned(conn: sqlite3.Connection, topic_id: str) -> tuple[dict[str, Any], str]:
+    """The topic's clue cleanup and its identity (what derived sections are written from)."""
+    row = conn.execute(
+        "SELECT payload, fingerprint, created_at FROM generations "
+        "WHERE topic_id = ? AND kind = 'clues'",
+        (topic_id,),
+    ).fetchone()
+    if row is None:
+        jobs.enqueue(conn, topic_id, "clues", 10)
+        raise NotReady("clue cleanup not done yet")
+    return json.loads(row[0]), f"{row[1]}:{row[2]}"
+
+
+def clue_inputs(
+    catalog: httpx.Client, topic_id: str, clues: list[dict[str, Any]]
+) -> tuple[dict[str, Any], dict[int, list[str]]]:
+    """The catalog's view of the topic and each cleaned clue's example sentences."""
+    found = catalog.get(
+        f"/topics/{topic_id}/clue-candidates", params={"limit": cleanup.CANDIDATES}
+    ).json()
+    by_id = {c["id"]: c for c in found["candidates"]}
+    examples = {
+        clue["rank"]: [
+            s for cid in clue["clue_ids"] for s in by_id.get(cid, {}).get("sentences", [])
+        ][:3]
+        for clue in clues
+    }
+    return found, examples
+
+
+def add(total: Reply | None, reply: Reply) -> Reply:
+    if total is None:
+        return reply
+    total.input_tokens += reply.input_tokens
+    total.output_tokens += reply.output_tokens
+    return total
+
+
+def write_explanations(
+    conn: sqlite3.Connection, settings: Settings, catalog: httpx.Client, topic_id: str
+) -> tuple[dict[str, Any], str, Reply | None]:
+    """One-line summaries and explanations for the cleaned first page of clues."""
+    clean, identity = cleaned(conn, topic_id)
+    clues = clean["clues"][: writing.FIRST_PAGE]
+    found, examples = clue_inputs(catalog, topic_id, clues)
+    backends = chain.build(settings.light_chain, settings)
+    total: Reply | None = None
+    out: dict[int, dict[str, str]] = {}
+    for start in range(0, len(clues), writing.BATCH):
+        batch = clues[start : start + writing.BATCH]
+        ranks = [c["rank"] for c in batch]
+        listed = [
+            {"rank": c["rank"], "clue": c["label"], "questions": c["n_questions"],
+             "examples": examples[c["rank"]]}
+            for c in batch
+        ]  # fmt: skip
+        prompt = writing.EXPLAIN.format(
+            name=found["name"],
+            category=found.get("category") or "unknown",
+            low=writing.EXPLANATION_WORDS[0],
+            high=writing.EXPLANATION_WORDS[1],
+            clues=json.dumps(listed, ensure_ascii=False, indent=1),
+        )
+        reply = chain.run(
+            backends,
+            Request("clue_explanations", writing.EXPLAIN_SYSTEM, prompt, writing.EXPLAIN_SCHEMA),
+            functools.partial(writing.explain_problem, ranks=ranks),
+        )
+        total = add(total, reply)
+        for entry in reply.data["explanations"]:
+            if entry["rank"] in ranks:
+                out[entry["rank"]] = {
+                    "one_line": entry["one_line"].strip(),
+                    "explanation": entry["explanation"].strip(),
+                }
+    explained = [
+        {"rank": c["rank"], "label": c["label"], **out[c["rank"]]}
+        for c in clues
+        if c["rank"] in out
+    ]
+    return {"clues": explained}, identity, total
+
+
+def write_summary(
+    conn: sqlite3.Connection, settings: Settings, catalog: httpx.Client, topic_id: str
+) -> tuple[dict[str, Any], str, Reply | None]:
+    """The hook and summary, with the cleaned clues marked."""
+    clean, identity = cleaned(conn, topic_id)
+    clues = clean["clues"][: writing.FIRST_PAGE]
+    wiki_row = conn.execute(
+        "SELECT status, payload FROM enrichments WHERE topic_id = ? AND kind = 'wiki'",
+        (topic_id,),
+    ).fetchone()
+    if wiki_row is None:
+        jobs.enqueue(conn, topic_id, "wiki", 10)
+        raise NotReady("Wikipedia text not fetched yet")
+    wiki = json.loads(wiki_row[1]) if wiki_row[0] == "ok" else None
+    explained = conn.execute(
+        "SELECT payload FROM generations WHERE topic_id = ? AND kind = 'explanations'",
+        (topic_id,),
+    ).fetchone()
+    lines = (
+        {c["rank"]: c["one_line"] for c in json.loads(explained[0])["clues"]} if explained else {}
+    )
+    topic = catalog.get(f"/topics/{topic_id}/clue-candidates", params={"limit": 1}).json()
+    ranks = [c["rank"] for c in clues]
+    listing = "\n".join(
+        f"{c['rank']}: {c['label']}" + (f" — {lines[c['rank']]}" if c["rank"] in lines else "")
+        for c in clues
+    )
+    prompt = writing.SUMMARY.format(
+        name=topic["name"],
+        category=topic.get("category") or "unknown",
+        low=writing.SUMMARY_WORDS[0],
+        high=writing.SUMMARY_WORDS[1],
+        clues=listing,
+        source=writing.source_text(wiki),
+    )
+    reply = chain.run(
+        chain.build(settings.writing_chain, settings),
+        Request("summary", writing.SUMMARY_SYSTEM, prompt, writing.SUMMARY_SCHEMA),
+        lambda d: writing.summary_problem(d, ranks),
+    )
+    text, marked = writing.clean_summary(reply.data["summary"].strip(), ranks)
+    source = (
+        {"title": wiki["title"], "url": wiki["url"], "license": wiki["license"]} if wiki else None
+    )
+    payload = {"hook": reply.data["hook"].strip(), "summary": text, "marked": marked,
+               "source": source}  # fmt: skip
+    return payload, identity, reply
+
+
+Generator = Callable[
+    [sqlite3.Connection, Settings, httpx.Client, str], tuple[dict[str, Any], str, Reply | None]
+]
+
+
+def write_cleanup(
+    conn: sqlite3.Connection, settings: Settings, catalog: httpx.Client, topic_id: str
+) -> tuple[dict[str, Any], str, Reply | None]:
+    return clean_clues(settings, catalog, topic_id)
+
+
+GENERATORS: dict[str, tuple[Generator, int]] = {
+    "clues": (write_cleanup, cleanup.PROMPT_VERSION),
+    "explanations": (write_explanations, writing.EXPLANATIONS_VERSION),
+    "summary": (write_summary, writing.SUMMARY_VERSION),
+}  # fmt: skip
+
+
 def run_generation(
     conn: sqlite3.Connection, settings: Settings, catalog: httpx.Client, job: jobs.Job
 ) -> None:
+    generate, version = GENERATORS[job.kind]
     try:
-        payload, fingerprint, reply = clean_clues(settings, catalog, job.topic_id)
-        store_generation(
-            conn, job.topic_id, job.kind, fingerprint, cleanup.PROMPT_VERSION, payload, reply
-        )
+        payload, fingerprint, reply = generate(conn, settings, catalog, job.topic_id)
+        store_generation(conn, job.topic_id, job.kind, fingerprint, version, payload, reply)
         jobs.finish(conn, job)
-        log.info("cleaned clues for %s (%s)", job.topic_id, reply.model if reply else "none")
+        log.info("wrote %s for %s (%s)", job.kind, job.topic_id, reply.model if reply else "none")
+    except NotReady as exc:
+        jobs.defer(conn, job, jobs.now() + timedelta(seconds=20), str(exc))
     except QuotaExceeded as exc:
         until = exc.retry_at or jobs.now() + timedelta(hours=1)
         log.warning("%s for %s waits until %s: %s", job.kind, job.topic_id, until, exc)
@@ -192,6 +348,9 @@ def run_once(
         return None
     if job.kind in jobs.GENERATED:
         run_generation(conn, settings, catalog, job)
+        return job
+    if job.kind not in fetchers(settings):  # a newer worker's kind: put it back, don't crash
+        jobs.defer(conn, job, jobs.now() + timedelta(minutes=1), f"unknown kind {job.kind!r}")
         return job
     version, fetch = fetchers(settings)[job.kind]
     try:

@@ -1,3 +1,4 @@
+import { linkClues, parseMarks } from './marks'
 import { applyCleanup } from './cleanClues'
 import type { Clue } from '../api/types'
 import { binOf, cellShades } from './heatmap'
@@ -60,5 +61,25 @@ describe('applyCleanup', () => {
     ])
     expect(out[0].heatmap.position_hist).toEqual([1, 2])
     expect(out[0].examples).toEqual(['boarders text'])
+  })
+})
+
+describe('marks', () => {
+  it('parses summary marks', () => {
+    expect(parseMarks('A [[3|battle royal]] and [[5|Mr. Norton]].')).toEqual([
+      { text: 'A ' }, { text: 'battle royal', rank: 3 }, { text: ' and ' },
+      { text: 'Mr. Norton', rank: 5 }, { text: '.' },
+    ])
+  })
+  it('links other clues once, longest name first, never itself', () => {
+    const clues = [
+      { rank: 1, names: ['Ambrose Burnside', 'Burnside'] },
+      { rank: 2, names: ["Burnside's Bridge"] },
+      { rank: 3, names: ['Antietam'] },
+    ]
+    const pieces = linkClues("Burnside took Burnside's Bridge at Antietam; Antietam again.", clues, 1)
+    expect(pieces.filter((p) => p.rank).map((p) => [p.text, p.rank])).toEqual([
+      ["Burnside's Bridge", 2], ['Antietam', 3],
+    ])
   })
 })

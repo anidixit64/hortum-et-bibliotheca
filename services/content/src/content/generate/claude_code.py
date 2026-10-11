@@ -81,7 +81,13 @@ class ClaudeCode:
         return Reply(
             data=data,
             backend=self.name,
-            model=next(iter(result.get("modelUsage", {})), self.model),
+            # Claude Code also uses a small model for housekeeping: the writer is the
+            # model that produced the most output.
+            model=max(
+                result.get("modelUsage", {}).items(),
+                key=lambda kv: kv[1].get("outputTokens", 0),
+                default=(self.model, {}),
+            )[0],
             input_tokens=int(usage.get("input_tokens", 0)),
             output_tokens=int(usage.get("output_tokens", 0)),
         )

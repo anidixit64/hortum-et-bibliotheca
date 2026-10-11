@@ -4,6 +4,7 @@ import { api } from '../api/client'
 import type { Clue, SectionPayloads, TopicRecord, TopicStats } from '../api/types'
 import { ClueList } from '../components/ClueList'
 import { Gallery, Reading, Videos, WikiSummary } from '../components/Enrichment'
+import { Hook, Summary } from '../components/Written'
 import { Heatmap } from '../components/Heatmap'
 import { ConfusionList, RelatedList } from '../components/Related'
 import { Timeline } from '../components/Timeline'
@@ -29,6 +30,14 @@ export function TopicPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const current = loaded?.key === key ? loaded.record : null
   const content = useTopicContent(current?.topic.id ?? '')
+  const summarySection = content?.sections.summary
+  const written =
+    summarySection?.status === 'ok' ? (summarySection.payload as SectionPayloads['summary']) : null
+  const explainedSection = content?.sections.explanations
+  const explanations =
+    explainedSection?.status === 'ok'
+      ? (explainedSection.payload as SectionPayloads['explanations']).clues
+      : []
   const cleanedSection = content?.sections.clues
   const cleaned =
     cleanedSection?.status === 'ok'
@@ -105,6 +114,7 @@ export function TopicPage() {
         <div className="topic-head">
           <div>
             <h1>{topic.name}</h1>
+            {written && <Hook summary={written} />}
             {topic.description && <p className="muted">{topic.description}</p>}
             {topic.thin && <span className="pill">rarely asked</span>}
             {topic.category && <span className="pill">{topic.category}</span>}
@@ -140,7 +150,11 @@ export function TopicPage() {
       {content && (
         <section className="card">
           <h2>About</h2>
-          <WikiSummary section={content.sections.wiki} />
+          {written ? (
+            <Summary summary={written} explanations={explanations} />
+          ) : (
+            <WikiSummary section={content.sections.wiki} />
+          )}
         </section>
       )}
 
@@ -151,7 +165,7 @@ export function TopicPage() {
             Tidied by AI{cleanedSection?.stale ? ' (updating…)' : ''}
           </p>
         )}
-        <ClueList clues={shown} />
+        <ClueList clues={shown} explanations={cleaned ? explanations : undefined} />
         {shown.length < total && (
           <button onClick={showMore} disabled={loadingMore}>
             {loadingMore ? 'Loading…' : `Show ${Math.min(MORE, total - shown.length)} more`}
