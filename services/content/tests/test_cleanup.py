@@ -112,3 +112,10 @@ def test_turning_claude_code_off_leaves_gemini() -> None:
     spec = "claude_code:haiku,gemini:gemini-flash-latest"
     assert [b.name for b in chain.build(spec, on)] == ["claude_code", "gemini"]
     assert [b.name for b in chain.build(spec, off)] == ["gemini"]
+
+
+def test_renames_may_correct_a_misspelling_but_not_invent_words() -> None:
+    source = cleanup.words("Vincente de Valverde gave him a breviary; a Stetter reation")
+    assert cleanup.known_word("vicente", source)
+    assert cleanup.known_word("reaction", source)
+    assert not cleanup.known_word("pizarro", source)

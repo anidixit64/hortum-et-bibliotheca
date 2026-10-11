@@ -12,6 +12,7 @@ Named entities from spaCy's transformer model (when ``ner_python`` is set) are p
 hints: the full title a fragment comes from, the name a descriptor sits in front of.
 """
 
+import difflib
 import json
 import re
 import subprocess
@@ -20,7 +21,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-PROMPT_VERSION = 1
+PROMPT_VERSION = 2  # 2: descriptors, name pairs, capitalization, source misspellings
 CANDIDATES = 25  # the cleanup sees this many; the page shows the top 10, then 5 at a time
 EXAMPLES = 3
 MAX_LABEL_WORDS = 9
@@ -37,11 +38,23 @@ INSTRUCTIONS = """Answer: {name} (category: {category})
 
 For EVERY candidate, return one edit:
 - "keep": it is a good, clean clue for this answer.
-- "rename": the clue is right but its label isn't. Give a better "label": the full title \
-when the label is a fragment of one ("Pillar" -> "The City and the Pillar"), the name \
-without a descriptor in front ("Newfoundland dog Seaman" -> "Seaman"), without a stray verb \
-or noun after it ("Ufa lies" -> "Ufa"), singular instead of a needless plural, proper \
-capitalization. Use only words that appear in its spellings, example sentences or hint. \
+- "rename": the clue is right but its label isn't. Give a better "label". Fix every one \
+of these you see:
+  * a fragment of a longer title or name -> the full one ("Pillar" -> "The City and the \
+Pillar", "Daggers" -> "Plot of the Three Daggers", "Heinz" -> "Heinz dilemma")
+  * descriptor words around a name that aren't part of it -> the bare name ("Newfoundland \
+dog Seaman" -> "Seaman", "Siemens-Schuckert company" -> "Siemens-Schuckert", "Peter \
+Sargeant novels" -> "Peter Sargeant", "Romanesque Rotunda di San Lorenzo" -> "Rotunda di San \
+Lorenzo", "Lucius Lamar of Mississippi" -> "Lucius Lamar"); a title that is part of how the \
+person is known stays ("King Mark", "Dr. Bledsoe")
+  * a stray verb or noun stuck on ("Ufa lies" -> "Ufa", "Lamachus's death" -> "Lamachus")
+  * two separate names joined by "and" -> the one the sentences are mostly about, unless \
+the pair is itself one well-known name ("Barnum and Bailey", "Rosencrantz and Guildenstern")
+  * a needless plural -> singular; wrong capitalization -> the usual form ("fock state" -> \
+"Fock state", "Ijk" -> "ijk", a person's or work's name capitalized)
+  * a misspelling copied from a question -> the correct spelling ("Vincente de Valverde" -> \
+"Vicente de Valverde", "Stetter reation" -> "Stetter reaction")
+Use the words of its spellings, example sentences or hint (fixing their spelling is fine). \
 Keep it short (a name, title, or 1-5 word phrase; a famous quotation may be longer).
 - "drop" with a "reason": "generic" (a common word or phrase that teaches nothing about \
 this answer: "judgment", "Egypt" for a war Egypt fought in, "TV appearance"), \
@@ -120,6 +133,20 @@ def _fold(text: str) -> str:
 
 def words(text: str) -> set[str]:
     return {w for w in _WORD.findall(_fold(text)) if w not in _STOP}
+
+
+def known_word(word: str, source: set[str]) -> bool:
+    """A label word must come from the clue's own text, or be a corrected spelling of one
+    of its words ("vicente" for "vincente", "reaction" for "reation")."""
+    if word in source:
+        return True
+    if len(word) < 5:
+        return False
+    return any(
+        abs(len(w) - len(word)) <= 2 and difflib.SequenceMatcher(None, w, word).ratio() >= 0.8
+        for w in source
+        if len(w) >= 4
+    )
 
 
 # --- named-entity hints --------------------------------------------------------------
@@ -253,7 +280,7 @@ def check(found: dict[str, Any], data: dict[str, Any], hints: dict[int, str]) ->
             source = " ".join([*clue["spellings"], *clue["sentences"], hints.get(cid, "")])
             if not label or len(label.split()) > MAX_LABEL_WORDS * 3:
                 out.rejected.append(f"rename {cid}: empty or too long")
-            elif not words(label) <= words(source) | words(clue["label"]):
+            elif not all(known_word(w, words(source) | words(clue["label"])) for w in words(label)):
                 out.rejected.append(f"rename {cid}: {label!r} uses words not in its sentences")
             else:
                 out.renames[cid] = label

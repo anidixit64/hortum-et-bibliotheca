@@ -3,8 +3,9 @@
     uv run python services/content/eval/cleanup_eval.py [--gui] [--limit N]
 
 For each topic in topics.tsv (100 topics that agent review rounds examined in October
-2026), runs the cleanup exactly as the worker does, stores the result in content.db (so
-those pages show it), and writes before/after top-10 lists to data/eval/ for a blind
+2026) or ``--topics`` (fresh_topics.tsv: 100 others, for confirmation), runs the cleanup
+exactly as the worker does, stores the result in content.db (so those pages show it),
+and writes before/after top-10 lists to data/eval/ for a blind
 comparison. Needs the catalog running (CONTENT_CATALOG_URL).
 """
 
@@ -24,10 +25,10 @@ from content.config import get_settings
 HERE = Path(__file__).parent
 
 
-def run(reporter: Any, limit: int | None) -> Path:
+def run(reporter: Any, limit: int | None, topics_file: Path = HERE / "topics.tsv") -> Path:
     settings = get_settings()
     conn: sqlite3.Connection = db.connect(settings.db_path)
-    topics = [line.split("\t") for line in (HERE / "topics.tsv").read_text().splitlines()]
+    topics = [line.split("\t") for line in topics_file.read_text().splitlines()]
     topics = topics[:limit] if limit else topics
     out = Path("data/eval") / f"cleanup_{datetime.now(UTC):%Y%m%d_%H%M}.jsonl"
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -73,11 +74,12 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--gui", action="store_true")
     parser.add_argument("--limit", type=int)
+    parser.add_argument("--topics", type=Path, default=HERE / "topics.tsv")
     args = parser.parse_args()
     if not args.gui:
         from hortum_pipeline.progress import ConsoleReporter
 
-        run(ConsoleReporter(), args.limit)
+        run(ConsoleReporter(), args.limit, args.topics)
         return
     import tkinter as tk
 
@@ -85,7 +87,7 @@ def main() -> None:
 
     root = tk.Tk()
     window = ProgressWindow(root, "Clue cleanup evaluation", [])
-    window.run(lambda reporter: run(reporter, args.limit) and 0)
+    window.run(lambda reporter: run(reporter, args.limit, args.topics) and 0)
 
 
 if __name__ == "__main__":
