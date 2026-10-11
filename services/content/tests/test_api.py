@@ -102,6 +102,16 @@ def fake_reply(backends: Any, request: Any, check: Any = None) -> Reply:
                 for r in (1, 2)
             ]
         }
+    elif request.task == "theme":
+        light = {t: "#f7f6f2" for t in ("bg", "surface", "accent_soft", "header_tint")}
+        dark = {t: "#15171a" for t in ("bg", "surface", "accent_soft", "header_tint")}
+        data = {
+            "light": light | {"text": "#222222", "muted": "#555555", "accent": "#2f6f5e",
+                              "accent2": "#b5651d"},
+            "dark": dark | {"text": "#eeeeee", "muted": "#aaaaaa", "accent": "#7fc4ad",
+                            "accent2": "#e2a160"},
+            "font": "classical-serif",
+        }  # fmt: skip
     elif request.task == "fun_facts":
         quote = "A novel about a man who lives underground and steals power."
         data = {"facts": [{"fact": f"Fact {i}.", "source_sentence": quote} for i in range(5)]}
@@ -162,6 +172,7 @@ def test_page_view_queues_then_the_worker_fills_in(
         "explanations": "ok",
         "summary": "ok",
         "facts": "ok",
+        "theme": "ok",
     }
     explained = second["sections"]["explanations"]["payload"]["clues"]
     assert [c["one_line"] for c in explained] == ["Clue 1 in one line.", "Clue 2 in one line."]

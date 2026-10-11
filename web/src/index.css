@@ -512,3 +512,48 @@ details h3 {
   font-size: 1.3rem;
   color: var(--accent);
 }
+
+/* --- Topic colors (theme job): the page's tokens come from the topic ---------------------- */
+
+:root.themed {
+  --bg: var(--l-bg);
+  --surface: var(--l-surface);
+  --text: var(--l-text);
+  --muted: var(--l-muted);
+  --accent: var(--l-accent);
+  --accent-2: var(--l-accent2);
+  --accent-soft: var(--l-accent-soft);
+  --header-tint: var(--l-header-tint);
+}
+@media (prefers-color-scheme: dark) {
+  :root.themed {
+    --bg: var(--d-bg);
+    --surface: var(--d-surface);
+    --text: var(--d-text);
+    --muted: var(--d-muted);
+    --accent: var(--d-accent);
+    --accent-2: var(--d-accent2);
+    --accent-soft: var(--d-accent-soft);
+    --header-tint: var(--d-header-tint);
+  }
+}
+body {
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+.header-image {
+  margin: -1.5rem -1rem 1rem;
+}
+.header-image-picture {
+  height: clamp(180px, 32vw, 340px);
+  background-size: cover;
+  background-position: center 30%;
+  -webkit-mask-image: linear-gradient(to bottom, black 55%, transparent);
+  mask-image: linear-gradient(to bottom, black 55%, transparent);
+}
+.header-image figcaption {
+  text-align: right;
+  padding: 0 1rem;
+  margin-top: -1.4rem;
+  position: relative;
+}

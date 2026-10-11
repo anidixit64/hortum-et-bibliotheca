@@ -11,6 +11,8 @@ import { Timeline } from '../components/Timeline'
 import { TopicMap } from '../components/TopicMap'
 import { applyCleanup, CLEANED_FROM } from '../lib/cleanClues'
 import { percent } from '../lib/format'
+import { useTopicTheme } from '../lib/theme'
+import { HeaderImage } from '../components/HeaderImage'
 import { useTopicContent } from '../lib/useTopicContent'
 
 const PAGE = 10 // clues shown at first
@@ -40,6 +42,9 @@ export function TopicPage() {
       : []
   const factsSection = content?.sections.facts
   const facts = factsSection?.status === 'ok' ? (factsSection.payload as SectionPayloads['facts']) : null
+  const themeSection = content?.sections.theme
+  const topicTheme = themeSection?.status === 'ok' ? (themeSection.payload as SectionPayloads['theme']) : null
+  useTopicTheme(topicTheme)
   const cleanedSection = content?.sections.clues
   const cleaned =
     cleanedSection?.status === 'ok'
@@ -120,6 +125,7 @@ export function TopicPage() {
 
   return (
     <>
+      {topicTheme?.header && <HeaderImage image={topicTheme.header} />}
       <div className="card">
         <div className="topic-head">
           <div>

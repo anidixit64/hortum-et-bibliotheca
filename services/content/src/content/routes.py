@@ -6,7 +6,7 @@ import httpx
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 
-from content import cleanup, jobs, writing
+from content import cleanup, jobs, theme, writing
 
 router = APIRouter()
 
@@ -16,7 +16,10 @@ PROMPT_VERSIONS = {
     "explanations": writing.EXPLANATIONS_VERSION,
     "summary": writing.SUMMARY_VERSION,
     "facts": writing.FACTS_VERSION,
+    "theme": theme.THEME_VERSION,
 }
+# Generated sections written from a fetched one: current while that one is the same.
+FROM_FETCHED = {"facts": "wiki", "theme": "images"}
 DERIVED = ("explanations", "summary")  # written from the clue cleanup
 
 
@@ -77,14 +80,15 @@ def topic_content(
     # written from; the cleanup, while it matches the catalog's clue candidates.
     clues_row = next((r for r in rows if r[0] == "clues"), None)
     cleanup_identity = f"{clues_row[1]}:{clues_row[4]}" if clues_row else None
-    wiki_row = db.execute(
-        "SELECT fetched_at FROM enrichments WHERE topic_id = ? AND kind = 'wiki'", (topic_id,)
-    ).fetchone()
+    fetched_at = dict(
+        db.execute("SELECT kind, fetched_at FROM enrichments WHERE topic_id = ?", (topic_id,))
+    )
     for kind, fingerprint, version, payload, created in rows:
         if kind in DERIVED:
             matches = fingerprint == cleanup_identity
-        elif kind == "facts":  # written from the Wikipedia text
-            matches = wiki_row is not None and fingerprint == f"wiki:{wiki_row[0]}"
+        elif kind in FROM_FETCHED:
+            source = FROM_FETCHED[kind]
+            matches = fingerprint == f"{source}:{fetched_at.get(source)}"
         else:
             matches = fingerprint == clue_fingerprint(request, topic_id, fingerprint)
         current = PROMPT_VERSIONS.get(kind) == version and matches

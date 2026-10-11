@@ -261,6 +261,19 @@ export interface SectionPayloads {
   explanations: { clues: Explanation[] }
   summary: WrittenSummary
   facts: { facts: FunFact[]; source?: { title: string; url: string } }
+  theme: Theme
+}
+
+export type ThemeColors = Record<
+  'bg' | 'surface' | 'text' | 'muted' | 'accent' | 'accent2' | 'accent_soft' | 'header_tint',
+  string
+>
+
+export interface Theme {
+  light: ThemeColors
+  dark: ThemeColors
+  font: string // one of a fixed set of pairings
+  header: WikiImage | null
 }
 
 export interface FunFact {

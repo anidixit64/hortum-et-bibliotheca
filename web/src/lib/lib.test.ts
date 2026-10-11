@@ -1,3 +1,4 @@
+import { themeVariables } from './theme'
 import { linkClues, parseMarks } from './marks'
 import { applyCleanup } from './cleanClues'
 import type { Clue } from '../api/types'
@@ -81,5 +82,15 @@ describe('marks', () => {
     expect(pieces.filter((p) => p.rank).map((p) => [p.text, p.rank])).toEqual([
       ["Burnside's Bridge", 2], ['Antietam', 3],
     ])
+  })
+})
+
+describe('themeVariables', () => {
+  it('maps light and dark colors and the font pairing to CSS variables', () => {
+    const colors = (c: string) => ({ bg: c, surface: c, text: c, muted: c, accent: c, accent2: c, accent_soft: c, header_tint: c })
+    const vars = themeVariables({ light: colors('#ffffff'), dark: colors('#000000'), font: 'elegant-serif', header: null })
+    expect(vars['--l-accent-soft']).toBe('#ffffff')
+    expect(vars['--d-header-tint']).toBe('#000000')
+    expect(vars['--font-body']).toContain('Didot')
   })
 })

@@ -11,7 +11,7 @@ from typing import Any
 
 import httpx
 
-from content import cleanup, jobs, writing
+from content import cleanup, jobs, theme, writing
 from content.config import Settings
 from content.fetchers import Topic, Unavailable, books, images, videos, wiki
 from content.generate import GenerationError, QuotaExceeded, Reply, Request, chain
@@ -352,6 +352,62 @@ def write_facts(
     return {"facts": facts, "source": {"title": wiki["title"], "url": wiki["url"]}}, identity, reply
 
 
+def header_image(images: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """The image to open the page with: the article's main image, else the largest
+    landscape one, else the largest."""
+    if not images:
+        return None
+    main = [i for i in images if i.get("is_main")]
+    wide = [i for i in images if i.get("width", 0) >= i.get("height", 0)]
+    pool = main or wide or images
+    return max(pool, key=lambda i: i.get("width", 0) * i.get("height", 0))
+
+
+def write_theme(
+    conn: sqlite3.Connection, settings: Settings, catalog: httpx.Client, topic_id: str
+) -> tuple[dict[str, Any], str, Reply | None]:
+    """The topic's colors and font, chosen to suit it and blend with its header image."""
+    row = conn.execute(
+        "SELECT status, payload, fetched_at FROM enrichments "
+        "WHERE topic_id = ? AND kind = 'images'",
+        (topic_id,),
+    ).fetchone()
+    if row is None:
+        jobs.enqueue(conn, topic_id, "images", 10)
+        raise NotReady("images not fetched yet")
+    images = json.loads(row[1]).get("images", []) if row[0] == "ok" else []
+    header = header_image(images)
+    colors: list[dict[str, Any]] = []
+    if header:
+        response = httpx.get(
+            header["url"],
+            headers={"User-Agent": settings.wikimedia_user_agent or settings.user_agent},
+            timeout=settings.request_timeout_seconds,
+            follow_redirects=True,
+        )
+        if response.status_code == 200:
+            colors = theme.palette(response.content)
+    topic = catalog.get(f"/topics/{topic_id}/clue-candidates", params={"limit": 1}).json()
+    hook_row = conn.execute(
+        "SELECT payload FROM generations WHERE topic_id = ? AND kind = 'summary'", (topic_id,)
+    ).fetchone()
+    prompt = theme.PROMPT.format(
+        name=topic["name"],
+        category=topic.get("category") or "unknown",
+        hook=json.loads(hook_row[0])["hook"] if hook_row else "(not written yet)",
+        caption=(header or {}).get("caption") or (header or {}).get("file") or "(no image)",
+        palette=", ".join(f"{c['hex']} ({c['share']:.0%})" for c in colors) or "(no image)",
+        fonts="; ".join(f"{k}: {v}" for k, v in theme.FONT_PAIRINGS.items()),
+    )
+    reply = chain.run(
+        chain.build(settings.light_chain, settings),
+        Request("theme", theme.SYSTEM, prompt, theme.SCHEMA),
+        theme.problem,
+    )
+    payload = {**theme.finish(reply.data), "header": header, "palette": colors}
+    return payload, f"images:{row[2]}", reply
+
+
 def write_cleanup(
     conn: sqlite3.Connection, settings: Settings, catalog: httpx.Client, topic_id: str
 ) -> tuple[dict[str, Any], str, Reply | None]:
@@ -363,6 +419,7 @@ GENERATORS: dict[str, tuple[Generator, int]] = {
     "explanations": (write_explanations, writing.EXPLANATIONS_VERSION),
     "summary": (write_summary, writing.SUMMARY_VERSION),
     "facts": (write_facts, writing.FACTS_VERSION),
+    "theme": (write_theme, theme.THEME_VERSION),
 }  # fmt: skip
 
 
