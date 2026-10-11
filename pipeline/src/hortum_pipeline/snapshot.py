@@ -23,10 +23,10 @@ import sqlite3
 from collections import defaultdict
 from typing import Any
 
-from hortum_pipeline import db
+from hortum_pipeline import db, labeling
 from hortum_pipeline.config import PipelineSettings
 from hortum_pipeline.progress import Reporter
-from hortum_pipeline.relate import STOPWORDS, is_proper, tokenize
+from hortum_pipeline.relate import is_proper
 
 SCHEMA_VERSION = 1
 
@@ -77,7 +77,7 @@ def _load_clues(conn: sqlite3.Connection) -> dict[str, list[dict[str, Any]]]:
     picks: dict[int, dict[str, Any]] = {}
     for row in conn.execute(
         "SELECT s.cluster_id, s.topic_id, s.rank, s.display_label, c.text, s.n_sets, "
-        "k.n_tossups, s.impact, s.median_position, s.share_in_power, s.share_last_line, "
+        "s.n_questions, s.impact, s.median_position, s.share_in_power, s.share_last_line, "
         "s.position_hist, s.difficulty_hist, s.first_year, s.last_year, s.trend "
         "FROM cluster_scores s JOIN clue_clusters k ON k.id = s.cluster_id "
         "JOIN clues c ON c.id = k.representative_clue_id WHERE s.rank IS NOT NULL"
@@ -140,9 +140,9 @@ def _load_clues(conn: sqlite3.Connection) -> dict[str, list[dict[str, Any]]]:
 
 
 def names_label(text: str, label: str) -> bool:
-    """Does the clue name the label: every content word of it, as whole words?"""
-    words = {t.key for t in tokenize(label.rstrip("…"))} - STOPWORDS
-    return bool(words) and words <= {t.key for t in tokenize(text)}
+    """Does the clue name the label: every content word of it, as whole words (plurals
+    folded, pronunciation guides ignored)? The score stage counts clues the same way."""
+    return labeling.names(labeling.word_set(labeling.clean(text)), label)
 
 
 def _best_dates(rows: list[tuple[str, dict[str, Any]]]) -> list[tuple[str, dict[str, Any]]]:

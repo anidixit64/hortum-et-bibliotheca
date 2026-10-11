@@ -38,8 +38,25 @@ def test_pick_measures_redundancy_against_the_topic_baseline() -> None:
     # Three clusters all fairly alike (same topic); 1 and 2 are near-duplicates.
     v = {1: np.array([1.0, 0.0]), 2: np.array([0.999, 0.045]), 3: np.array([0.8, 0.6])}
     v = {k: x / np.linalg.norm(x) for k, x in v.items()}
-    picks = score.pick([(1, 3.0), (2, 2.9), (3, 2.0)], v, Weights(mmr_lambda=0.5))
-    assert picks[:2] == [1, 3]  # the near-duplicate waits
+    assert score.pick([(1, 3.0), (2, 2.9), (3, 2.0)], v, Weights()) == [1, 3]
+
+
+def test_pick_puts_clues_seen_in_more_questions_first() -> None:
+    """Geronimo: Osama bin Laden (3 questions) before C. S. Fly (2), whatever the impact."""
+    v = {i: np.eye(4)[i] for i in range(4)}
+    questions = {0: 2, 1: 3, 2: 8, 3: 3}
+    impacts = [(0, 1.34), (1, 1.50), (2, 2.81), (3, 1.73)]
+    reasons: dict[int, str] = {}
+    assert score.pick(impacts, v, Weights(), questions=questions, reasons=reasons) == [2, 3, 1, 0]
+    assert reasons == {}
+
+
+def test_pick_says_why_a_clue_was_skipped() -> None:
+    v = {i: np.eye(3)[i] for i in range(3)}
+    labels = {0: "womb chamber", 1: "womb chambers", 2: "prasada"}
+    reasons: dict[int, str] = {}
+    picks = score.pick([(0, 2.0), (1, 1.5), (2, 1.0)], v, Weights(), labels, reasons=reasons)
+    assert picks == [0, 2] and reasons == {1: "same label as 0"}
 
 
 def test_pick_returns_at_most_ten() -> None:
@@ -72,12 +89,14 @@ def test_self_reference_and_display_label() -> None:
         == "Chance for Peace"
     )
     assert score.display_label(stats(3, 0.2, ["Peace"]), vague) == "representative clue text here"
+    assert score.display_label(stats(3, 0.2, ["Peace"]), vague, "womb chamber") == "womb chamber"
 
 
 def test_a_repeated_label_is_picked_once() -> None:
     assert score.same_label("Snow Queen", "The Snow Queen")
     assert score.same_label("Geiger and Marsden", "Ernest Marsden and Hans Geiger")
     assert not score.same_label("Kai", "The Snow Queen")
+    assert score.same_label("womb chamber", "womb chambers")
     v = {i: np.eye(3)[i] for i in range(3)}
     labels = {0: "The Snow Queen", 1: "Snow Queen", 2: "Kai"}
     assert score.pick([(0, 3.0), (1, 2.0), (2, 1.0)], v, Weights(), labels) == [0, 2]
