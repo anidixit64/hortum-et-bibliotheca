@@ -69,6 +69,11 @@ export const api = {
 
   content: (topicId: string) =>
     request<TopicContent>(content(`/topics/${encodeURIComponent(topicId)}/content`)),
+  explainMore: (topicId: string, through: number) =>
+    request<{ queued: boolean }>(
+      content(`/topics/${encodeURIComponent(topicId)}/explain-more?through=${through}`),
+      { method: 'POST' },
+    ),
 
   follow: (topicId: string) =>
     request<{ cards_created: number; cards_total: number }>(

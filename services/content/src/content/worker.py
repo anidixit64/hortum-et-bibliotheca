@@ -208,15 +208,30 @@ def add(total: Reply | None, reply: Reply) -> Reply:
 def write_explanations(
     conn: sqlite3.Connection, settings: Settings, catalog: httpx.Client, topic_id: str
 ) -> tuple[dict[str, Any], str, Reply | None]:
-    """One-line summaries and explanations for the cleaned first page of clues."""
+    """One-line summaries and explanations for the cleaned clues: the first page, and as
+    many more as a reader has asked for ("show more"). Ones already written for the same
+    cleanup are kept, so asking for more writes only the new ones."""
     clean, identity = cleaned(conn, topic_id)
-    clues = clean["clues"][: writing.FIRST_PAGE]
-    found, examples = clue_inputs(catalog, topic_id, clues)
+    asked = conn.execute(
+        "SELECT through FROM explain_depth WHERE topic_id = ?", (topic_id,)
+    ).fetchone()
+    clues = clean["clues"][: max(writing.FIRST_PAGE, asked[0] if asked else 0)]
+    have = conn.execute(
+        "SELECT fingerprint, payload FROM generations WHERE topic_id = ? AND kind = 'explanations'",
+        (topic_id,),
+    ).fetchone()
+    out: dict[int, dict[str, str]] = {}
+    if have and have[0] == identity:
+        out = {
+            c["rank"]: {"one_line": c["one_line"], "explanation": c["explanation"]}
+            for c in json.loads(have[1])["clues"]
+        }
+    todo = [c for c in clues if c["rank"] not in out]
+    found, examples = clue_inputs(catalog, topic_id, todo)
     backends = chain.build(settings.light_chain, settings)
     total: Reply | None = None
-    out: dict[int, dict[str, str]] = {}
-    for start in range(0, len(clues), writing.BATCH):
-        batch = clues[start : start + writing.BATCH]
+    for start in range(0, len(todo), writing.BATCH):
+        batch = todo[start : start + writing.BATCH]
         ranks = [c["rank"] for c in batch]
         listed = [
             {"rank": c["rank"], "clue": c["label"], "questions": c["n_questions"],

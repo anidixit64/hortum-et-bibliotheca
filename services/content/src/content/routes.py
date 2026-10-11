@@ -98,7 +98,10 @@ def topic_content(
             if enqueue:
                 jobs.enqueue(db, topic_id, kind, PAGE_VIEW_PRIORITY)
             sections[kind] = Section(status="pending")
-    pending = any(s.status == "pending" for s in sections.values())
+    for kind in jobs.GENERATED:  # stored, but more is being written ("show more")
+        if kind in sections and sections[kind].status == "ok" and kind in open_jobs:
+            sections[kind].stale = True
+    pending = any(s.status == "pending" or s.stale for s in sections.values())
     return TopicContent(
         topic_id=topic_id, status="partial" if pending else "ready", sections=sections
     )
@@ -118,6 +121,22 @@ def refresh(
             )
     queued = [k for k in chosen if jobs.enqueue(db, topic_id, k, PAGE_VIEW_PRIORITY)]
     return {"topic_id": topic_id, "queued": queued}
+
+
+@router.post("/topics/{topic_id}/explain-more", status_code=202, tags=["content"])
+def explain_more(
+    topic_id: str, db: Db, through: Annotated[int, Query(ge=1, le=cleanup.CANDIDATES)]
+) -> dict[str, Any]:
+    """Explain the cleaned clues through rank ``through`` (the page asks as "show more"
+    reveals them); only the missing ones are written."""
+    with db:
+        db.execute(
+            "INSERT INTO explain_depth VALUES (?, ?) ON CONFLICT(topic_id) "
+            "DO UPDATE SET through = MAX(through, excluded.through)",
+            (topic_id, through),
+        )
+    queued = jobs.enqueue(db, topic_id, "explanations", PAGE_VIEW_PRIORITY)
+    return {"topic_id": topic_id, "through": through, "queued": queued}
 
 
 @router.get("/jobs", tags=["jobs"])

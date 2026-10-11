@@ -29,7 +29,7 @@ export function TopicPage() {
   const [visible, setVisible] = useState<{ key: string; n: number }>({ key: '', n: PAGE })
   const [loadingMore, setLoadingMore] = useState(false)
   const current = loaded?.key === key ? loaded.record : null
-  const content = useTopicContent(current?.topic.id ?? '')
+  const [content, refreshContent] = useTopicContent(current?.topic.id ?? '')
   const summarySection = content?.sections.summary
   const written =
     summarySection?.status === 'ok' ? (summarySection.payload as SectionPayloads['summary']) : null
@@ -95,6 +95,14 @@ export function TopicPage() {
       }
     }
     setVisible({ key, n: n + MORE })
+    // Newly shown cleaned clues get their explanations written (only the missing ones).
+    const through = Math.min(n + MORE, cleaned?.length ?? 0)
+    if (cleaned && through > explanations.length) {
+      api
+        .explainMore(topic.id, through)
+        .then(refreshContent)
+        .catch(() => {}) // content service offline: the clues still show
+    }
   }
 
   const toggleFollow = async () => {

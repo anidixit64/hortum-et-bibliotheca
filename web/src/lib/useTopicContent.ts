@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api/client'
 import type { TopicContent } from '../api/types'
 
 const POLL_MS = 3000
-const MAX_POLLS = 40 // two minutes: past that the worker is down or backed off
+const MAX_POLLS = 100 // five minutes (first-open writing takes 2-3): past that the worker is down
 
-/** The topic's fetched content, polling while the worker is still filling it in. */
-export function useTopicContent(topicId: string): TopicContent | null {
+/** The topic's fetched and written content, polling while the worker is still filling it
+ *  in; ``refresh`` starts polling again (after asking for more, say). */
+export function useTopicContent(topicId: string): [TopicContent | null, () => void] {
   const [loaded, setLoaded] = useState<TopicContent | null>(null)
+  const [round, setRound] = useState(0)
 
   useEffect(() => {
     if (!topicId) return
@@ -32,7 +34,8 @@ export function useTopicContent(topicId: string): TopicContent | null {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [topicId])
+  }, [topicId, round])
 
-  return topicId && loaded?.topic_id === topicId ? loaded : null
+  const refresh = useCallback(() => setRound((r) => r + 1), [])
+  return [topicId && loaded?.topic_id === topicId ? loaded : null, refresh]
 }

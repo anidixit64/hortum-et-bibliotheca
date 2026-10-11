@@ -1,3 +1,4 @@
+import re
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -180,3 +181,40 @@ def test_unknown_topic_fails_without_retrying(tmp_path: Path, web: Any) -> None:
     jobs.enqueue(conn, "nope", "wiki")
     worker.run_once(conn, settings, web(conn, fake_web), catalog())
     assert conn.execute("SELECT status FROM jobs").fetchone()[0] == "failed"
+
+
+def test_show_more_explains_only_the_new_clues(
+    tmp_path: Path, web: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    asked: list[list[int]] = []
+
+    def fake(backends: Any, request: Any, check: Any = None) -> Reply:
+        if request.task == "clue_explanations":
+            ranks = [int(r) for r in re.findall(r'"rank": (\d+)', request.prompt)]
+            asked.append(ranks)
+            text = " ".join(["word"] * 220)
+            data = {"explanations": [{"rank": r, "one_line": f"Clue {r}.", "explanation": text}
+                                     for r in ranks]}  # fmt: skip
+            return Reply(data, "fake", "fake-model", 1, 1)
+        return fake_reply(backends, request, check)
+
+    monkeypatch.setattr(worker.chain, "run", fake)
+    monkeypatch.setattr(worker.writing, "FIRST_PAGE", 1)
+    monkeypatch.setattr(routes, "clue_fingerprint", lambda request, topic_id, stored: stored)
+    settings = Settings(_env_file=None, db_path=tmp_path / "content.db")  # type: ignore[call-arg]
+    app = build_app(settings)
+    api, conn = TestClient(app), app.state.db
+    http, cat = web(conn, fake_web), catalog()
+    for kind in ("clues", "explanations"):
+        jobs.enqueue(conn, "Q1784288", kind)
+    while worker.run_once(conn, settings, http, cat):
+        pass
+    assert asked == [[1]]
+    assert api.post("/topics/Q1784288/explain-more", params={"through": 2}).json()["queued"]
+    content = api.get("/topics/Q1784288/content", params={"enqueue": False}).json()
+    assert content["sections"]["explanations"]["stale"] and content["status"] == "partial"
+    while worker.run_once(conn, settings, http, cat):
+        pass
+    assert asked == [[1], [2]]  # rank 1 kept, only rank 2 written
+    explained = api.get("/topics/Q1784288/content", params={"enqueue": False}).json()
+    assert [c["rank"] for c in explained["sections"]["explanations"]["payload"]["clues"]] == [1, 2]
