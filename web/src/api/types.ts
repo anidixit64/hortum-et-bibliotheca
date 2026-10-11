@@ -243,11 +243,21 @@ export interface Video {
   embed: string
 }
 
+// A clue after the AI cleanup pass: recounted from the corpus clues it's made of.
+export interface CleanedClue {
+  rank: number
+  label: string
+  n_questions: number
+  clue_ids: number[] // corpus clue ids; the first is its home
+  spellings: string[]
+}
+
 export interface SectionPayloads {
   wiki: WikiPayload
   images: { images: WikiImage[] }
   books: { books: Book[]; references: Reference[] }
   videos: { videos: Video[] }
+  clues: { clues: CleanedClue[] }
 }
 
 export type ContentKind = keyof SectionPayloads
@@ -259,6 +269,7 @@ export interface Section<K extends ContentKind = ContentKind> {
   // For "unavailable", the payload is { reason }.
   payload: SectionPayloads[K] | { reason?: string } | null
   fetched_at: string | null
+  stale?: boolean
 }
 
 export interface TopicContent {

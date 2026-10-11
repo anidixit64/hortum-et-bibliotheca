@@ -8,6 +8,7 @@ from hortum_common import create_app
 def build_app(settings: Settings) -> FastAPI:
     app = create_app(settings, [routes.router])
     app.state.db = db.connect(settings.db_path)
+    app.state.settings = settings
     return app
 
 

@@ -1,5 +1,6 @@
 """Topic pages, their questions, and practice questions, read from corpus.db."""
 
+import hashlib
 import json
 import random
 import sqlite3
@@ -103,6 +104,59 @@ class TopicStore:
                     (topic_id, offset, limit),
                 )
             ]
+
+    def clue_candidates(self, key: str, limit: int) -> dict[str, object] | None:
+        """The topic's top clues as the cleanup pass sees them: each spelling with the
+        questions that use it (so merges and removed spellings can be recounted exactly),
+        a few example sentences, and a fingerprint of the list. A rebuild that leaves the
+        fingerprint alone keeps the stored cleanup."""
+        with self._connect() as conn:
+            topic_id = self._resolve(conn, key)
+            if topic_id is None:
+                return None
+            clues = conn.execute(
+                "SELECT id, rank, label, clue_key, n_questions, variants FROM topic_clues "
+                "WHERE topic_id = ? AND rank <= ? ORDER BY rank",
+                (topic_id, limit),
+            ).fetchall()
+            candidates = []
+            for cid, rank, label, clue_key, n_questions, variants in clues:
+                spellings = list(json.loads(variants))
+                rows = conn.execute(
+                    "SELECT c.tossup_id, c.text FROM topic_clue_sentences l "
+                    "JOIN clues c ON c.id = l.clue_id WHERE l.topic_clue_id = ? ORDER BY c.id",
+                    (cid,),
+                ).fetchall()
+                by_spelling: dict[str, set[str]] = {s: set() for s in spellings}
+                for tossup, text in rows:
+                    low = text.lower()
+                    hit = [s for s in spellings if s.lower() in low]
+                    for s in hit or spellings[:1]:  # a folded match ("Battle Royale")
+                        by_spelling[s].add(tossup)
+                candidates.append(
+                    {
+                        "id": cid,
+                        "rank": rank,
+                        "label": label,
+                        "key": clue_key,
+                        "n_questions": n_questions,
+                        "spellings": {s: sorted(t) for s, t in by_spelling.items()},
+                        "sentences": [text for _, text in rows[:4]],
+                    }
+                )
+            name = conn.execute(
+                "SELECT display_name, primary_category FROM topics WHERE id = ?", (topic_id,)
+            ).fetchone()
+            fingerprint = hashlib.sha1(
+                json.dumps([(c["key"], c["n_questions"]) for c in candidates]).encode()
+            ).hexdigest()[:16]
+            return {
+                "topic_id": topic_id,
+                "name": name[0],
+                "category": name[1],
+                "fingerprint": fingerprint,
+                "candidates": candidates,
+            }
 
     def tossups(self, key: str, limit: int, offset: int) -> TossupPage | None:
         with self._connect() as conn:

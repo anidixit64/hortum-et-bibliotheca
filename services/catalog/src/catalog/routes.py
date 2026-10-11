@@ -62,6 +62,20 @@ def topic_clues(
     return Response(f"[{','.join(records)}]", media_type="application/json")
 
 
+@router.get("/topics/{key}/clue-candidates", tags=["topics"])
+def clue_candidates(
+    key: str,
+    store: Annotated[TopicStore, Depends(get_topics)],
+    limit: Annotated[int, Query(ge=1, le=50)] = 25,
+) -> dict[str, object]:
+    """The topic's top clues with each spelling's questions, for the content service's
+    cleanup pass."""
+    found = store.clue_candidates(key, limit)
+    if found is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"no topic {key!r}")
+    return found
+
+
 @router.get("/topics/{key}/tossups", tags=["topics"])
 def topic_tossups(
     key: str,
