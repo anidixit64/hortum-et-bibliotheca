@@ -46,3 +46,22 @@ def test_facts_must_quote_the_source() -> None:
         "It won the National Book Award.",
     ]
     assert "only 2 facts" in str(writing.facts_problem({"facts": facts}, source))
+
+
+def test_meta_talk_about_the_quiz_is_caught_but_subject_prose_is_not() -> None:
+    caught = [
+        "The example mentions ice.",
+        "so the answer is war",
+        "Question writers use it",
+        "the clue Ras",
+        "Some questions attribute Masada to Titus",
+        "a deliberate distractor",
+    ]
+    fine = ["Clausewitz wrote On War.", "Players of chess call it a fork.",
+            "Socrates asked these questions of everyone.", "a clue to the murderer",
+            "This is an example of convergent evolution.",
+            "the source of the Nile"]  # fmt: skip
+    assert all(writing.meta_phrase(x) for x in caught)
+    assert not any(writing.meta_phrase(x) for x in fine)
+    entry = {"rank": 1, "one_line": "x", "explanation": " ".join(["w"] * 240) + " the example"}
+    assert "the example" in str(writing.explain_problem({"explanations": [entry]}, [1]))

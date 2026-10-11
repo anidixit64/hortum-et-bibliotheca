@@ -10,33 +10,50 @@ the clue's one-line summary on hover and a "See more" link to its explanation.
 import re
 from typing import Any
 
-EXPLANATIONS_VERSION = 1
+EXPLANATIONS_VERSION = 3
 SUMMARY_VERSION = 1
 BATCH = 5  # clues per explanation request
 FIRST_PAGE = 10  # clues explained when the topic is first opened
 EXPLANATION_WORDS = (200, 300)
 SUMMARY_WORDS = (500, 750)
 SOURCE_WORDS = 3500  # Wikipedia text given to the summary
+EXPLAIN_SOURCE_WORDS = 2500  # and to each batch of clue explanations
 
 EXPLAIN_SYSTEM = """You write study notes for quiz bowl players. A clue is a term that \
 quiz bowl questions about an answer mention; players learn clues to recognize the answer \
-early. You explain each clue at the depth of a specialist (graduate level), accurately, \
-using only well-established facts. Never invent details; if unsure, stay general."""
+early. You explain each clue at the depth of a specialist (graduate level), accurately. \
+Accuracy comes first: state a date, number, name, place, quotation or mechanism only if \
+the source text gives it or you are certain of it; otherwise describe it in general terms. \
+The source can be loosely worded: where your own firm knowledge corrects it, follow your \
+knowledge."""
 
 EXPLAIN = """Answer: {name} (category: {category})
 
 For each clue below, write:
-- "one_line": one sentence (at most 30 words) saying what the clue is and how it ties to \
-{name}. It appears in a hover popup.
+- "one_line": one sentence (at most 30 words) whose subject is the clue itself, saying \
+what it is and how it ties to {name}. It appears in a hover popup.
 - "explanation": {low}-{high} words for an advanced reader: what the clue is, how it \
-relates to {name}, and why it matters (why question writers use it, what it reveals). \
-Plain prose, no headings or lists.
+relates to {name}, its context, and why it matters. Plain prose, no headings or lists. \
+Spend every sentence on substance: give at least two concrete facts particular to this clue \
+(what happened, who, when, how it works), and don't repeat what another clue's explanation \
+covers.
 
 The example sentences show how questions use each clue ("this man", "this work" etc. stand \
-for {name}).
+for {name}); use them to tell which thing the clue means, but write about the thing itself.
+
+Never:
+- mention the examples, questions, question writers, players, "the clue" or "the answer" \
+(write "Ellison's narrator", not "the answer is Invisible Man")
+- mention the source, the article or the text ("the source notes...", "described above"): \
+state facts directly
+- write study advice ("recognizing X lets a player...", "studying X shows...", "for \
+students...")
 
 Clues (JSON):
-{clues}"""
+{clues}
+
+Source (Wikipedia, CC BY-SA):
+{source}"""
 
 EXPLAIN_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -95,6 +112,23 @@ def word_count(text: str) -> int:
     return len(MARK.sub(lambda m: m.group(2), text).split())
 
 
+# Notes that talk about the quiz instead of the subject ("the example", "the answer is war").
+# Only phrases that are about the quiz in any subject, since a failed check fails the job
+# (a sports topic has players; a philosophy topic asks questions).
+META = re.compile(
+    r"\b(the|this|these|some) (examples?|example sentences?|clues?)\b"
+    r"|\b(the|these|some) questions (say|use|ask|mention|attribute|refer|describe)"
+    r"|\bquestion ?writers?\b|\bquiz ?bowl\b|\bthe answer (is|here)\b|\bdistractors?\b"
+    r"|\bthe (source|excerpt|article)('s)?\b(?! of)|\bdescribed above\b",
+    re.I,
+)
+
+
+def meta_phrase(text: str) -> str | None:
+    found = META.search(text)
+    return found.group(0) if found else None
+
+
 def explain_problem(
     data: dict[str, Any], ranks: list[int], words: tuple[int, int] = EXPLANATION_WORDS
 ) -> str | None:
@@ -107,10 +141,16 @@ def explain_problem(
     for rank in ranks:
         entry = got[rank]
         n = len(str(entry.get("explanation", "")).split())
-        if not low * 0.75 <= n <= high * 1.3:
+        if not low * 0.9 <= n <= high * 1.3:
             return f"clue {rank}'s explanation has {n} words, not {low}-{high}"
         if len(str(entry.get("one_line", "")).split()) > 45:
             return f"clue {rank}'s one_line is longer than one sentence"
+        for field in ("one_line", "explanation"):
+            if phrase := meta_phrase(str(entry.get(field, ""))):
+                return (
+                    f'clue {rank}\'s {field} says "{phrase}": write about the subject itself, '
+                    "never about examples, questions, players, clues or the answer"
+                )
     return None
 
 
@@ -146,15 +186,14 @@ def clean_summary(summary: str, ranks: list[int]) -> tuple[str, list[int]]:
     return MARK.sub(keep, summary), seen
 
 
-def source_text(wiki: dict[str, Any] | None) -> str:
-    """The Wikipedia lead and sections, cut to ``SOURCE_WORDS``."""
+def source_text(wiki: dict[str, Any] | None, words: int = SOURCE_WORDS) -> str:
+    """The Wikipedia lead and sections, cut to ``words``."""
     if not wiki:
         return "(no Wikipedia text: use only widely established facts)"
     parts = [wiki.get("lead", "")] + [
         f"{s.get('heading', '')}: {s.get('text', '')}" for s in wiki.get("sections", [])
     ]
-    words = " ".join(parts).split()
-    return " ".join(words[:SOURCE_WORDS])
+    return " ".join(" ".join(parts).split()[:words])
 
 
 # --- fun facts ---------------------------------------------------------------------------

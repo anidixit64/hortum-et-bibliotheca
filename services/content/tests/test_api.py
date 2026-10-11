@@ -234,7 +234,7 @@ def test_show_more_explains_only_the_new_clues(
     app = build_app(settings)
     api, conn = TestClient(app), app.state.db
     http, cat = web(conn, fake_web), catalog()
-    for kind in ("clues", "explanations"):
+    for kind in ("wiki", "clues", "explanations"):  # explanations are written from the text
         jobs.enqueue(conn, "Q1784288", kind)
     while worker.run_once(conn, settings, http, cat):
         pass

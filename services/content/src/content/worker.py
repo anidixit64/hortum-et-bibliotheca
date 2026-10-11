@@ -227,6 +227,15 @@ def write_explanations(
             for c in json.loads(have[1])["clues"]
         }
     todo = [c for c in clues if c["rank"] not in out]
+    wiki_row = conn.execute(
+        "SELECT status, payload FROM enrichments WHERE topic_id = ? AND kind = 'wiki'",
+        (topic_id,),
+    ).fetchone()
+    if todo and wiki_row is None:
+        jobs.enqueue(conn, topic_id, "wiki", 10)
+        raise NotReady("Wikipedia text not fetched yet")
+    wiki = json.loads(wiki_row[1]) if wiki_row and wiki_row[0] == "ok" else None
+    source = writing.source_text(wiki, writing.EXPLAIN_SOURCE_WORDS)
     found, examples = clue_inputs(catalog, topic_id, todo)
     backends = chain.build(settings.light_chain, settings)
     total: Reply | None = None
@@ -244,6 +253,7 @@ def write_explanations(
             low=writing.EXPLANATION_WORDS[0],
             high=writing.EXPLANATION_WORDS[1],
             clues=json.dumps(listed, ensure_ascii=False, indent=1),
+            source=source,
         )
         reply = chain.run(
             backends,
