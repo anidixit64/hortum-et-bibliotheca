@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import type { Clue, SectionPayloads, TopicRecord, TopicStats } from '../api/types'
@@ -127,17 +128,82 @@ export function TopicPage() {
     }
   }
 
+  // The exhibit's rooms, numbered in walking order; a room shows only when it has something.
+  const rooms: { id: string; title: string; body: ReactNode }[] = []
+  const room = (id: string, title: string, body: ReactNode) => rooms.push({ id, title, body })
+  if (content) {
+    room('introduction', 'Introduction', written
+      ? <Summary summary={written} explanations={explanations} />
+      : <WikiSummary section={content.sections.wiki} />)
+    room('gallery', 'Gallery', <Gallery section={content.sections.images} />)
+  }
+  if (special) room('feature', special.feature.form, <Feature special={special} />)
+  // The Wikipedia-grounded timeline when it has a few events; else Wikidata's dates, when
+  // there are enough of them to be a timeline.
+  if (special && special.timeline.events.length >= 3) {
+    room('timeline', special.timeline.kind === 'discoveries' ? 'Timeline of discoveries' : 'Timeline',
+      <ExhibitTimeline timeline={special.timeline} />)
+  } else if (record.timeline.length >= 3) {
+    room('timeline', 'Timeline', <Timeline events={record.timeline} />)
+  }
+  room('clues', 'The clue hall', (
+    <>
+      {cleaned && (
+        <p className="muted small" title="An AI pass merged duplicate spellings, dropped generic terms and fixed labels; counts are recomputed from the questions.">
+          Tidied by AI{cleanedSection?.stale ? ' (updating…)' : ''}
+        </p>
+      )}
+      <ClueList clues={shown} explanations={cleaned ? explanations : undefined} />
+      {shown.length < total && (
+        <button onClick={showMore} disabled={loadingMore}>
+          {loadingMore ? 'Loading…' : `Show ${Math.min(MORE, total - shown.length)} more`}
+        </button>
+      )}
+      {shown.length > 0 && (
+        <>
+          <h3>Where the clues come up</h3>
+          <Heatmap clues={shown} buzzed={stats?.buzzed_clusters ?? {}} />
+        </>
+      )}
+    </>
+  ))
+  room('connections', 'Connections', (
+    <>
+      <div className="grid-2">
+        <div>
+          <h3>Related</h3>
+          <RelatedList related={record.related} />
+        </div>
+        <div>
+          <h3>Don't confuse with</h3>
+          <ConfusionList confusions={record.confusions} />
+        </div>
+      </div>
+      {record.map.length > 0 && (
+        <>
+          <h3>Map</h3>
+          <TopicMap points={record.map} />
+        </>
+      )}
+    </>
+  ))
+  if (content) {
+    room('screening', 'Screening room', <Videos section={content.sections.videos} />)
+    room('library', 'Library', <Reading section={content.sections.books} />)
+  }
+  const plaquesAfter = rooms.findIndex((r) => r.id === 'gallery')
+
   return (
     <>
       {topicTheme?.header && <HeaderImage image={topicTheme.header} />}
-      <div className="card">
+      <header className="card entrance">
         <div className="topic-head">
           <div>
-            <h1>{topic.name}</h1>
+            <p className="exhibit-kicker">{topic.category ?? 'Exhibit'}</p>
+            <h1 className="exhibit-sign">{topic.name}</h1>
             {written && <Hook summary={written} />}
             {topic.description && <p className="muted">{topic.description}</p>}
             {topic.thin && <span className="pill">rarely asked</span>}
-            {topic.category && <span className="pill">{topic.category}</span>}
           </div>
           <div className="topic-actions">
             <Link to={`/practice?topic=${encodeURIComponent(topic.id)}`}>
@@ -165,94 +231,48 @@ export function TopicPage() {
         {topic.aliases.length > 0 && (
           <p className="muted small">Also: {topic.aliases.join(' · ')}</p>
         )}
-      </div>
+        <nav className="floor-plan" aria-label="Rooms">
+          {rooms.map((r, i) => (
+            <a key={r.id} href={`#room-${r.id}`}>
+              <span className="room-number">{i + 1}</span>
+              {r.title}
+            </a>
+          ))}
+        </nav>
+      </header>
 
-      {content && (
-        <section className="card">
-          <h2>About</h2>
-          {written ? (
-            <Summary summary={written} explanations={explanations} />
-          ) : (
-            <WikiSummary section={content.sections.wiki} />
+      {rooms.map((r, i) => (
+        <Fragment key={r.id}>
+          <section className="card room" id={`room-${r.id}`}>
+            <h2>
+              <span className="room-number">{i + 1}</span>
+              {r.title}
+            </h2>
+            {r.body}
+          </section>
+          {i === plaquesAfter && facts && facts.facts.length > 0 && (
+            <aside className="plaque-row" aria-label="Did you know?">
+              <h2>Did you know?</h2>
+              <FunFacts facts={facts.facts} source={facts.source} />
+            </aside>
           )}
-        </section>
-      )}
+        </Fragment>
+      ))}
 
-      <section className="card">
-        <h2>Clues worth knowing</h2>
-        {cleaned && (
-          <p className="muted small" title="An AI pass merged duplicate spellings, dropped generic terms and fixed labels; counts are recomputed from the questions.">
-            Tidied by AI{cleanedSection?.stale ? ' (updating…)' : ''}
-          </p>
-        )}
-        <ClueList clues={shown} explanations={cleaned ? explanations : undefined} />
-        {shown.length < total && (
-          <button onClick={showMore} disabled={loadingMore}>
-            {loadingMore ? 'Loading…' : `Show ${Math.min(MORE, total - shown.length)} more`}
+      <section className="card exit">
+        <h2>Test yourself</h2>
+        <p className="muted">
+          Buzz on real questions about {topic.name}, or follow it to get flashcards for the clues you miss.
+        </p>
+        <div className="controls">
+          <Link to={`/practice?topic=${encodeURIComponent(topic.id)}`}>
+            <button className="primary">Practice</button>
+          </Link>
+          <button onClick={toggleFollow} disabled={busy || stats === null}>
+            {stats?.followed ? 'Following ✓' : 'Follow'}
           </button>
-        )}
+        </div>
       </section>
-
-      {special && (
-        <section className="card">
-          <Feature special={special} />
-        </section>
-      )}
-
-      {facts && facts.facts.length > 0 && (
-        <section className="card">
-          <h2>Did you know?</h2>
-          <FunFacts facts={facts.facts} source={facts.source} />
-        </section>
-      )}
-
-      {shown.length > 0 && (
-        <section className="card">
-          <h2>Where the clues come up</h2>
-          <Heatmap clues={shown} buzzed={stats?.buzzed_clusters ?? {}} />
-        </section>
-      )}
-
-      <div className="grid-2">
-        <section className="card">
-          <h2>Related</h2>
-          <RelatedList related={record.related} />
-        </section>
-        <section className="card">
-          <h2>Don't confuse with</h2>
-          <ConfusionList confusions={record.confusions} />
-        </section>
-      </div>
-
-      <section className="card">
-        <h2>{special?.timeline.kind === 'discoveries' ? 'Timeline of discoveries' : 'Timeline'}</h2>
-        {special && special.timeline.events.length >= 3 ? (
-          <ExhibitTimeline timeline={special.timeline} />
-        ) : (
-          <Timeline events={record.timeline} />
-        )}
-      </section>
-      <section className="card">
-        <h2>Map</h2>
-        <TopicMap points={record.map} />
-      </section>
-
-      {content && (
-        <>
-          <section className="card">
-            <h2>Images</h2>
-            <Gallery section={content.sections.images} />
-          </section>
-          <section className="card">
-            <h2>Further reading</h2>
-            <Reading section={content.sections.books} />
-          </section>
-          <section className="card">
-            <h2>Videos</h2>
-            <Videos section={content.sections.videos} />
-          </section>
-        </>
-      )}
     </>
   )
 }

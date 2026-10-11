@@ -22,13 +22,16 @@ test('the topic page renders a real record', async () => {
     </MemoryRouter>,
   )
   expect(await screen.findByRole('heading', { level: 1, name: 'Invisible Man' })).toBeInTheDocument()
-  const clues = screen.getByRole('heading', { name: 'Clues worth knowing' }).parentElement!
+  const clues = screen.getByRole('heading', { name: /The clue hall/ }).parentElement!
+  // the floor plan links to each numbered room
+  const plan = screen.getByRole('navigation', { name: 'Rooms' })
+  expect(within(plan).getByRole('link', { name: /The clue hall/ })).toHaveAttribute('href', '#room-clues')
   expect(within(clues).getByText('1. Ras the Exhorter')).toBeInTheDocument()
   expect(screen.getByRole('img', { name: 'Where each clue appears in questions' })).toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Ralph Ellison' })).toHaveAttribute('href', '/topic/Q299965')
   expect(screen.getByRole('link', { name: 'The Invisible Man' })).toBeInTheDocument()
   expect(await screen.findByText('50%')).toBeInTheDocument() // your accuracy
-  expect(screen.getByRole('button', { name: 'Follow' })).toBeEnabled()
+  for (const follow of screen.getAllByRole('button', { name: 'Follow' })) expect(follow).toBeEnabled() // entrance and exit
   // fetched content, with attribution and licenses
   expect(screen.getByText('Invisible Man is a novel by Ralph Ellison, published in 1952.')).toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'CC BY-SA 4.0' })).toHaveAttribute('href', 'https://creativecommons.org/licenses/by-sa/4.0/')

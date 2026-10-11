@@ -39,14 +39,13 @@ export function Feature({ special }: { special: SpecialPayload }) {
   const { feature, source } = special
   return (
     <article className="feature">
-      <p className="feature-form">{feature.form}</p>
       <h3>{feature.title}</h3>
       {feature.dramatized && (
         <p className="muted small">
           A dramatized scene: the events, people and places are real; the atmosphere is imagined.
         </p>
       )}
-      {feature.body.split(/\n\s*\n/).map((p, i) => <p key={i}>{p}</p>)}
+      {feature.body.split(/\n\s*\n/).map((p, i) => <p key={i} className="prose">{p}</p>)}
       <StepDiagram steps={feature.steps} />
       {source && (
         <p className="muted small attribution">

@@ -174,6 +174,11 @@ export function PracticePage() {
                 : <button onClick={() => override('correct')}>I was right</button>
             )}
             {tossup.topic_id && <Link to={`/topic/${encodeURIComponent(tossup.topic_id)}`}>About this answer</Link>}
+            {tossup.wikipedia_url && (
+              <a href={tossup.wikipedia_url} target="_blank" rel="noreferrer">
+                {tossup.wikipedia_url.includes('search=') ? 'Search Wikipedia' : 'Wikipedia'}
+              </a>
+            )}
           </div>
         </div>
       )}

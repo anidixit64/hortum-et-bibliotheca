@@ -130,6 +130,7 @@ export interface Tossup {
   answer_html: string | null
   topic_id: string | null
   clues: ClueSpan[]
+  wikipedia_url?: string // the answer's article, or a Wikipedia search when unlinked
 }
 
 export type BuzzResult = 'correct' | 'incorrect' | 'no_buzz' | 'prompt'
