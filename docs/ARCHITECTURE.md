@@ -511,6 +511,12 @@ Sections marked ✦ are the long immersive piece, written by the better model. T
 
 Politics isn't its own category in the data; those questions fall under History, Current Events and Social Science.
 
+**Built so far (`content/special.py`, the `special` kind).** Every topic gets two sections from one job, written from the Wikipedia text:
+- **A timeline** (of discoveries, for Science) from the light model. Each event quotes the article sentence it comes from, and code keeps only events whose quote is really in the article *and* names the event's year, so dates can't be invented. The page shows it when at least 3 events survive; otherwise it falls back to Wikidata's dates, and shows no timeline when there are fewer than 3 of those either.
+- **The ✦ feature** (600–900 words) from the writing model, in the form set by category: Be there (History, Current Events, labeled as a dramatized scene), Deep dive (Science, Social Science), The argument (Philosophy), Walk through the work (Literature), The story (Mythology), Inside the tradition (Religion), Look closer (Fine Arts), A traveller's route (Geography), and a deep dive otherwise. For Science, Social Science and Philosophy it may add 3–8 steps that the page draws as a fixed step-flow diagram.
+
+The data-driven sections in the table (family trees, molecules, argument maps, charts) are still to come. In a trial, Lindbergh's "Be there" (Roosevelt Field, 1927), Focal length's deep dive (with 7 diagram steps), Duchamp's *Large Glass* tour and *The Bacchae* retelling all read well, and every timeline year matched its quoted sentence.
+
 ### 7.3 The exhibit layout
 
 - **Entrance:** full-width header image fading into the theme colors, the title as an exhibit sign, the **hook**, and a small floor plan of the rooms.
