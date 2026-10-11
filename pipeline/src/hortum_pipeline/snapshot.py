@@ -4,7 +4,9 @@ Everything the topic page needs from the pipeline, joined once here, so the cata
 a page with a single primary-key read:
 
 * ``topic``: names, ids, description, category, aliases and how often it's asked;
-* ``clues``: the ranked high-impact clues, each with example wordings and heatmap numbers;
+* ``clues``: the topic's 10 clues named by the most questions (see ``terms``), each with
+  example wordings, spellings, co-occurring clues and heatmap numbers; ``n_clues`` says
+  how many more ``topic_clue_records`` holds for "show more";
 * ``related``: related topics, each with the clue that links them;
 * ``confusions``: "don't confuse with", each with its evidence and distinguishing clues;
 * ``timeline`` and ``map``: Wikidata dates and places for the topic and its related topics;
@@ -18,6 +20,7 @@ service adds them on top, cached separately. A topic asked once or twice still g
 record, marked ``thin``, so any answer found by search has a page.
 """
 
+import itertools
 import json
 import sqlite3
 from collections import defaultdict
@@ -28,15 +31,23 @@ from hortum_pipeline.config import PipelineSettings
 from hortum_pipeline.progress import Reporter
 from hortum_pipeline.relate import is_proper
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2  # 2: clues are ranked terms (terms stage), not clusters
 
 SCHEMA = """
 DROP TABLE IF EXISTS topic_snapshots;
 DROP TABLE IF EXISTS practice_pool;
+DROP TABLE IF EXISTS topic_clue_records;
 CREATE TABLE topic_snapshots (
     topic_id TEXT PRIMARY KEY REFERENCES topics(id),
     json TEXT NOT NULL,
     schema_version INTEGER NOT NULL
+);
+-- Each topic's clue records past the first page, for "show more".
+CREATE TABLE topic_clue_records (
+    topic_id TEXT NOT NULL REFERENCES topics(id),
+    rank INTEGER NOT NULL,
+    json TEXT NOT NULL,
+    PRIMARY KEY (topic_id, rank)
 );
 -- Small and indexed, so practice can filter 186k questions without scanning their text.
 CREATE TABLE practice_pool (
@@ -50,6 +61,10 @@ CREATE TABLE practice_pool (
 THIN_BELOW = 3  # topics asked fewer times than this get a thin page
 _ALIASES = 8
 _EXAMPLES = 3
+PAGE_CLUES = 10  # clues in the page record; more are fetched 5 at a time
+RECORD_CLUES = 50  # clue records kept per topic
+_VARIANTS = 5
+_COOCCURS = 5
 _DISTINGUISHING = 3
 
 DATE_PROPERTIES = {
@@ -73,67 +88,73 @@ PLACE_PROPERTIES = {
 
 
 def _load_clues(conn: sqlite3.Connection) -> dict[str, list[dict[str, Any]]]:
-    """The ranked clues of every topic, with example wordings from other sets."""
-    picks: dict[int, dict[str, Any]] = {}
+    """Each topic's top clue records, with example wordings from different sets."""
+    records: dict[int, dict[str, Any]] = {}
+    owner: dict[int, str] = {}
     for row in conn.execute(
-        "SELECT s.cluster_id, s.topic_id, s.rank, s.display_label, c.text, s.n_sets, "
-        "s.n_questions, s.impact, s.median_position, s.share_in_power, s.share_last_line, "
-        "s.position_hist, s.difficulty_hist, s.first_year, s.last_year, s.trend "
-        "FROM cluster_scores s JOIN clue_clusters k ON k.id = s.cluster_id "
-        "JOIN clues c ON c.id = k.representative_clue_id WHERE s.rank IS NOT NULL"
+        "SELECT id, topic_id, rank, label, names_topic, n_questions, n_sets, n_mentions, "
+        "mean_position, median_position, earliest_position, share_in_power, share_last_line, "
+        "position_hist, difficulty_hist, first_year, last_year, trend, variants, cooccurs "
+        "FROM topic_clues WHERE rank <= ?",
+        (RECORD_CLUES,),
     ):
-        (cid, topic_id, rank, label, text, n_sets, n_tossups, impact, median, power, last,
-         hist, bands, first, last_year, trend) = row  # fmt: skip
-        picks[cid] = {
-            "topic_id": topic_id,
-            "clue": {
-                "rank": rank,
-                "cluster_id": cid,
-                "label": label,
-                "text": text,
-                "examples": [],
-                "n_sets": n_sets,
-                "n_tossups": n_tossups,
-                "impact": round(impact, 4),
-                "median_position": round(median, 4),
-                "heatmap": {
-                    "position_hist": json.loads(hist),
-                    "share_in_power": round(power, 4),
-                    "share_last_line": round(last, 4),
-                    "difficulty": json.loads(bands),
-                    "years": [first, last_year],
-                    "trend": trend,
-                },
+        (cid, topic_id, rank, label, names_topic, n_q, n_sets, n_mentions, mean_pos,
+         median_pos, earliest, power, last, hist, bands, first, last_year, trend, variants,
+         cooccurs) = row  # fmt: skip
+        owner[cid] = topic_id
+        records[cid] = {
+            "rank": rank,
+            "cluster_id": cid,  # the clue's id (named for the clusters it replaced)
+            "label": label,
+            "text": "",
+            "examples": [],
+            "n_questions": n_q,
+            "n_tossups": n_q,
+            "n_sets": n_sets,
+            "n_mentions": n_mentions,
+            "mean_position": round(mean_pos, 4),
+            "median_position": round(median_pos, 4),
+            "earliest_position": round(earliest, 4),
+            "names_topic": names_topic,
+            "variants": list(json.loads(variants))[:_VARIANTS],
+            "cooccurs": [
+                {"id": other, "label": other_label, "count": n}
+                for other, other_label, n in json.loads(cooccurs)[:_COOCCURS]
+            ],
+            "heatmap": {
+                "position_hist": json.loads(hist),
+                "share_in_power": round(power, 4),
+                "share_last_line": round(last, 4),
+                "difficulty": json.loads(bands),
+                "years": [first, last_year],
+                "trend": trend,
             },
         }
-    # The card's text and examples should name its label: a big cluster can hold a
-    # neighboring fact ("Ras the Exhorter" merged with Brotherhood clues). Wordings that
-    # name the label come first, then the newest, one per set.
-    members: dict[int, list[tuple[bool, int, int, str, str]]] = defaultdict(list)
-    for cid, clue_id, text, set_id, year in conn.execute(
-        "SELECT m.cluster_id, c.id, c.text, t.set_id, COALESCE(st.year, 0) FROM cluster_scores s "
-        "JOIN clue_cluster_members m ON m.cluster_id = s.cluster_id "
-        "JOIN clues c ON c.id = m.clue_id JOIN tossups t ON t.id = c.tossup_id "
-        "JOIN sets st ON st.id = t.set_id WHERE s.rank IS NOT NULL"
-    ):
-        label = picks[cid]["clue"]["label"]
-        members[cid].append((not names_label(text, label), -year, clue_id, text, set_id))
-    for cid, candidates in members.items():
-        clue = picks[cid]["clue"]
-        candidates.sort()
-        if not names_label(clue["text"], clue["label"]) and not candidates[0][0]:
-            clue["text"] = candidates[0][3]  # the representative doesn't name the label
-        examples = clue["examples"]
-        seen_sets: set[str] = set()
-        for _, _, _, text, set_id in candidates:
-            if len(examples) == _EXAMPLES:
+    # Wordings that name the label first, then the newest, one per set.
+    sentences = conn.execute(
+        "SELECT l.topic_clue_id, c.id, c.text, t.set_id, COALESCE(st.year, 0) "
+        "FROM topic_clue_sentences l JOIN topic_clues k ON k.id = l.topic_clue_id "
+        "JOIN clues c ON c.id = l.clue_id JOIN tossups t ON t.id = c.tossup_id "
+        "JOIN sets st ON st.id = t.set_id WHERE k.rank <= ? ORDER BY l.topic_clue_id",
+        (RECORD_CLUES,),
+    )
+    for cid, rows in itertools.groupby(sentences, key=lambda r: r[0]):
+        clue = records[cid]
+        ordered = sorted(
+            (not names_label(text, clue["label"]), -year, clue_id, text, set_id)
+            for _, clue_id, text, set_id, year in rows
+        )
+        clue["text"] = ordered[0][3]
+        seen_sets = {ordered[0][4]}
+        for _, _, _, text, set_id in ordered[1:]:
+            if len(clue["examples"]) == _EXAMPLES:
                 break
-            if set_id not in seen_sets and text != clue["text"] and text not in examples:
-                examples.append(text)
+            if set_id not in seen_sets and text != clue["text"] and text not in clue["examples"]:
+                clue["examples"].append(text)
                 seen_sets.add(set_id)
     by_topic: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for pick in picks.values():
-        by_topic[pick["topic_id"]].append(pick["clue"])
+    for cid, record in records.items():
+        by_topic[owner[cid]].append(record)
     for clues in by_topic.values():
         clues.sort(key=lambda c: c["rank"])
     return by_topic
@@ -166,7 +187,8 @@ def build_snapshot(
     return {
         "schema_version": SCHEMA_VERSION,
         "topic": topic,
-        "clues": clues,
+        "clues": clues[:PAGE_CLUES],
+        "n_clues": len(clues),
         "related": related,
         "confusions": confusions,
         "timeline": timeline,
@@ -194,6 +216,7 @@ def distinguishing(this: list[dict[str, Any]], other: list[dict[str, Any]]) -> d
 def run(settings: PipelineSettings, reporter: Reporter) -> None:
     conn = db.connect(settings.corpus_path)
     db.require_table(conn, "confusions", "confuse")
+    db.require_table(conn, "topic_clues", "terms")
     db.recreate(conn, SCHEMA)
 
     reporter.begin("Loading everything the pages need", None)
@@ -252,7 +275,8 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
         confusions[a].append(
             {"id": b, "name": names[b], "rank": rank, "score": score,
              "reasons": json.loads(reasons), "evidence": json.loads(evidence),
-             "distinguishing_clues": distinguishing(clues.get(a, []), clues.get(b, []))}
+             "distinguishing_clues": distinguishing(
+                 clues.get(a, [])[:PAGE_CLUES], clues.get(b, [])[:PAGE_CLUES])}
         )  # fmt: skip
 
     dates: dict[str, list[tuple[str, dict[str, Any]]]] = defaultdict(list)
@@ -332,6 +356,14 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
             conn.executemany("INSERT INTO topic_snapshots VALUES (?, ?, ?)", rows)
             rows.clear()
     conn.executemany("INSERT INTO topic_snapshots VALUES (?, ?, ?)", rows)
+    conn.executemany(
+        "INSERT INTO topic_clue_records VALUES (?, ?, ?)",
+        (
+            (tid, clue["rank"], json.dumps(clue, ensure_ascii=False))
+            for tid, topic_clues in clues.items()
+            for clue in topic_clues
+        ),
+    )
     conn.execute(
         "INSERT INTO practice_pool SELECT t.id, tt.topic_id, t.category, t.difficulty "
         "FROM tossups t LEFT JOIN tossup_topics tt ON tt.tossup_id = t.id"

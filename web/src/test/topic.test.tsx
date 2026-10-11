@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
 import { TopicPage } from '../pages/TopicPage'
@@ -91,5 +91,34 @@ test('the topic page polls until the content is ready', async () => {
   await act(() => vi.advanceTimersByTimeAsync(10000))
   expect(contentCalls).toBe(2) // stopped polling once ready
   vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
+
+
+test('show more loads the next five clues', async () => {
+  const first = { ...record, n_clues: record.clues.length + 2 }
+  const extra = [0, 1].map((i) => ({
+    ...record.clues[0], rank: record.clues.length + 1 + i, cluster_id: 9000 + i, label: `Extra clue ${i}`,
+  }))
+  const calls: string[] = []
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    calls.push(url)
+    let body: unknown = { detail: 'offline' }
+    if (url.startsWith('/api/catalog/topics/') && url.includes('/clues?')) body = extra
+    else if (url.startsWith('/api/catalog/topics/')) body = first
+    return new Response(JSON.stringify(body), {
+      status: url.startsWith('/api/catalog/') ? 200 : 503,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }))
+  render(
+    <MemoryRouter initialEntries={['/topic/invisible-man']}>
+      <Routes><Route path="/topic/:key" element={<TopicPage />} /></Routes>
+    </MemoryRouter>,
+  )
+  fireEvent.click(await screen.findByRole('button', { name: 'Show 2 more' }))
+  expect(await screen.findByText(`${record.clues.length + 2}. Extra clue 1`)).toBeInTheDocument()
+  expect(calls.some((u) => u.endsWith(`/clues?offset=${record.clues.length}&limit=5`))).toBe(true)
+  expect(screen.queryByRole('button', { name: /more$/ })).not.toBeInTheDocument()
   vi.unstubAllGlobals()
 })

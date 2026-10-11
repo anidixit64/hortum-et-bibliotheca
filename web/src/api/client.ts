@@ -1,6 +1,7 @@
 // The browser talks only to the gateway: /api/catalog/..., /api/content/... and /api/study/...
 import type {
   BuzzOut,
+  Clue,
   DueCard,
   FollowedTopic,
   SearchResult,
@@ -52,6 +53,10 @@ export const api = {
   search: (q: string, limit = 10) =>
     request<SearchResult[]>(catalog(`/search?${new URLSearchParams({ q, limit: String(limit) })}`)),
   topic: (key: string) => request<TopicRecord>(catalog(`/topics/${encodeURIComponent(key)}`)),
+  moreClues: (key: string, offset: number, limit = 5) =>
+    request<Clue[]>(
+      catalog(`/topics/${encodeURIComponent(key)}/clues?offset=${offset}&limit=${limit}`),
+    ),
   practiceNext: (f: PracticeFilter) => {
     const params = new URLSearchParams()
     if (f.topic) params.set('topic', f.topic)

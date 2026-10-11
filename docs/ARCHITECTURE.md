@@ -164,6 +164,20 @@ A quiz-aware splitter: abbreviations ("Dr.", "St.", "No. 9"), initials ("T. H. M
 
 On the full corpus (October 2026): 869k clues, 187k giveaways, 3k notes in about two minutes; every span reproduces its text exactly, all 114,840 power marks are located, every question has a giveaway, and 0.15% of clues are fragments.
 
+### Stage 5b: `terms` → each topic's clues, ranked by how many questions name them
+The topic page's clues. A clue is a term the questions name: a proper noun or title ("Nelson Miles", "The Mysterious Affair at Styles"), a quoted term, or a noun phrase ("circumambulation rituals"). Giveaway sentences never count.
+- **Extract:** the key terms from Stage 5 plus spaCy (`en_core_web_sm`) noun phrases for every clue sentence. spaCy runs once per sentence (about 25 minutes for 870k, three worker processes) and its output is cached in `data/cache/terms`, so re-ranking takes minutes.
+- **Clean:** pronunciation guides and possessives removed; numbers alone, long quotations, dangling fragments ("stream of"), capitalized adjectives ("Mexican troops"), generic words, stand-ins for the answer ("this novel") and the answer's own names are never clues; "It's not X" doesn't count for X.
+- **Merge spellings within a topic:**
+  - folded the same way (case, accents, plurals, a leading article)
+  - titles and middle initials dropped ("General Nelson A. Miles" → "Nelson Miles")
+  - a short form inside exactly one longer clue, and not used more than it, joins it ("Miles" → "Nelson Miles"; "Cascades" → "Cascade Mountains", since a geographic word doesn't make a new clue), but not across a possessive ("Burnside" ≠ "Burnside's Bridge") and not when the short form is itself a different known topic
+  - one spelling apart ("murti"/"murtis", "battle royal"/"battle royale")
+  - names of the same Wikidata topic ("Filiki Eteria"/"Friendly Society")
+- **Rank purely by frequency:** distinct questions naming the clue, then sets, then mentions. No rarity weighting.
+- **Store** the top 100 per topic in `topic_clues`: label (the spelling questions use most, completed when cut off), every spelling with counts, question/set/mention counts, mean/median/earliest position and a histogram, share in power and in the last line, years, difficulty, trend, and the clues it most often shares a sentence with. `topic_clue_sentences` links each clue to its sentences, and `sentence_clues` gives each sentence its best-ranked clue (practice uses it to know which clue was being read at a buzz).
+- The page shows the top 10 and a **Show 5 more** button (`GET /topics/{id}/clues?offset=&limit=`). Two names for one fact ("Cassetti"/"Ratchett") stay separate clues for now; the stored co-occurrences show them as "often with", and a later choice can fold them.
+
 ### Stage 6: `cluster` → the same fact, worded differently
 Different questions phrase one fact many ways ("invited to the McGurk Institute by Max Gottlieb" vs. "his mentor Gottlieb brings him to McGurk"). Within each topic:
 - Embed clues with MiniLM (`all-MiniLM-L6-v2` via fastembed, local and free; onnxruntime is pinned below 1.20 on Intel Macs, which newer releases dropped). Embeddings are cached per clue text, so the ~2-hour first run happens once.

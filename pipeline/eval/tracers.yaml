@@ -129,7 +129,7 @@ tracers:
       snapshot:
         # Morgan first, Hox genes among the clues and related topics, nothing confusable.
         n_tossups: 27
-        clue_labels_include: [Thomas Hunt Morgan, Hox]
+        clue_labels_include: [Thomas Hunt Morgan, [Hox, hox genes, Hox genes]]
         related_includes: [Q177681, Q253149]
         confusions: []
         has_question: true

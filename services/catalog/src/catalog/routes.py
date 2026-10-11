@@ -44,6 +44,24 @@ def topic(key: str, store: Annotated[TopicStore, Depends(get_topics)]) -> Respon
     return Response(raw, media_type="application/json")
 
 
+@router.get(
+    "/topics/{key}/clues",
+    tags=["topics"],
+    responses={200: {"description": "Clue records, the same shape as the page's clues"}},
+)
+def topic_clues(
+    key: str,
+    store: Annotated[TopicStore, Depends(get_topics)],
+    offset: Annotated[int, Query(ge=0)] = 10,
+    limit: Annotated[int, Query(ge=1, le=50)] = 5,
+) -> Response:
+    """More of the topic's clues after the page's first ``offset`` (by default the next 5)."""
+    records = store.clues(key, offset, limit)
+    if records is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"no topic {key!r}")
+    return Response(f"[{','.join(records)}]", media_type="application/json")
+
+
 @router.get("/topics/{key}/tossups", tags=["topics"])
 def topic_tossups(
     key: str,

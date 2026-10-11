@@ -25,7 +25,7 @@ from hortum_pipeline.relate import STOPWORDS, tokenize
 
 MIN_COVERAGE = 0.5  # a label named by fewer of the clues than this tries noun phrases too
 NEAR_BEST = 0.75  # labels named by this share of the best one's clues compete on specificity
-STAND_IN_RATE = 0.25  # a one-word label used this often as "this <word>" is a stand-in
+STAND_IN_RATE = 0.2  # a one-word label used this often as "this <word>" is a stand-in
 MAX_LABEL_WORDS = 5
 COMMON_WORD_IDF = 4.0  # a one-word term this common is a capitalized ordinary word ("Write")
 GENERIC_IDF = 7.0  # a one-word lowercase label this common is generic ("key", "cities")
@@ -33,7 +33,7 @@ GROW_SUPPORT = 0.75  # a longer phrase replaces a label if this share of its clu
 GROW_MAX_WORDS = 4  # grown labels stay short ("vast image out of Spiritus Mundi" doesn't)
 # Small words a title can cross: "House of the Hanged Man", "Mysterious Affair at Styles".
 _TITLE_LINKS = frozenset({"of", "the", "at", "on", "de", "la", "del", "du", "von", "van"})
-_TOKEN = re.compile(r"\w+(?:['’-]\w+)*(?:['’]s)?|[^\w\s]")
+TOKEN = re.compile(r"\w+(?:['’-]\w+)*(?:['’]s)?|[^\w\s]")
 
 
 def clean(text: str) -> str:
@@ -69,7 +69,11 @@ def tidy(term: str) -> str | None:
     words = term.split()
     if len(words) > MAX_LABEL_WORDS:
         return None
-    if words[0].lower() in STOPWORDS and len(words) > 1 or words[-1].lower() in STOPWORDS:
+    # A lowercase phrase can't start or end on a small word ("stream of", "is theft"); a
+    # title can ("You Can Call Me Al", "We Were Eight Years in Power").
+    if term[:1].islower() and (
+        words[0].lower() in STOPWORDS and len(words) > 1 or words[-1].lower() in STOPWORDS
+    ):
         return None
     if len(words) == 1 and len(term) <= 2:
         return None
@@ -108,11 +112,11 @@ def complete_title(term: str, texts: Sequence[str]) -> str:
     Blind Mice", "Mysterious Affair" in "The Mysterious Affair at Styles"."""
     if not term[:1].isupper():
         return term
-    target = _TOKEN.findall(term)
+    target = TOKEN.findall(term)
     forms: dict[str, int] = {}
     seen = 0
     for text in texts:
-        spans = list(_TOKEN.finditer(text))
+        spans = list(TOKEN.finditer(text))
         tokens = [m.group() for m in spans]
         for i in range(len(tokens) - len(target) + 1):
             if tokens[i : i + len(target)] == target:
@@ -242,7 +246,7 @@ def _final(label: str, core: list[int], texts: Sequence[str], source: str) -> Ch
 
 
 def _tokens(text: str) -> list[re.Match[str]]:
-    return list(_TOKEN.finditer(text))
+    return list(TOKEN.finditer(text))
 
 
 def _key(token: str) -> str:
@@ -281,6 +285,10 @@ def grow(texts: Sequence[str], label: str) -> str:
                     inner = [t.group() for t in found[start:end]]
                     if not (_content(inner[0]) and _content(inner[-1])):
                         continue
+                    if right and len(inner[-1]) == 1:
+                        continue  # "photographer C" of "photographer C. S. Fly"
+                    if left and not all(t[:1].isupper() for t in inner[:left] if _content(t)):
+                        continue  # no "member Prescott Bush", "architect al-Sahili"
                     if any(t.lower() in phrases.DEMONSTRATIVE for t in inner) or (
                         inner[-1].lower() in phrases.FILLER or inner[0].lower() in phrases.FILLER
                     ):
@@ -322,13 +330,18 @@ def surface(label: str, texts: Sequence[str]) -> str:
     if not forms:
         return label
     singular = {f for f in forms if not re.search(r"s$", f.split()[-1])}
-    best = max(forms, key=lambda f: (forms[f] + (0.5 if f in singular else 0), -len(f)))
-    if best[:1].isupper() and not label[:1].isupper():
+    top = max(forms.values())
+    preferred = [f for f in singular if forms[f] * 3 >= top] or list(forms)
+    best = max(preferred, key=lambda f: (forms[f], -len(f)))
+    rest = best.split()[1:]
+    if best[:1].isupper() and not label[:1].isupper() and all(w[:1].islower() for w in rest):
         best = best[0].lower() + best[1:]  # capitalized only at a sentence start
     return best
 
 
 def negated(text: str, label: str) -> bool:
     """ "It's not serine": a clue ruling the label out doesn't state it."""
+    if not re.search(r"\bnot\b", text, re.I):
+        return False  # most clues: skip building a pattern
     first = re.escape(label.split()[0])
     return bool(re.search(rf"\bnot\s+(?:an?\s+|the\s+)?{first}", text, re.I))

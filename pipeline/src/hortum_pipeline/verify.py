@@ -7,6 +7,7 @@ change that breaks them is caught immediately.
 """
 
 import json
+import re
 import sqlite3
 import time
 from collections import Counter, defaultdict
@@ -18,6 +19,7 @@ from typing import Any
 import yaml
 
 from hortum_common.text import normalize
+from hortum_pipeline import labeling
 from hortum_pipeline.config import PipelineSettings
 from hortum_pipeline.confuse import base_name, is_lookalike
 from hortum_pipeline.overrides import OverrideStore
@@ -532,6 +534,78 @@ def check_score(conn: sqlite3.Connection, settings: PipelineSettings) -> list[Ch
     return out
 
 
+def check_terms(conn: sqlite3.Connection, settings: PipelineSettings) -> list[Check]:
+    out = []
+    big = _one(conn, "SELECT COUNT(*) FROM topics WHERE n_tossups >= 3")
+    ranked = _one(
+        conn,
+        "SELECT COUNT(DISTINCT k.topic_id) FROM topic_clues k "
+        "JOIN topics t ON t.id = k.topic_id WHERE t.n_tossups >= 3",
+    )
+    share = ranked / max(big, 1)
+    out.append(
+        Check("terms", "≥95% of topics with 3+ questions have clues", share >= 0.95,
+              f"{share:.1%} of {big:,}")
+    )  # fmt: skip
+    bad_rank = _one(
+        conn,
+        "SELECT COUNT(*) FROM (SELECT topic_id, COUNT(*) n, MAX(rank) m FROM topic_clues "
+        "GROUP BY topic_id) WHERE m != n",
+    )
+    out.append(Check("terms", "ranks run 1..n per topic", bad_rank == 0, f"{bad_rank} malformed"))
+    out_of_order = _one(
+        conn,
+        "SELECT COUNT(*) FROM topic_clues a JOIN topic_clues b "
+        "ON b.topic_id = a.topic_id AND b.rank = a.rank + 1 WHERE b.n_questions > a.n_questions",
+    )
+    out.append(
+        Check("terms", "clues ordered by how many questions name them", out_of_order == 0,
+              f"{out_of_order} out of order")
+    )  # fmt: skip
+    # The answer's own names are its title and aliases sharing a word with it; Wikidata's
+    # other aliases are side names that make good clues (Charon for Pluto).
+    own_name = sum(
+        1
+        for label, title, alias in conn.execute(
+            "SELECT k.label, t.display_name, a.alias_search FROM topic_clues k "
+            "JOIN topics t ON t.id = k.topic_id JOIN topic_aliases a "
+            "ON a.topic_id = k.topic_id AND a.alias_search = k.clue_key WHERE k.rank <= 10"
+        )
+        if labeling.word_set(alias) & labeling.word_set(re.sub(r"\s*\(.*\)$", "", title))
+    )
+    out.append(
+        Check(
+            "terms",
+            "no first-page clue is the answer's own name",
+            own_name == 0,
+            f"{own_name} found",
+        )
+    )
+    unlinked = _one(
+        conn,
+        "SELECT COUNT(*) FROM topic_clues k WHERE NOT EXISTS "
+        "(SELECT 1 FROM topic_clue_sentences l WHERE l.topic_clue_id = k.id)",
+    )
+    out.append(Check("terms", "every clue has its sentences", unlinked == 0, f"{unlinked} without"))
+    if settings.labels_path.is_file():
+        from hortum_pipeline.clue_eval import evaluate_terms, summary
+
+        p5, r10 = summary(evaluate_terms(conn, settings.labels_path))
+        out.append(
+            Check(
+                "terms",
+                # Recall's bar is lower than the score stage's: clues are now ranked purely
+                # by how many questions name them (the owner's choice), and some labeled
+                # facts are descriptions ("asks about people after the stables burn")
+                # rather than terms. Precision rose to 0.97.
+                "labeled topics: precision@5 ≥ 0.85 and recall@10 ≥ 0.70",
+                p5 >= 0.85 and r10 >= 0.70,
+                f"precision@5 {p5:.3f}, recall@10 {r10:.3f}",
+            )
+        )
+    return out
+
+
 TRACERS_PATH = Path("pipeline/eval/tracers.yaml")
 
 
@@ -774,8 +848,8 @@ def check_snapshot(conn: sqlite3.Connection, settings: PipelineSettings) -> list
         )
     )
     want = {
-        "clues": dict(conn.execute(
-            "SELECT topic_id, COUNT(*) FROM cluster_scores WHERE rank IS NOT NULL GROUP BY 1")),
+        "clues": dict(conn.execute(  # the first page of the terms stage's ranked clues
+            "SELECT topic_id, MIN(COUNT(*), 10) FROM topic_clues GROUP BY 1")),
         "related": dict(conn.execute("SELECT topic_id, COUNT(*) FROM related_topics GROUP BY 1")),
         "confusions": dict(conn.execute("SELECT topic_id, COUNT(*) FROM confusions GROUP BY 1")),
         "tossup_ids": dict(conn.execute("SELECT topic_id, COUNT(*) FROM tossup_topics GROUP BY 1")),
@@ -1046,6 +1120,7 @@ STAGE_CHECKS: dict[str, list[CheckFn]] = {
     "link": [check_link, check_tracers("link")],
     "facts": [check_facts, check_search],
     "clues": [check_clues, check_tracers("clues")],
+    "terms": [check_terms],
     "cluster": [check_cluster, check_tracers("cluster")],
     "score": [check_score, check_tracers("score")],
     "relate": [check_relate, check_tracers("relate")],
@@ -1059,6 +1134,7 @@ TABLE_FOR = {
     "link": "group_links",
     "facts": "topic_facts",
     "clues": "question_layout",
+    "terms": "topic_clues",
     "cluster": "clue_clusters",
     "score": "cluster_scores",
     "relate": "related_topics",

@@ -73,38 +73,68 @@ class DocFrequency:
         return self.stand_in[word] / self.uses[word] if self.uses[word] else 0.0
 
 
-def candidates(doc: Any, freq: DocFrequency) -> set[str]:
-    """Noun phrases of one parsed clue, trimmed to their content words."""
+# A parsed token, as cached: text, part of speech, whether a space follows.
+Tok = tuple[str, str, bool]
+
+
+def serialize(doc: Any) -> dict[str, Any]:
+    """What later stages need from a parse, small enough to cache: the noun chunks as
+    tokens, and capitalized words used as adjectives ("Mexican troops")."""
+    return {
+        "chunks": [
+            [(t.text, t.pos_, bool(t.whitespace_)) for t in chunk] for chunk in doc.noun_chunks
+        ],
+        "adj": sorted({t.text for t in doc if t.pos_ == "ADJ" and t.text[:1].isupper()}),
+    }
+
+
+def _text(tokens: list[Tok]) -> str:
+    return "".join(t + (" " if space else "") for t, _, space in tokens).strip()
+
+
+def chunk_phrases(
+    chunks: list[list[Tok]], freq: DocFrequency, *, endings: bool = False
+) -> set[str]:
+    """Noun phrases of one clue, trimmed to their content words. With ``endings``, also
+    each phrase's shorter endings ("innermost womb chamber" -> "womb chamber")."""
     out = set()
-    for chunk in doc.noun_chunks:
-        if any(t.lower_ in DEMONSTRATIVE for t in chunk):
+    for chunk in chunks:
+        if any(t.lower() in DEMONSTRATIVE for t, _, _ in chunk):
             continue  # "this substance": the answer itself
         tokens = list(chunk)
         while tokens and (
-            tokens[0].pos_ in SKIP_POS
-            or tokens[0].lower_ in FILLER
-            or tokens[0].lower_ in STOPWORDS
-            or (tokens[0].pos_ == "ADJ" and freq.idf(tokens[0].lower_) < COMMON_ADJECTIVE_IDF)
+            tokens[0][1] in SKIP_POS
+            or tokens[0][0].lower() in FILLER
+            or tokens[0][0].lower() in STOPWORDS
+            or (tokens[0][1] == "ADJ" and freq.idf(tokens[0][0].lower()) < COMMON_ADJECTIVE_IDF)
         ):
             tokens = tokens[1:]
-        if not tokens or tokens[-1].pos_ not in HEAD_POS or tokens[-1].lower_ in FILLER:
+        if not tokens or tokens[-1][1] not in HEAD_POS or tokens[-1][0].lower() in FILLER:
             continue
-        # The phrase and its shorter endings: "innermost womb chamber" also counts as
-        # "womb chamber", so a cluster's shared core can win.
-        for start in range(len(tokens)):
+        # A description before a name isn't part of it: "member Prescott Bush",
+        # "incestuous Jim Trueblood" -> the name.
+        first_name = next((i for i, t in enumerate(tokens) if t[1] == "PROPN"), None)
+        if first_name and all(t[0][:1].islower() for t in tokens[:first_name]):
+            tokens = tokens[first_name:]
+        for start in range(len(tokens) if endings else 1):
             first = tokens[start]
-            if first.pos_ in SKIP_POS or first.lower_ in FILLER or first.lower_ in STOPWORDS:
+            if first[1] in SKIP_POS or first[0].lower() in FILLER or first[0].lower() in STOPWORDS:
                 continue
-            if start and not doc[first.i - 1].whitespace_:
+            if start and not tokens[start - 1][2]:
                 continue  # inside a hyphenated word: "beta" of "alpha-beta"
-            span = doc[first.i : tokens[-1].i + 1]
-            if len(span) > MAX_WORDS or span.text.endswith("'s") or span[0].is_punct:
+            span = tokens[start:]
+            text = _text(span)
+            if len(span) > MAX_WORDS or text.endswith("'s") or span[0][1] == "PUNCT":
                 continue
-            text = span.text
-            if span[0].pos_ != "PROPN" and text[1:2].islower():
+            if span[0][1] != "PROPN" and text[1:2].islower():
                 text = text[0].lower() + text[1:]  # "Circumambulation rituals" -> lowercase
             out.add(text)
     return out
+
+
+def candidates(doc: Any, freq: DocFrequency) -> set[str]:
+    """Noun phrases of one parsed clue and their endings (see ``chunk_phrases``)."""
+    return chunk_phrases(serialize(doc)["chunks"], freq, endings=True)
 
 
 def specificity(phrase: str, freq: DocFrequency) -> float:

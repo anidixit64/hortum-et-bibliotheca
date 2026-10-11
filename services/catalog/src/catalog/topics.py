@@ -16,7 +16,7 @@ class ClueSpan(BaseModel):
     word_start: int
     word_end: int
     in_power: bool
-    cluster_id: int | None  # the clue cluster (same fact across questions), if any
+    cluster_id: int | None  # the topic's best-ranked clue this sentence names, if any
 
 
 class AnswerLine(BaseModel):
@@ -89,6 +89,21 @@ class TopicStore:
                 ).fetchone()
             return row[0] if row else None
 
+    def clues(self, key: str, offset: int, limit: int) -> list[str] | None:
+        """The topic's clue records ranked offset+1 onward, as stored JSON ("show more")."""
+        with self._connect() as conn:
+            topic_id = self._resolve(conn, key)
+            if topic_id is None:
+                return None
+            return [
+                r[0]
+                for r in conn.execute(
+                    "SELECT json FROM topic_clue_records WHERE topic_id = ? AND rank > ? "
+                    "ORDER BY rank LIMIT ?",
+                    (topic_id, offset, limit),
+                )
+            ]
+
     def tossups(self, key: str, limit: int, offset: int) -> TossupPage | None:
         with self._connect() as conn:
             topic_id = self._resolve(conn, key)
@@ -159,8 +174,8 @@ class TopicStore:
     def _tossup(conn: sqlite3.Connection, row: tuple[object, ...]) -> Tossup:
         fields: dict[str, object] = dict(zip(_TOSSUP_FIELDS, row, strict=True))
         spans = conn.execute(
-            "SELECT c.ordinal, c.kind, c.word_start, c.word_end, c.in_power, m.cluster_id "
-            "FROM clues c LEFT JOIN clue_cluster_members m ON m.clue_id = c.id "
+            "SELECT c.ordinal, c.kind, c.word_start, c.word_end, c.in_power, m.topic_clue_id "
+            "FROM clues c LEFT JOIN sentence_clues m ON m.clue_id = c.id "
             "WHERE c.tossup_id = ? ORDER BY c.ordinal",
             (fields["id"],),
         ).fetchall()
