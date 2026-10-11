@@ -6,7 +6,7 @@ import httpx
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 
-from content import cleanup, jobs, theme, writing
+from content import cleanup, jobs, special, theme, writing
 
 router = APIRouter()
 
@@ -17,9 +17,10 @@ PROMPT_VERSIONS = {
     "summary": writing.SUMMARY_VERSION,
     "facts": writing.FACTS_VERSION,
     "theme": theme.THEME_VERSION,
+    "special": special.SPECIAL_VERSION,
 }
 # Generated sections written from a fetched one: current while that one is the same.
-FROM_FETCHED = {"facts": "wiki", "theme": "images"}
+FROM_FETCHED = {"facts": "wiki", "theme": "images", "special": "wiki"}
 DERIVED = ("explanations", "summary")  # written from the clue cleanup
 
 

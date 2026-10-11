@@ -557,3 +557,19 @@ body {
   margin-top: -1.4rem;
   position: relative;
 }
+
+/* Special sections: the feature piece, its step diagram, and the grounded timeline. */
+.feature-form { text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.75rem; color: var(--accent); margin: 0; }
+.feature h3 { font-size: 1.5rem; margin: 0.2rem 0 0.6rem; }
+.feature p { line-height: 1.7; max-width: 68ch; }
+.step-diagram { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 1.6rem; margin: 1.2rem 0; }
+.step-diagram li { position: relative; flex: 1 1 10rem; display: flex; flex-direction: column; gap: 0.25rem;
+  border: 1px solid var(--border); border-top: 3px solid var(--accent); border-radius: 6px; padding: 0.7rem; background: var(--surface); }
+.step-diagram li:not(:last-child)::after { content: '→'; position: absolute; right: -1.3rem; top: 40%; color: var(--accent); }
+.step-number { font-weight: 700; color: var(--accent); }
+.exhibit-timeline { list-style: none; padding: 0 0 0 1rem; border-left: 2px solid var(--accent); margin: 0; }
+.exhibit-timeline li { position: relative; padding: 0.35rem 0 0.35rem 0.9rem; display: flex; gap: 0.8rem; }
+.exhibit-timeline li::before { content: ''; position: absolute; left: -1.45rem; top: 0.75rem; width: 0.6rem; height: 0.6rem;
+  border-radius: 50%; background: var(--accent-2, var(--accent)); }
+.exhibit-year { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 5.5rem; }
+@media (max-width: 600px) { .step-diagram li:not(:last-child)::after { display: none; } }

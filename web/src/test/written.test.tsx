@@ -19,3 +19,22 @@ test('summary clues are bold, with a one-line popup and a link to the full expla
   expect(screen.getByRole('link', { name: 'See more' })).toHaveAttribute('href', '#clue-3')
   expect(screen.getByRole('link', { name: '“Invisible Man”' })).toBeInTheDocument()
 })
+
+describe('special sections', () => {
+  it('shows the feature, a dramatized note, the step diagram and the grounded timeline', async () => {
+    const { Feature, ExhibitTimeline } = await import('../components/Special')
+    const special = {
+      timeline: { kind: 'events', events: [{ year: -44, label: 'Caesar is killed', source: 'In 44 BC Caesar was killed.' }] },
+      feature: {
+        form: 'Be there', title: 'The Ides', body: 'First.\n\nSecond.', dramatized: true,
+        steps: [{ label: 'Senate meets', detail: 'x' }, { label: 'Daggers', detail: 'y' }],
+      },
+      source: { title: 'Julius Caesar', url: 'https://en.wikipedia.org/wiki/Julius_Caesar' },
+    }
+    render(<><Feature special={special} /><ExhibitTimeline timeline={special.timeline} /></>)
+    expect(screen.getByText('The Ides')).toBeTruthy()
+    expect(screen.getByText(/dramatized scene/)).toBeTruthy()
+    expect(screen.getByText('Daggers')).toBeTruthy()
+    expect(screen.getByText('44 BCE')).toBeTruthy()
+  })
+})

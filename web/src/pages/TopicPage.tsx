@@ -8,6 +8,7 @@ import { FunFacts, Hook, Summary } from '../components/Written'
 import { Heatmap } from '../components/Heatmap'
 import { ConfusionList, RelatedList } from '../components/Related'
 import { Timeline } from '../components/Timeline'
+import { ExhibitTimeline, Feature } from '../components/Special'
 import { TopicMap } from '../components/TopicMap'
 import { applyCleanup, CLEANED_FROM } from '../lib/cleanClues'
 import { percent } from '../lib/format'
@@ -41,6 +42,9 @@ export function TopicPage() {
       ? (explainedSection.payload as SectionPayloads['explanations']).clues
       : []
   const factsSection = content?.sections.facts
+  const specialSection = content?.sections.special
+  const special =
+    specialSection?.status === 'ok' ? (specialSection.payload as SectionPayloads['special']) : null
   const facts = factsSection?.status === 'ok' ? (factsSection.payload as SectionPayloads['facts']) : null
   const themeSection = content?.sections.theme
   const topicTheme = themeSection?.status === 'ok' ? (themeSection.payload as SectionPayloads['theme']) : null
@@ -189,6 +193,12 @@ export function TopicPage() {
         )}
       </section>
 
+      {special && (
+        <section className="card">
+          <Feature special={special} />
+        </section>
+      )}
+
       {facts && facts.facts.length > 0 && (
         <section className="card">
           <h2>Did you know?</h2>
@@ -215,8 +225,12 @@ export function TopicPage() {
       </div>
 
       <section className="card">
-        <h2>Timeline</h2>
-        <Timeline events={record.timeline} />
+        <h2>{special?.timeline.kind === 'discoveries' ? 'Timeline of discoveries' : 'Timeline'}</h2>
+        {special && special.timeline.events.length >= 3 ? (
+          <ExhibitTimeline timeline={special.timeline} />
+        ) : (
+          <Timeline events={record.timeline} />
+        )}
       </section>
       <section className="card">
         <h2>Map</h2>

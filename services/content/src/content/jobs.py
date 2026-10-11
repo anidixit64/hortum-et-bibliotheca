@@ -11,6 +11,7 @@ GENERATED = (
     "summary",
     "facts",
     "theme",
+    "special",
 )  # Phase 6: written or edited by a model
 KINDS = FETCHED + GENERATED
 BACKOFF_BASE_SECONDS = 60  # 1, 2, 4, 8... minutes after each failure

@@ -262,6 +262,19 @@ export interface SectionPayloads {
   summary: WrittenSummary
   facts: { facts: FunFact[]; source?: { title: string; url: string } }
   theme: Theme
+  special: SpecialPayload
+}
+
+export interface FeatureStep {
+  label: string
+  detail: string
+}
+
+/** Two sections chosen by category: a dated timeline and a long feature piece. */
+export interface SpecialPayload {
+  timeline: { kind: string; events: { year: number; label: string; source: string }[] }
+  feature: { form: string; title: string; body: string; steps: FeatureStep[]; dramatized: boolean }
+  source: { title: string; url: string } | null
 }
 
 export type ThemeColors = Record<

@@ -11,7 +11,7 @@ from typing import Any
 
 import httpx
 
-from content import cleanup, jobs, theme, writing
+from content import cleanup, jobs, special, theme, writing
 from content.config import Settings
 from content.fetchers import Topic, Unavailable, books, images, videos, wiki
 from content.generate import GenerationError, QuotaExceeded, Reply, Request, chain
@@ -408,6 +408,74 @@ def write_theme(
     return payload, f"images:{row[2]}", reply
 
 
+def write_special(
+    conn: sqlite3.Connection, settings: Settings, catalog: httpx.Client, topic_id: str
+) -> tuple[dict[str, Any], str, Reply | None]:
+    """The topic's two special sections: a grounded timeline and a feature by category."""
+    row = conn.execute(
+        "SELECT status, payload, fetched_at FROM enrichments WHERE topic_id = ? AND kind = 'wiki'",
+        (topic_id,),
+    ).fetchone()
+    if row is None:
+        jobs.enqueue(conn, topic_id, "wiki", 10)
+        raise NotReady("Wikipedia text not fetched yet")
+    wiki = json.loads(row[1]) if row[0] == "ok" else None
+    source = writing.source_text(wiki)
+    topic = catalog.get(f"/topics/{topic_id}/clue-candidates", params={"limit": 1}).json()
+    name, category = topic["name"], topic.get("category")
+    title, instructions, kind = special.form(category)
+    total: Reply | None = None
+    events: list[dict[str, Any]] = []
+    if wiki:
+        reply = chain.run(
+            chain.build(settings.light_chain, settings),
+            Request(
+                "timeline",
+                special.TIMELINE_SYSTEM,
+                special.TIMELINE.format(
+                    name=name,
+                    kind=kind,
+                    source=source,
+                    low=special.TIMELINE_EVENTS[0],
+                    high=special.TIMELINE_EVENTS[1],
+                ),  # fmt: skip
+                special.TIMELINE_SCHEMA,
+            ),
+            functools.partial(special.timeline_problem, source=source),
+        )
+        total = add(total, reply)
+        events = special.timeline(reply.data.get("events", []), source)
+    diagram = special.DIAGRAM if category in special.DIAGRAM_CATEGORIES else ""
+    prompt = special.FEATURE.format(
+        name=name,
+        category=category or "unknown",
+        title=title,
+        instructions=instructions.format(name=name),
+        low=special.FEATURE_WORDS[0],
+        high=special.FEATURE_WORDS[1],
+        diagram=diagram,
+        source=source,
+    )
+    reply = chain.run(
+        chain.build(settings.writing_chain, settings),
+        Request("feature", special.FEATURE_SYSTEM, prompt, special.FEATURE_SCHEMA),
+        special.feature_problem,
+    )
+    total = reply if total is None else add(reply, total)  # recorded as the feature's model
+    payload = {
+        "timeline": {"kind": kind, "events": events},
+        "feature": {
+            "form": title,
+            "title": reply.data["title"].strip(),
+            "body": reply.data["body"].strip(),
+            "steps": (reply.data.get("steps") or []) if diagram else [],
+            "dramatized": title == "Be there",
+        },
+        "source": {"title": wiki["title"], "url": wiki["url"]} if wiki else None,
+    }
+    return payload, f"wiki:{row[2]}", total
+
+
 def write_cleanup(
     conn: sqlite3.Connection, settings: Settings, catalog: httpx.Client, topic_id: str
 ) -> tuple[dict[str, Any], str, Reply | None]:
@@ -420,6 +488,7 @@ GENERATORS: dict[str, tuple[Generator, int]] = {
     "summary": (write_summary, writing.SUMMARY_VERSION),
     "facts": (write_facts, writing.FACTS_VERSION),
     "theme": (write_theme, theme.THEME_VERSION),
+    "special": (write_special, special.SPECIAL_VERSION),
 }  # fmt: skip
 
 
