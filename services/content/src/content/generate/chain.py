@@ -10,7 +10,7 @@ from content.generate.gemini import Gemini
 
 
 def build(spec: str, settings: Settings) -> list[Backend]:
-    """``"claude_code:haiku,gemini:gemini-flash-latest"`` -> backends, dropping Claude
+    """``"claude_code:haiku,gemini:gemini-3.8-flash"`` -> backends, dropping Claude
     Code when ``use_claude_code`` is off."""
     backends: list[Backend] = []
     for part in filter(None, (p.strip() for p in spec.split(","))):
@@ -23,7 +23,7 @@ def build(spec: str, settings: Settings) -> list[Backend]:
                 )  # fmt: skip
         elif name == "gemini":
             backends.append(
-                Gemini(model or "gemini-flash-latest", settings.gemini_api_key,
+                Gemini(model or "gemini-3.8-flash", settings.gemini_api_key,
                        settings.generation_timeout_seconds)
             )  # fmt: skip
         else:
