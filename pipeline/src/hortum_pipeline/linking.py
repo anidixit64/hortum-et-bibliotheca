@@ -630,5 +630,5 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
     def similar(a: int, b: int) -> float:
         return float((group_vector(a) @ group_vector(b).T).toarray()[0, 0])
 
-    topics.build(conn, reporter, similar)
+    topics.build(conn, reporter, similar, topics.load_unlinks(settings.link_overrides_path))
     conn.close()

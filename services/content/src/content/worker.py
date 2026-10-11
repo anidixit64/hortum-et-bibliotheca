@@ -118,10 +118,22 @@ def clean_clues(
     reply = chain.run(
         chain.build(settings.light_chain, settings), request, lambda d: cleanup.problem(found, d)
     )
-    checked = cleanup.check(found, reply.data, hints)
+    off_topic: list[int] = []
+    if found.get("groups"):
+        groups_reply = chain.run(
+            chain.build(settings.light_chain, settings),
+            Request("answer_groups", cleanup.GROUP_SYSTEM, cleanup.group_prompt(found),
+                    cleanup.GROUP_SCHEMA),
+        )  # fmt: skip
+        off_topic = list(groups_reply.data.get("off_topic_groups") or [])
+    checked = cleanup.check(found, reply.data, hints, off_topic)
     payload = {
         "clues": cleanup.apply(found, checked),
         "edits": reply.data.get("edits", []),
+        "excluded_groups": [
+            {k: g[k] for k in ("id", "key", "category", "answer", "tossups")}
+            for g in checked.excluded_groups
+        ],
         "rejected": checked.rejected,
         "hints": hints,
     }

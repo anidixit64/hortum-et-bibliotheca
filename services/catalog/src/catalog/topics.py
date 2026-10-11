@@ -5,6 +5,7 @@ import json
 import random
 import sqlite3
 from pathlib import Path
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -147,6 +148,7 @@ class TopicStore:
             name = conn.execute(
                 "SELECT display_name, primary_category FROM topics WHERE id = ?", (topic_id,)
             ).fetchone()
+            groups = self._answer_groups(conn, topic_id)
             fingerprint = hashlib.sha1(
                 json.dumps([(c["key"], c["n_questions"]) for c in candidates]).encode()
             ).hexdigest()[:16]
@@ -156,7 +158,37 @@ class TopicStore:
                 "category": name[1],
                 "fingerprint": fingerprint,
                 "candidates": candidates,
+                "groups": groups,
             }
+
+    @staticmethod
+    def _answer_groups(conn: sqlite3.Connection, topic_id: str) -> list[dict[str, object]]:
+        """The answer lines the topic's questions were filed under, when there are several:
+        one may name a different thing ("rings" for Koji Suzuki's Ring novels under The
+        Lord of the Rings). ``key`` and ``category`` identify a group across rebuilds."""
+        rows = conn.execute(
+            "SELECT g.id, g.norm_key, g.category, g.display_name, tg.tossup_id "
+            "FROM tossup_topics tt JOIN tossup_groups tg ON tg.tossup_id = tt.tossup_id "
+            "JOIN candidate_groups g ON g.id = tg.group_id WHERE tt.topic_id = ? "
+            "ORDER BY g.id, tg.tossup_id",
+            (topic_id,),
+        ).fetchall()
+        groups: dict[int, dict[str, Any]] = {}
+        for gid, key, category, display, tossup in rows:
+            group = groups.setdefault(
+                gid,
+                {"id": gid, "key": key, "category": category, "answer": display, "tossups": []},
+            )
+            group["tossups"].append(tossup)
+        if len(groups) < 2:
+            return []
+        for group in groups.values():
+            row = conn.execute(
+                "SELECT text FROM clues WHERE tossup_id = ? AND kind = 'giveaway' LIMIT 1",
+                (group["tossups"][0],),
+            ).fetchone()
+            group["example"] = row[0] if row else ""
+        return sorted(groups.values(), key=lambda g: -len(g["tossups"]))
 
     def tossups(self, key: str, limit: int, offset: int) -> TossupPage | None:
         with self._connect() as conn:
