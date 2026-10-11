@@ -89,5 +89,9 @@ class PipelineSettings(BaseSettings):
         return self.overrides_dir / "answers.jsonl"
 
     @property
+    def link_overrides_path(self) -> Path:
+        return self.overrides_dir / "links.jsonl"
+
+    @property
     def http_cache_dir(self) -> Path:
         return self.data_dir / "cache" / "http"

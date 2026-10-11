@@ -5,6 +5,7 @@ import re
 import sqlite3
 from collections import Counter, defaultdict
 from collections.abc import Callable
+from pathlib import Path
 
 from unidecode import unidecode
 
@@ -103,12 +104,31 @@ def homonym_sets(
     return list(sets.values())
 
 
+def load_unlinks(path: Path) -> set[tuple[str, str, str]]:
+    """(answer key, category, topic) of answer groups to treat as unlinked: groups found to
+    name a different thing than the topic they were linked to ("rings" under The Lord of
+    the Rings), from pipeline/overrides/links.jsonl (see ``hortum-content export-overrides``)."""
+    if not path.is_file():
+        return set()
+    out = set()
+    for line in path.read_text().splitlines():
+        if line.strip():
+            entry = json.loads(line)
+            if entry.get("action") == "unlink":
+                out.add((entry["key"], entry.get("category") or "", entry["topic"]))
+    return out
+
+
 def build(
     conn: sqlite3.Connection,
     reporter: Reporter,
     similar: Callable[[int, int], float] | None = None,
+    unlinks: set[tuple[str, str, str]] | None = None,
 ) -> None:
     """Builds topics from linked and unlinked groups.
+
+    Groups listed in ``unlinks`` are treated as unlinked: they become (or join) a local
+    topic of their own answer instead of contaminating the topic they were linked to.
 
     Unlinked groups with the same answer become one local topic only when ``similar`` says
     their questions agree: "root" in biology questions (plant roots) and in other science
@@ -128,7 +148,11 @@ def build(
         ORDER BY g.n_tossups DESC, g.id
         """
     )
+    unlinked_by_override = 0
     for group_id, norm_key, display, _n, status, qid, title, category in rows:
+        if status == "linked" and qid and (norm_key, category or "", qid) in (unlinks or set()):
+            unlinked_by_override += 1
+            status = "unlinked"
         if status == "linked" and qid:
             topic_id = qid
             info.setdefault(topic_id, {"name": title, "qid": qid, "title": title})
@@ -150,6 +174,7 @@ def build(
             for g in members:
                 topic_of_group[g] = topic_id
     reporter.stat("Same-answer unlinked groups kept apart", f"{split:,}")
+    reporter.stat("Groups unlinked by overrides", f"{unlinked_by_override:,}")
 
     conn.executemany(
         "INSERT INTO tossup_topics SELECT tossup_id, ? FROM tossup_groups WHERE group_id = ?",

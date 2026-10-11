@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-PROMPT_VERSION = 2  # 2: descriptors, name pairs, capitalization, source misspellings
+PROMPT_VERSION = 3  # 2: descriptors, pairs, case, misspellings; 3: off-topic answer groups
 CANDIDATES = 25  # the cleanup sees this many; the page shows the top 10, then 5 at a time
 EXAMPLES = 3
 MAX_LABEL_WORDS = 9
@@ -75,6 +75,33 @@ are about a different Willy).
 Candidates (JSON):
 {candidates}"""
 
+GROUP_SYSTEM = """You check how quiz bowl questions were filed. Each question has an \
+answer line; questions were grouped by answer and linked to a topic. You find answer groups \
+that were linked to the wrong topic."""
+
+GROUPS = """Topic: {name} (category: {category})
+
+The questions were filed under {name} by their answer lines, in these answer groups. Some \
+groups may be a DIFFERENT answer that got filed here by mistake: a generic word ("rings" \
+meaning rings in general, under The Lord of the Rings), a place or thing the topic is only \
+named after ("Vienna" the city, under Vienna Secession), a whole set under one member ("piano \
+concertos by Beethoven" under Piano Concerto No. 5), a larger subject ("Lewis and Clark \
+expedition" under Meriwether Lewis), or a different person, work or sense of the same name \
+(Ajax the Lesser under Ajax the Great; "translation" in physics under translation between \
+languages). Return their ids in "off_topic_groups" ([] if all are about {name}). Variants \
+of the name, plurals and fuller forms of the same thing are NOT off-topic.
+
+Answer groups (JSON):
+{group_json}"""
+
+GROUP_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {"off_topic_groups": {"type": "array", "items": {"type": "integer"}}},
+    "required": ["off_topic_groups"],
+}
+
+MAX_EXCLUDED_SHARE = 0.5  # never drop more than half a topic's questions
+
 SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
@@ -92,7 +119,7 @@ SCHEMA: dict[str, Any] = {
                 },
                 "required": ["id", "action"],
             },
-        }
+        },
     },
     "required": ["edits"],
 }
@@ -223,6 +250,28 @@ def ner_hint(label: str, ents: list[list[list[str]]]) -> str | None:
 # --- the request -----------------------------------------------------------------------
 
 
+def group_prompt(found: dict[str, Any]) -> str:
+    groups = found.get("groups") or []
+    return GROUPS.format(
+            name=found["name"],
+            category=found.get("category") or "unknown",
+            group_json=json.dumps(
+                [
+                    {
+                        "id": g["id"],
+                        "answer": g["answer"],
+                        "category": g["category"],
+                        "questions": len(g["tossups"]),
+                        "example": g["example"][:200],
+                    }
+                    for g in groups
+                ],
+                ensure_ascii=False,
+                indent=1,
+            ),
+        )  # fmt: skip
+
+
 def prompt(found: dict[str, Any], hints: dict[int, str]) -> str:
     candidates = [
         {
@@ -250,10 +299,16 @@ class Checked:
     drops: dict[int, str] = field(default_factory=dict)
     merges: dict[int, int] = field(default_factory=dict)
     removed: dict[int, set[str]] = field(default_factory=dict)
+    excluded_groups: list[dict[str, Any]] = field(default_factory=list)
     rejected: list[str] = field(default_factory=list)
 
 
-def check(found: dict[str, Any], data: dict[str, Any], hints: dict[int, str]) -> Checked:
+def check(
+    found: dict[str, Any],
+    data: dict[str, Any],
+    hints: dict[int, str],
+    off_topic_ids: list[Any] | None = None,
+) -> Checked:
     """Keep only edits that can't invent anything: known ids, renames whose words come
     from the clue's own spellings, sentences or hint, merges into kept candidates."""
     by_id = {c["id"]: c for c in found["candidates"]}
@@ -284,6 +339,8 @@ def check(found: dict[str, Any], data: dict[str, Any], hints: dict[int, str]) ->
                 out.rejected.append(f"rename {cid}: {label!r} uses words not in its sentences")
             else:
                 out.renames[cid] = label
+    out.excluded_groups, notes = off_topic(found, off_topic_ids or [])
+    out.rejected += notes
     # A merge into something dropped or merged onward follows the chain; cycles are undone.
     for cid in list(out.merges):
         seen = {cid}
@@ -299,6 +356,49 @@ def check(found: dict[str, Any], data: dict[str, Any], hints: dict[int, str]) ->
     return out
 
 
+def _stem(word: str) -> str:
+    return word[:-1] if len(word) > 3 and word.endswith("s") else word
+
+
+def names_topic(answer: str, title: str) -> bool:
+    """Does an answer line name the topic ("Piano Concerto No. 5 by Beethoven" for "Piano
+    Concerto No. 5 (Beethoven)", "Patterns" for "Pattern")?"""
+    want = {_stem(w) for w in words(re.sub(r"\s*\(.*\)$", "", title))}
+    also = {_stem(w) for w in words(" ".join(re.findall(r"\((.*)\)", title)))}
+    have = {_stem(w) for w in words(answer)}
+    # A name with several more words is a bigger subject: "Meriwether Lewis and William
+    # Clark expedition" isn't Meriwether Lewis.
+    return bool(want) and want <= have and len(have - want - also) <= 2
+
+
+def off_topic(found: dict[str, Any], ids: list[Any]) -> tuple[list[dict[str, Any]], list[str]]:
+    """The answer groups to leave out, within guardrails: a group naming the topic in the
+    topic's own subject stays ("translation" in physics may go from the linguistic topic),
+    and a group naming the topic must remain; failing that, at most half the questions go."""
+    groups = {g["id"]: g for g in found.get("groups") or []}
+    if not groups:
+        return [], []
+    title, category = found["name"], found.get("category")
+    total = sum(len(g["tossups"]) for g in groups.values())
+    chosen: list[dict[str, Any]] = []
+    notes = []
+    for gid in dict.fromkeys(ids):
+        group = groups.get(gid)
+        if group is None:
+            notes.append(f"off-topic group {gid}: unknown")
+        elif names_topic(group["answer"], title) and group["category"] == category:
+            notes.append(f"off-topic group {gid}: names the topic in its own subject")
+        else:
+            chosen.append(group)
+    left = [g for g in groups.values() if g not in chosen]
+    if not any(names_topic(g["answer"], title) for g in left):
+        while chosen and sum(len(g["tossups"]) for g in chosen) > MAX_EXCLUDED_SHARE * total:
+            dropped = max(chosen, key=lambda g: len(g["tossups"]))
+            chosen.remove(dropped)
+            notes.append(f"off-topic group {dropped['id']}: would leave under half the questions")
+    return chosen, notes
+
+
 def problem(found: dict[str, Any], data: dict[str, Any]) -> str | None:
     """Why a reply can't be used at all (asked again once), or None."""
     edits = data.get("edits")
@@ -312,7 +412,9 @@ def problem(found: dict[str, Any], data: dict[str, Any]) -> str | None:
 
 
 def apply(found: dict[str, Any], checked: Checked) -> list[dict[str, Any]]:
-    """The cleaned clues, recounted from their questions and ranked by them."""
+    """The cleaned clues, recounted from their questions (less any off-topic answer
+    groups') and ranked by them."""
+    outside = {t for g in checked.excluded_groups for t in g["tossups"]}
     groups: dict[int, dict[str, Any]] = {}
     for clue in found["candidates"]:
         cid = clue["id"]
@@ -324,8 +426,10 @@ def apply(found: dict[str, Any], checked: Checked) -> list[dict[str, Any]]:
         for spelling, tossups in clue["spellings"].items():
             if spelling in checked.removed.get(cid, set()):
                 continue
-            questions |= set(tossups)
-            spellings.append(spelling)
+            mine = set(tossups) - outside
+            if mine:
+                questions |= mine
+                spellings.append(spelling)
         group = groups.setdefault(home, {"ids": [], "questions": set(), "spellings": []})
         group["ids"].append(cid)
         group["questions"] |= questions

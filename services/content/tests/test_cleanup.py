@@ -119,3 +119,72 @@ def test_renames_may_correct_a_misspelling_but_not_invent_words() -> None:
     assert cleanup.known_word("vicente", source)
     assert cleanup.known_word("reaction", source)
     assert not cleanup.known_word("pizarro", source)
+
+
+def groups_found() -> dict[str, Any]:
+    def group(gid: int, answer: str, category: str, n: int) -> dict[str, Any]:
+        return {"id": gid, "key": answer.lower(), "category": category, "answer": answer,
+                "tossups": [f"{gid}-{i}" for i in range(n)], "example": ""}  # fmt: skip
+
+    return {
+        "name": "Vienna Secession",
+        "category": "Fine Arts",
+        "candidates": [],
+        "groups": [
+            group(1, "Vienna", "Fine Arts", 13),
+            group(2, "Vienna Secession", "Fine Arts", 3),
+        ],
+    }
+
+
+def test_an_off_topic_group_may_be_the_largest_while_the_named_one_remains() -> None:
+    chosen, notes = cleanup.off_topic(groups_found(), [1])
+    assert [g["id"] for g in chosen] == [1] and notes == []
+    chosen, notes = cleanup.off_topic(groups_found(), [2])
+    assert chosen == [] and "names the topic" in notes[0]
+
+
+def test_a_same_named_group_in_another_subject_may_go() -> None:
+    found = groups_found()
+    found["name"], found["category"] = "Translation", "Social Science"
+    found["groups"][0]["answer"], found["groups"][0]["category"] = "translation", "Science"
+    found["groups"][1]["answer"], found["groups"][1]["category"] = "translation", "Social Science"
+    chosen, _ = cleanup.off_topic(found, [1, 2])
+    assert [g["id"] for g in chosen] == [1]
+
+
+def test_without_a_named_group_left_at_most_half_goes() -> None:
+    found = groups_found()
+    found["groups"][1]["answer"] = "Klimt"
+    chosen, notes = cleanup.off_topic(found, [1])
+    assert chosen == [] and "under half" in notes[0]
+
+
+def test_export_overrides_merges_with_hand_written_entries(tmp_path: Any) -> None:
+    import json
+    import sqlite3
+
+    from content import db
+    from content.cli import export_overrides
+
+    conn: sqlite3.Connection = db.connect(tmp_path / "content.db")
+    payload = {
+        "excluded_groups": [
+            {"id": 7, "key": "rings", "category": "History", "answer": "rings", "tossups": ["t1"]}
+        ]
+    }
+    conn.execute(
+        "INSERT INTO generations VALUES ('Q15228', 'clues', 'f', 3, 'claude_code', 'haiku', "
+        "?, 1, 1, '2026-10-11T00:00:00')",
+        (json.dumps(payload),),
+    )
+    path = tmp_path / "links.jsonl"
+    path.write_text(json.dumps({"key": "vienna", "category": "Fine Arts", "topic": "Q208208",
+                                "action": "unlink", "source": "hand"}) + "\n")  # fmt: skip
+    assert export_overrides(conn, path) == (1, 2)
+    assert export_overrides(conn, path) == (0, 2)  # idempotent
+    entries = [json.loads(line) for line in path.read_text().splitlines()]
+    assert {(e["key"], e["source"]) for e in entries} == {
+        ("rings", "cleanup:haiku"),
+        ("vienna", "hand"),
+    }
