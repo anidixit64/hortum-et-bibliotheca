@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api/client'
-import type { TopicRecord, TopicStats } from '../api/types'
+import type { Clue, TopicRecord, TopicStats } from '../api/types'
 import { ClueList } from '../components/ClueList'
 import { Gallery, Reading, Videos, WikiSummary } from '../components/Enrichment'
 import { Heatmap } from '../components/Heatmap'
@@ -18,6 +18,9 @@ export function TopicPage() {
   const [stats, setStats] = useState<TopicStats | null>(null)
   const [error, setError] = useState<{ key: string; message: string } | null>(null)
   const [busy, setBusy] = useState(false)
+  // Clues past the first page, tagged with the topic they were loaded for.
+  const [more, setMore] = useState<{ key: string; clues: Clue[] }>({ key: '', clues: [] })
+  const [loadingMore, setLoadingMore] = useState(false)
   const current = loaded?.key === key ? loaded.record : null
   const content = useTopicContent(current?.topic.id ?? '')
 
@@ -40,6 +43,19 @@ export function TopicPage() {
   const record = current
   if (!record) return <p className="muted">Loading…</p>
   const { topic } = record
+
+  const extra = more.key === key ? more.clues : []
+  const shown = [...record.clues, ...extra]
+  const total = record.n_clues ?? record.clues.length
+  const showMore = async () => {
+    setLoadingMore(true)
+    try {
+      const next = await api.moreClues(topic.id, shown.length, 5)
+      setMore({ key, clues: [...extra, ...next] })
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   const toggleFollow = async () => {
     setBusy(true)
@@ -99,13 +115,18 @@ export function TopicPage() {
 
       <section className="card">
         <h2>Clues worth knowing</h2>
-        <ClueList clues={record.clues} />
+        <ClueList clues={shown} />
+        {shown.length < total && (
+          <button onClick={showMore} disabled={loadingMore}>
+            {loadingMore ? 'Loading…' : `Show ${Math.min(5, total - shown.length)} more`}
+          </button>
+        )}
       </section>
 
-      {record.clues.length > 0 && (
+      {shown.length > 0 && (
         <section className="card">
           <h2>Where the clues come up</h2>
-          <Heatmap clues={record.clues} buzzed={stats?.buzzed_clusters ?? {}} />
+          <Heatmap clues={shown} buzzed={stats?.buzzed_clusters ?? {}} />
         </section>
       )}
 

@@ -34,7 +34,7 @@ def test_help_lists_every_stage(capsys: pytest.CaptureFixture[str]) -> None:
 def test_stage_order_matches_architecture_doc() -> None:
     assert [s.name for s in STAGES] == [
         "ingest", "parse-answers", "group", "link", "facts",
-        "clues", "cluster", "score", "relate", "confuse", "snapshot",
+        "clues", "terms", "cluster", "score", "relate", "confuse", "snapshot",
     ]  # fmt: skip
 
 

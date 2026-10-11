@@ -21,14 +21,19 @@ export interface Heatmap {
 
 export interface Clue {
   rank: number
-  cluster_id: number
+  cluster_id: number // the clue's id
   label: string
   text: string
   examples: string[]
   n_sets: number
   n_tossups: number
-  impact: number
+  n_questions?: number // questions naming the clue outside the giveaway
+  n_mentions?: number
+  impact?: number
   median_position: number
+  mean_position?: number
+  variants?: string[] // spellings questions use
+  cooccurs?: { id: number; label: string; count: number }[] // clues in the same sentences
   heatmap: Heatmap
 }
 
@@ -95,6 +100,7 @@ export interface TopicRecord {
     thin: boolean
   }
   clues: Clue[]
+  n_clues?: number // ranked clues available; past the first page via api.moreClues
   related: Related[]
   confusions: Confusion[]
   timeline: TimelineEvent[]
