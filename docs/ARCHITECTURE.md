@@ -556,7 +556,19 @@ Each request returns JSON matching a schema. On a failed check it retries once w
 | `groq`, `openrouter` | $0 on free tiers | Backups for the small tier. |
 | `anthropic_api` (later) | Paid, with `CONTENT_DAILY_BUDGET_USD` | If the site is ever shared. |
 
-**Before relying on it:** generate about 10 hand-picked topics across categories, read them, and tune the prompts.
+**As running now (October 2026).**
+- **Input:** every section is written from the whole Wikipedia article. The fetcher keeps it all, with a 400,000-character guard; the longest articles are about 40k tokens. Text stored by an older fetcher version is refetched on the next page view.
+- **Writing chain:** `claude_code:opus`, then free Gemini `gemini-3.8-flash`, `gemini-3.5-flash`, `gemini-3.7-flash` and `gemma-4-31b-it`.
+- **Light chain:** `claude_code:haiku`, then `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`, `gemma-4-31b-it` and `gemma-4-26b-a4b-it`.
+- **Free Gemini tier:** caps each model separately and tightly (`gemini-3.8-flash`: 20 requests a day, about 3 full pages), and has no free Pro models. So Gemini is overflow for when the Claude plan's limit is reached, not the main engine.
+- **Gemini errors:**
+  - A busy model (503) is retried twice, then the job waits 5 minutes.
+  - A per-minute 429 waits 2 minutes; a daily one waits until Pacific midnight.
+  - Gemma writes its reasoning before the JSON, and the parser takes the JSON after it.
+- **Failures:** a section that needs one which failed for good (clue cleanup, the article text) fails too, and a refresh queues them again.
+- **Speed:** the worker runs one job at a time, so a cold page takes about 4–5 minutes (Neanderthal, Nat Turner and Al Capone in a trial, all sections ready, no failures).
+- **Next steps for speed:** running independent sections in parallel would bring this under about a minute. Writing the most-asked topics ahead of time would make most opens instant.
+- **Quality checks:** in a blind fact-check of 10 topics, summaries were accurate with every clue mark right. Clue explanations had 13 wrong claims in 10 topics, and 9 after they were given the article text and barred from quiz talk.
 
 ---
 
