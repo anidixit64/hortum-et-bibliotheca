@@ -12,6 +12,16 @@ from content.fetchers import books, images, videos, wiki
 router = APIRouter()
 
 PAGE_VIEW_PRIORITY = 10
+# Within a page view, what a reader sees first is written first: the quick fetches and the
+# clue cleanup the written sections need, then the summary and colors, then the rest.
+VIEW_ORDER = {"wiki": 6, "images": 6, "books": 6, "videos": 6, "clues": 5, "summary": 4,
+              "theme": 3, "explanations": 2}  # fmt: skip
+
+
+def view_priority(kind: str) -> int:
+    return PAGE_VIEW_PRIORITY + VIEW_ORDER.get(kind, 0)
+
+
 # Fetched sections stored by an older fetcher are shown while a fresh fetch is queued.
 FETCHER_VERSIONS = {
     "wiki": wiki.VERSION,
@@ -86,7 +96,7 @@ def topic_content(
         have[kind] = Section(status=status, payload=json.loads(payload), fetched_at=fetched,
                              stale=old)  # fmt: skip
         if old and enqueue:
-            jobs.enqueue(db, topic_id, kind, PAGE_VIEW_PRIORITY)
+            jobs.enqueue(db, topic_id, kind, view_priority(kind))
     rows = db.execute(
         "SELECT kind, fingerprint, prompt_version, payload, created_at FROM generations "
         "WHERE topic_id = ?",
@@ -112,7 +122,7 @@ def topic_content(
             status="ok", payload=json.loads(payload), fetched_at=created, stale=not current
         )
         if not current and enqueue:
-            jobs.enqueue(db, topic_id, kind, PAGE_VIEW_PRIORITY)
+            jobs.enqueue(db, topic_id, kind, view_priority(kind))
     open_jobs = jobs.open_kinds(db, topic_id)
     sections: dict[str, Section] = {}
     for kind in jobs.KINDS:
@@ -122,7 +132,7 @@ def topic_content(
             sections[kind] = Section(status="failed")
         else:
             if enqueue:
-                jobs.enqueue(db, topic_id, kind, PAGE_VIEW_PRIORITY)
+                jobs.enqueue(db, topic_id, kind, view_priority(kind))
             sections[kind] = Section(status="pending")
     for kind in jobs.GENERATED:  # stored, but more is being written ("show more")
         if kind in sections and sections[kind].status == "ok" and kind in open_jobs:
@@ -145,7 +155,7 @@ def refresh(
                 f"DELETE FROM {table} WHERE topic_id = ? AND kind = ?",
                 [(topic_id, k) for k in chosen],
             )
-    queued = [k for k in chosen if jobs.enqueue(db, topic_id, k, PAGE_VIEW_PRIORITY)]
+    queued = [k for k in chosen if jobs.enqueue(db, topic_id, k, view_priority(k))]
     return {"topic_id": topic_id, "queued": queued}
 
 
@@ -161,7 +171,7 @@ def explain_more(
             "DO UPDATE SET through = MAX(through, excluded.through)",
             (topic_id, through),
         )
-    queued = jobs.enqueue(db, topic_id, "explanations", PAGE_VIEW_PRIORITY)
+    queued = jobs.enqueue(db, topic_id, "explanations", view_priority("explanations"))
     return {"topic_id": topic_id, "through": through, "queued": queued}
 
 

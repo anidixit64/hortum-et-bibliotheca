@@ -38,3 +38,21 @@ describe('special sections', () => {
     expect(screen.getByText('44 BCE')).toBeTruthy()
   })
 })
+
+describe('the clue hall', () => {
+  it('shows each explanation without a click, with the other clues it names in bold', async () => {
+    const { ClueList } = await import('../components/ClueList')
+    const heatmap = { position_hist: [], share_in_power: 0, share_last_line: 0, difficulty: {}, years: [null, null] as [null, null], trend: 'steady' as const }
+    const clue = (rank: number, label: string) => ({
+      rank, cluster_id: rank, label, text: `${label} in a question.`, examples: [], n_sets: 3,
+      n_tossups: 3, median_position: 0.5, heatmap,
+    })
+    const explanations = [
+      { rank: 1, label: 'Flower Wars', one_line: 'Ritual wars for captives.', explanation: 'Fought mostly against Tlaxcala for captives.' },
+    ]
+    render(<ClueList clues={[clue(1, 'Flower Wars'), clue(2, 'Tlaxcala')]} explanations={explanations} writing />)
+    expect(screen.getByText(/Fought mostly against/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Tlaxcala' })).toBeTruthy() // bolded, with its popup
+    expect(screen.getByText('Explanation being written…')).toBeTruthy() // clue 2 isn't written yet
+  })
+})

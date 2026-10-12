@@ -15,7 +15,7 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
-THEME_VERSION = 1
+THEME_VERSION = 2
 TOKENS = ("bg", "surface", "text", "muted", "accent", "accent2", "accent_soft", "header_tint")
 FONT_PAIRINGS = {
     "classical-serif": "Old-style serif (Palatino, Iowan): history, classics, literature",
@@ -26,6 +26,10 @@ FONT_PAIRINGS = {
     "slab": "Slab serif (Rockwell): American history, industry, sports",
     "typewriter": "Typewriter (American Typewriter, Courier): modern literature, journalism",
 }
+# The site's own colors (web/src/index.css): a topic's theme must look different from them.
+DEFAULT_ACCENT = {"light": "#2f6f5e", "dark": "#7fc4ad"}
+MIN_BG_CHROMA = 0.012  # OKLab chroma: below this a background reads as plain grey
+MIN_ACCENT_DISTANCE = 0.08  # OKLab distance from the default accent
 # Minimum contrast ratios (WCAG AA): body text, secondary text, links and accents.
 CONTRAST = {"text": 7.0, "muted": 4.5, "accent": 4.5}
 _HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -68,6 +72,15 @@ def rgb_to_oklab(rgb: np.ndarray) -> np.ndarray:
 def oklab_to_rgb(lab: np.ndarray) -> np.ndarray:
     lms = (lab @ np.linalg.inv(_M2).T) ** 3
     return from_linear(lms @ np.linalg.inv(_M1).T)
+
+
+def chroma(color: str) -> float:
+    _, a, b = rgb_to_oklab(hex_to_rgb(color))
+    return float(np.hypot(a, b))
+
+
+def distance(x: str, y: str) -> float:
+    return float(np.linalg.norm(rgb_to_oklab(hex_to_rgb(x)) - rgb_to_oklab(hex_to_rgb(y))))
 
 
 def luminance(color: str) -> float:
@@ -141,8 +154,10 @@ Header image: {caption}
 Dominant colors of the header image (hex, share of the image): {palette}
 
 Choose two color sets, "light" and "dark", each with these hex colors:
-- bg: page background (light: a soft, near-white tint; dark: a deep, near-black tint)
-- surface: card background, slightly lifted from bg
+- bg: page background, clearly tinted with the topic's mood (light: a pale parchment, \
+sand, rose, sky or sage; dark: a deep ink, wine, forest, navy or umber), never plain grey, \
+white or black
+- surface: card background, slightly lifted from bg, with the same tint
 - text: body text (near-neutral, very readable on surface)
 - muted: secondary text
 - accent: links and highlights, evocative of the topic (take it from the image or the \
@@ -151,7 +166,9 @@ topic: polar blue, Aztec jade, imperial purple, oxidized copper...)
 - accent_soft: a pale (light) or deep (dark) tint of accent for highlighted boxes
 - header_tint: the color the header image fades into (close to bg)
 Then pick "font" from: {fonts}
-Avoid plain grey schemes and garish colors; harmony with the image matters most."""
+The site's default scheme is grey with a teal-green accent ({default}); this page must \
+look distinctly different from it. Avoid plain grey schemes and garish colors; harmony \
+with the image and the topic matters most."""
 
 SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -176,6 +193,14 @@ def problem(data: dict[str, Any]) -> str | None:
         return "font must be one of the listed pairings"
     if luminance(data["light"]["bg"]) < luminance(data["dark"]["bg"]):
         return "the light set's background must be lighter than the dark set's"
+    for mode in ("light", "dark"):
+        if chroma(data[mode]["bg"]) < MIN_BG_CHROMA:
+            return f"the {mode} bg {data[mode]['bg']} is plain grey: give it a visible tint"
+        if distance(data[mode]["accent"], DEFAULT_ACCENT[mode]) < MIN_ACCENT_DISTANCE:
+            return (
+                f"the {mode} accent is too close to the site's default teal "
+                f"{DEFAULT_ACCENT[mode]}: choose a different hue"
+            )
     return None
 
 

@@ -594,3 +594,12 @@ body {
 .museum-label span { color: var(--muted); }
 .exit { text-align: center; }
 .exit .controls { justify-content: center; }
+
+/* While AI sections are being written. */
+.writing-banner { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--muted);
+  background: var(--accent-soft, var(--surface)); border: 1px dashed var(--border); border-radius: 6px; padding: 0.4rem 0.7rem; }
+.writing-note { font-style: italic; }
+.spinner { width: 0.8rem; height: 0.8rem; border-radius: 50%; border: 2px solid var(--border);
+  border-top-color: var(--accent); animation: spin 0.9s linear infinite; flex: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
