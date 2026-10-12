@@ -150,6 +150,7 @@ def store_generation(
     payload: Any,
     reply: Reply | None,
 ) -> None:
+    now = jobs.now().isoformat()
     with conn:
         conn.execute(
             "INSERT OR REPLACE INTO generations VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -158,9 +159,16 @@ def store_generation(
                 reply.backend if reply else "none", reply.model if reply else "none",
                 json.dumps(payload, ensure_ascii=False),
                 reply.input_tokens if reply else 0, reply.output_tokens if reply else 0,
-                jobs.now().isoformat(),
+                now,
             ),
         )  # fmt: skip
+        if reply and reply.input_tokens + reply.output_tokens > 0:
+            conn.execute(
+                "INSERT INTO api_usage (backend, model, task, topic_id, "
+                "input_tokens, output_tokens, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (reply.backend, reply.model, kind, topic_id,
+                 reply.input_tokens, reply.output_tokens, now),
+            )  # fmt: skip
 
 
 class NotReady(Exception):
@@ -382,9 +390,7 @@ def header_image(images: list[dict[str, Any]]) -> dict[str, Any] | None:
     return max(pool, key=lambda i: i.get("width", 0) * i.get("height", 0))
 
 
-def _related_theme(
-    conn: sqlite3.Connection, catalog: httpx.Client, topic_id: str
-) -> str:
+def _related_theme(conn: sqlite3.Connection, catalog: httpx.Client, topic_id: str) -> str:
     """If a closely related topic already has a theme, describe it so the AI can harmonise.
     Uses the catalog's lookup endpoint to find which clue labels are themselves topics, then
     checks if any of those topics already have a theme in content.db."""

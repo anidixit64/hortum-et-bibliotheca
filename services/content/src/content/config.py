@@ -135,10 +135,12 @@ class Settings(ServiceSettings):
     gemini_api_key: str = ""  # free key from Google AI Studio
     groq_api_key: str = ""  # free key from console.groq.com (8K TPM — small prompts only)
     cerebras_api_key: str = ""  # cloud.cerebras.ai ($5 free credit, very generous limits)
+    sambanova_api_key: str = ""  # cloud.sambanova.ai ($5 free credit, 90 days)
     openrouter_api_key: str = ""  # free key from openrouter.ai/keys
     nvidia_api_key: str = ""  # free key from build.nvidia.com
     github_api_key: str = ""  # free token from github.com/settings/tokens
     mistral_api_key: str = ""  # free key from console.mistral.ai
+    admin_pin: str = ""  # PIN for the /settings page; empty = admin disabled
     # Claude Code first (the subscription), then free providers. Each provider's free tier
     # has its own daily/minute caps, so the chains walk through several: when one is out
     # the next takes over.
@@ -154,12 +156,14 @@ class Settings(ServiceSettings):
     light_chain: str = (
         "claude_code:haiku,"
         "cerebras:qwen-3.8-27b,groq:openai/gpt-oss-20b,"
+        "mistral:mistral-large-latest,"
         "gemini:gemini-3.5-flash-lite,gemini:gemini-3.1-flash-lite,"
         "gemini:gemma-4-31b-it,gemini:gemma-4-26b-a4b-it"
     )
     writing_chain: str = (
         "claude_code:opus,"
         "cerebras:qwen-3.8-27b,cerebras:gpt-oss-120b,"
+        "mistral:mistral-large-latest,"
         "gemini:gemini-3.8-flash,gemini:gemini-3.5-flash,"
         "gemini:gemini-3.7-flash,gemini:gemma-4-31b-it"
     )

@@ -4,6 +4,7 @@ import { api } from './api/client'
 import { PracticePage } from './pages/PracticePage'
 import { ReviewPage } from './pages/ReviewPage'
 import { SearchPage } from './pages/SearchPage'
+import { SettingsPage } from './pages/SettingsPage'
 import { StudyingPage } from './pages/StudyingPage'
 import { TopicPage } from './pages/TopicPage'
 
@@ -24,6 +25,7 @@ export function App() {
           <Link to="/practice">Practice</Link>
           <Link to="/review">Review {due ? <span className="badge">{due}</span> : null}</Link>
           <Link to="/studying">Studying</Link>
+          <Link to="/settings">Settings</Link>
         </nav>
       </header>
       <main>
@@ -33,6 +35,7 @@ export function App() {
           <Route path="/practice" element={<PracticePage />} />
           <Route path="/review" element={<ReviewPage onReviewed={refreshDue} />} />
           <Route path="/studying" element={<StudyingPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<p>Page not found. <Link to="/">Search</Link></p>} />
         </Routes>
       </main>

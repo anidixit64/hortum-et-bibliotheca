@@ -51,6 +51,17 @@ CREATE TABLE IF NOT EXISTS explain_depth (
     topic_id TEXT PRIMARY KEY,
     through INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS api_usage (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    backend TEXT NOT NULL,
+    model TEXT NOT NULL,
+    task TEXT NOT NULL,
+    topic_id TEXT NOT NULL,
+    input_tokens INTEGER NOT NULL,
+    output_tokens INTEGER NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS api_usage_backend_date ON api_usage(backend, created_at);
 CREATE TABLE IF NOT EXISTS http_cache (
     url TEXT PRIMARY KEY,
     status INTEGER NOT NULL,

@@ -1,9 +1,11 @@
 import json
 import sqlite3
+from datetime import datetime, timedelta
 from typing import Annotated, Any, Literal
+from zoneinfo import ZoneInfo
 
 import httpx
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from content import cleanup, jobs, special, theme, writing
@@ -184,3 +186,169 @@ def job_counts(db: Db) -> dict[str, dict[str, int]]:
     ):
         out.setdefault(kind, {})[status] = n
     return out
+
+
+# ---------------------------------------------------------------------------
+# Admin: PIN-protected usage tracking
+# ---------------------------------------------------------------------------
+
+PROVIDER_INFO: dict[str, dict[str, Any]] = {
+    "claude_code": {
+        "label": "Claude Code",
+        "tier": "subscription",
+        "dashboard": None,
+        "limits": {},
+    },
+    "cerebras": {
+        "label": "Cerebras",
+        "tier": "credit",
+        "dashboard": "https://cloud.cerebras.ai",
+        "limits": {
+            "rpm": 450,
+            "tpm": 150_000,
+            "rpd": 648_000,
+            "credit_usd": 5.0,
+            "credit_days": 30,
+        },
+    },
+    "groq": {
+        "label": "Groq",
+        "tier": "permanent",
+        "dashboard": "https://console.groq.com",
+        "limits": {"rpm": 30, "rpd": 14_400, "tpm": 8_000, "tpd": 200_000},
+    },
+    "gemini": {
+        "label": "Gemini",
+        "tier": "permanent",
+        "dashboard": "https://aistudio.google.com",
+        "limits": {"rpd_per_model": 20},
+    },
+    "sambanova": {
+        "label": "SambaNova",
+        "tier": "credit",
+        "dashboard": "https://cloud.sambanova.ai",
+        "limits": {"credit_usd": 5.0, "credit_days": 90},
+    },
+    "nvidia": {
+        "label": "NVIDIA NIM",
+        "tier": "permanent",
+        "dashboard": "https://build.nvidia.com",
+        "limits": {"rpm": 40},
+    },
+    "mistral": {
+        "label": "Mistral",
+        "tier": "permanent",
+        "dashboard": "https://console.mistral.ai",
+        "limits": {"rps": 1},
+    },
+    "openrouter": {
+        "label": "OpenRouter",
+        "tier": "renewable",
+        "dashboard": "https://openrouter.ai/settings/credits",
+        "limits": {"rpd": 50},
+    },
+}
+
+# Backends that map to a named provider (the worker logs the backend name from the chain).
+BACKEND_PROVIDER = {
+    "claude_code": "claude_code",
+    "gemini": "gemini",
+    **{name: name for name in PROVIDER_INFO if name not in ("claude_code", "gemini")},
+}
+
+
+def _require_admin(request: Request, x_admin_pin: Annotated[str, Header()] = "") -> None:
+    pin = request.app.state.settings.admin_pin
+    if not pin:
+        raise HTTPException(403, "admin PIN not configured")
+    if x_admin_pin != pin:
+        raise HTTPException(403, "invalid PIN")
+
+
+AdminAuth = Annotated[None, Depends(_require_admin)]
+
+
+def _usage_rows(db: sqlite3.Connection, since: str) -> dict[str, dict[str, int]]:
+    """Aggregate api_usage rows by backend since a given ISO timestamp."""
+    rows = db.execute(
+        "SELECT backend, COUNT(*), COALESCE(SUM(input_tokens), 0), "
+        "COALESCE(SUM(output_tokens), 0) FROM api_usage "
+        "WHERE created_at >= ? GROUP BY backend",
+        (since,),
+    ).fetchall()
+    out: dict[str, dict[str, int]] = {}
+    for backend, count, inp, outp in rows:
+        provider = BACKEND_PROVIDER.get(backend, backend)
+        prev = out.get(provider, {"requests": 0, "input_tokens": 0, "output_tokens": 0})
+        out[provider] = {
+            "requests": prev["requests"] + count,
+            "input_tokens": prev["input_tokens"] + inp,
+            "output_tokens": prev["output_tokens"] + outp,
+        }
+    return out
+
+
+def _warnings(provider: str, info: dict[str, Any], today: dict[str, int]) -> list[str]:
+    limits = info.get("limits", {})
+    warns: list[str] = []
+    reqs = today.get("requests", 0)
+    tokens = today.get("input_tokens", 0) + today.get("output_tokens", 0)
+    if "rpd" in limits and reqs >= limits["rpd"] * 0.8:
+        warns.append(f"Daily requests at {reqs}/{limits['rpd']} ({reqs * 100 // limits['rpd']}%)")
+    if "tpd" in limits and tokens >= limits["tpd"] * 0.8:
+        warns.append(
+            f"Daily tokens at {tokens:,}/{limits['tpd']:,} ({tokens * 100 // limits['tpd']}%)"
+        )
+    if info.get("tier") == "credit":
+        credit = limits.get("credit_usd", 0)
+        if credit:
+            warns.append(f"Credit-based (${credit:.0f}): check balance on dashboard")
+    return warns
+
+
+@router.get("/admin/usage", tags=["admin"])
+def admin_usage(db: Db, request: Request, _auth: AdminAuth) -> dict[str, Any]:
+    """PIN-protected usage stats for the settings page."""
+    settings = request.app.state.settings
+    now = datetime.now(ZoneInfo("UTC"))
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    week_start = (now - timedelta(days=7)).isoformat()
+
+    today = _usage_rows(db, today_start)
+    week = _usage_rows(db, week_start)
+    total = _usage_rows(db, "2000-01-01T00:00:00")
+
+    key_attrs = {
+        "gemini": "gemini_api_key",
+        "claude_code": "claude_code_path",
+        **{
+            name: f"{name}_api_key"
+            for name in PROVIDER_INFO
+            if name not in ("gemini", "claude_code")
+        },
+    }
+
+    providers: dict[str, Any] = {}
+    for name, info in PROVIDER_INFO.items():
+        attr = key_attrs.get(name, "")
+        if name == "claude_code":
+            configured = settings.use_claude_code
+        else:
+            configured = bool(getattr(settings, attr, ""))
+        t = today.get(name, {"requests": 0, "input_tokens": 0, "output_tokens": 0})
+        w = week.get(name, {"requests": 0, "input_tokens": 0, "output_tokens": 0})
+        a = total.get(name, {"requests": 0, "input_tokens": 0, "output_tokens": 0})
+        providers[name] = {
+            **info,
+            "configured": configured,
+            "usage": {"today": t, "week": w, "all_time": a},
+            "warnings": _warnings(name, info, t),
+        }
+
+    job_data: dict[str, dict[str, int]] = {}
+    for kind, status, n in db.execute(
+        "SELECT kind, status, COUNT(*) FROM jobs GROUP BY kind, status"
+    ):
+        job_data.setdefault(kind, {})[status] = n
+
+    return {"providers": providers, "jobs": job_data}

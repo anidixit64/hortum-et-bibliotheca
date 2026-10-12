@@ -618,3 +618,50 @@ body {
   border-top-color: var(--accent); animation: spin 0.9s linear infinite; flex: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+
+/* Admin / Settings page */
+.admin-gate { display: flex; justify-content: center; padding-top: 4rem; }
+.admin-pin-form { max-width: 360px; text-align: center; }
+.admin-pin-form h2 { margin-top: 0; }
+.pin-row { display: flex; gap: 0.5rem; justify-content: center; margin-top: 0.6rem; }
+.pin-input { width: 8rem; text-align: center; font-size: 1.1rem; letter-spacing: 0.15em;
+  border: 1px solid var(--border); border-radius: 8px; padding: 0.45rem; background: var(--surface); }
+.pin-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.admin-page { max-width: 900px; margin: 0 auto; }
+.admin-page h1 { margin-bottom: 0.3rem; }
+.admin-section { margin-top: 1.5rem; }
+.admin-section h2 { font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 0.5rem; }
+
+.provider-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+.admin-provider { padding: 1rem; }
+.admin-provider.unconfigured { opacity: 0.6; }
+.provider-header { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.provider-header h3 { margin: 0; font-size: 1rem; }
+.pill.subscription { background: var(--accent); color: var(--surface); }
+.pill.permanent { background: var(--good); color: #fff; }
+.pill.credit { background: var(--warn); color: #fff; }
+.pill.renewable { background: var(--accent-2); color: #fff; }
+.unconfigured-note { font-style: italic; }
+
+.admin-warnings { margin: 0.5rem 0; }
+.admin-warning { margin: 0; padding: 0.3rem 0.5rem; background: color-mix(in srgb, var(--warn), transparent 85%);
+  border-left: 3px solid var(--warn); border-radius: 3px; font-size: 0.85rem; color: var(--warn); }
+
+.usage-stats { margin-top: 0.6rem; display: flex; flex-direction: column; gap: 0.35rem; }
+.usage-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
+.usage-label { min-width: 8rem; color: var(--muted); }
+.usage-bar { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.usage-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+.usage-ok { background: var(--good); }
+.usage-caution { background: var(--warn); }
+.usage-danger { background: var(--bad); }
+.usage-value { font-variant-numeric: tabular-nums; min-width: 6rem; text-align: right; }
+
+.dashboard-link { display: inline-block; margin-top: 0.5rem; font-size: 0.85rem; }
+
+.job-grid { display: flex; flex-direction: column; gap: 0.25rem; }
+.job-row { display: flex; gap: 1rem; font-size: 0.9rem; }
+.job-kind { font-weight: 600; min-width: 8rem; }
+
+.admin-refresh { margin: 1.5rem 0; }

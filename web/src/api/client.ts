@@ -1,5 +1,6 @@
 // The browser talks only to the gateway: /api/catalog/..., /api/content/... and /api/study/...
 import type {
+  AdminUsage,
   BuzzOut,
   Clue,
   DueCard,
@@ -106,5 +107,10 @@ export const api = {
     request<{ result: string }>(study(`/buzzes/${buzzId}`), {
       method: 'PATCH',
       body: JSON.stringify({ result }),
+    }),
+
+  adminUsage: (pin: string) =>
+    request<AdminUsage>(content('/admin/usage'), {
+      headers: { 'X-Admin-Pin': pin },
     }),
 }

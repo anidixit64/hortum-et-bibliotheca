@@ -318,6 +318,29 @@ export interface WrittenSummary {
   source: { title: string; url: string; license: string } | null
 }
 
+// --- Admin: usage tracking per provider.
+
+export interface UsageBucket {
+  requests: number
+  input_tokens: number
+  output_tokens: number
+}
+
+export interface ProviderEntry {
+  label: string
+  tier: 'subscription' | 'permanent' | 'credit' | 'renewable'
+  dashboard: string | null
+  limits: Record<string, number>
+  configured: boolean
+  usage: { today: UsageBucket; week: UsageBucket; all_time: UsageBucket }
+  warnings: string[]
+}
+
+export interface AdminUsage {
+  providers: Record<string, ProviderEntry>
+  jobs: Record<string, Record<string, number>>
+}
+
 export type ContentKind = keyof SectionPayloads
 
 export type SectionStatus = 'ok' | 'empty' | 'unavailable' | 'pending' | 'failed'
