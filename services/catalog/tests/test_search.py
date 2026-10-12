@@ -86,3 +86,23 @@ def test_503_until_corpus_is_built(tmp_path: Path) -> None:
 
 def test_underlined_fragment_ranks_below_a_main_title(corpus: Path) -> None:
     assert search(corpus, "the republic")[0]["name"] == "Republic (Plato)"
+
+
+def lookup(corpus: Path, names: list[str], exclude: str | None = None) -> dict:
+    client = TestClient(build_app(Settings(corpus_path=corpus)))
+    response = client.post("/topics/lookup", json={"names": names, "exclude": exclude})
+    assert response.status_code == 200
+    return {name: link["id"] for name, link in response.json().items()}
+
+
+def test_names_on_a_page_link_to_their_own_topics(corpus: Path) -> None:
+    found = lookup(corpus, ["Freddie Mercury", "France", "Soccer", "The"], exclude="Q41")
+    # An exact strong name links; "Soccer" is only an accepted alias, too loose for a
+    # single word; "The" is never a name.
+    assert found == {"Freddie Mercury": "Q15869", "France": "Q142"}
+
+
+def test_shared_names_and_the_pages_own_names_do_not_link(corpus: Path) -> None:
+    assert lookup(corpus, ["Mercury"]) == {}  # the planet or the element: don't guess
+    assert lookup(corpus, ["Social science", "France"], exclude="Q41") == {"France": "Q142"}
+    assert lookup(corpus, ["Republic"]) == {"Republic": "Q123397"}  # France's is underlined

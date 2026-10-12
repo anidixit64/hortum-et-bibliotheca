@@ -16,6 +16,46 @@ export function parseMarks(text: string): Piece[] {
   return out
 }
 
+/** Extract capitalized names from summary text (after stripping [[rank|words]] marks).
+ *  Collects phrases of capitalized words joined by lowercase connectors (of, the, and…),
+ *  strips leading articles, and sends the result to the lookup endpoint which filters to
+ *  actual topics. Over-extraction is fine — the backend rejects non-topics. */
+export function extractProperNouns(text: string): string[] {
+  const plain = text.replace(/\[\[\d+\|([^\]]+)\]\]/g, '$1')
+  const names = new Set<string>()
+  const JOINER = /^(of|the|and|in|on|at|for|de|von|van|del|di|le|la|el|al|ibn|bin|y|e|da|du|des|den)$/i
+  // Split into sentences so a period breaks a phrase ("Brussels. Napoleon" → two names).
+  for (const sentence of plain.split(/(?<=[.!?])\s+/)) {
+    const ws = sentence.split(/\s+/).filter(Boolean)
+    for (let i = 0; i < ws.length; i++) {
+      const w = ws[i].replace(/[.,;:!?)"]+$/, '').replace(/^[("]+/, '')
+      if (!/^[A-Z][a-zA-Z'-]*$/.test(w)) continue
+      const parts = [w]
+      let j = i + 1
+      while (j < ws.length) {
+        const raw = ws[j].replace(/[.,;:!?)"]+$/, '').replace(/^[("]+/, '')
+        if (/^[A-Z][a-zA-Z'-]*$/.test(raw)) {
+          parts.push(raw)
+          j++
+        } else if (JOINER.test(raw) && j + 1 < ws.length && /^[A-Z]/.test(ws[j + 1])) {
+          parts.push(raw)
+          j++
+        } else {
+          break
+        }
+      }
+      // Strip a leading article: "The Battle of Waterloo" → "Battle of Waterloo"
+      const full = parts.join(' ')
+      const trimmed = full.replace(/^(The|A|An)\s+/, '')
+      if (trimmed.length > 1) names.add(trimmed)
+      // Also add the full form if different (some topics include the article).
+      if (full !== trimmed && full.length > 1) names.add(full)
+      i = j - 1
+    }
+  }
+  return [...names]
+}
+
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /** Other clues named in a text (by label or spelling, first mention only), as pieces:

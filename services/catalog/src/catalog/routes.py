@@ -1,8 +1,9 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from pydantic import BaseModel, Field
 
-from catalog.search import SearchIndex, SearchResult
+from catalog.search import SearchIndex, SearchResult, TopicLink
 from catalog.topics import TopicStore, Tossup, TossupPage
 
 router = APIRouter()
@@ -29,6 +30,20 @@ def search(
     limit: Annotated[int, Query(ge=1, le=50)] = 10,
 ) -> list[SearchResult]:
     return index.search(q, limit)
+
+
+class LookupRequest(BaseModel):
+    names: list[str] = Field(max_length=300)
+    exclude: str | None = None  # the page's own topic
+
+
+@router.post("/topics/lookup", tags=["topics"])
+def lookup(
+    index: Annotated[SearchIndex, Depends(get_index)], body: LookupRequest
+) -> dict[str, TopicLink]:
+    """The names (proper nouns on a page, clue labels) that are topics of their own, so
+    the page can link them: {"Battle of Waterloo": {"id": "Q48314", ...}}."""
+    return index.lookup(body.names, body.exclude)
 
 
 @router.get(

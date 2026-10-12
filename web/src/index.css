@@ -473,6 +473,17 @@ details h3 {
   flex-direction: column;
   gap: 0.35rem;
 }
+.topic-link {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid var(--accent-soft);
+}
+.topic-link:hover {
+  border-bottom-color: var(--accent);
+}
+.topic-link-sample {
+  border-bottom: 1px solid var(--accent-soft);
+}
 .one-line {
   margin: 0.2rem 0;
   color: var(--muted);

@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api/client'
-import type { Clue, SectionPayloads, TopicRecord, TopicStats } from '../api/types'
+import type { Clue, SectionPayloads, TopicLink, TopicRecord, TopicStats } from '../api/types'
 import { ClueList } from '../components/ClueList'
 import { Gallery, Reading, Videos, WikiSummary } from '../components/Enrichment'
 import { FunFacts, Hook, Summary } from '../components/Written'
@@ -12,6 +12,7 @@ import { Timeline } from '../components/Timeline'
 import { ExhibitTimeline, Feature } from '../components/Special'
 import { TopicMap } from '../components/TopicMap'
 import { applyCleanup, CLEANED_FROM } from '../lib/cleanClues'
+import { extractProperNouns } from '../lib/marks'
 import { percent } from '../lib/format'
 import { useTopicTheme } from '../lib/theme'
 import { HeaderImage } from '../components/HeaderImage'
@@ -55,6 +56,23 @@ export function TopicPage() {
     cleanedSection?.status === 'ok'
       ? (cleanedSection.payload as SectionPayloads['clues']).clues
       : null
+
+  // Topic links: proper nouns in the summary + clue labels that are themselves topics.
+  const [topicLinks, setTopicLinks] = useState<Record<string, TopicLink>>({})
+  const topicId = current?.topic.id
+  useEffect(() => {
+    if (!topicId) return
+    // Collect names to look up: clue labels + proper nouns from the summary text.
+    const names: string[] = []
+    if (cleaned) names.push(...cleaned.map((c) => c.label))
+    if (written) names.push(...extractProperNouns(written.summary))
+    if (!names.length) return
+    const unique = [...new Set(names)]
+    api
+      .topicLinks(unique, topicId)
+      .then(setTopicLinks)
+      .catch(() => setTopicLinks({}))
+  }, [topicId, written?.summary, cleaned?.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // The cleanup was made from the top 25 raw clues: load the ones past the first page.
   const needRaw = cleaned !== null && current !== null && more.key !== key
@@ -144,7 +162,7 @@ export function TopicPage() {
   const room = (id: string, title: string, body: ReactNode) => rooms.push({ id, title, body })
   if (content) {
     room('introduction', 'Introduction', written
-      ? <Summary summary={written} explanations={explanations} />
+      ? <Summary summary={written} explanations={explanations} topicLinks={topicLinks} />
       : (
         <>
           {isWriting('summary') && (
@@ -174,7 +192,8 @@ export function TopicPage() {
         </p>
       )}
       <ClueList clues={shown} explanations={cleaned ? explanations : undefined}
-                writing={isWriting('explanations') || isWriting('clues')} />
+                writing={isWriting('explanations') || isWriting('clues')}
+                topicLinks={topicLinks} />
       {shown.length < total && (
         <button onClick={showMore} disabled={loadingMore}>
           {loadingMore ? 'Loading…' : `Show ${Math.min(MORE, total - shown.length)} more`}

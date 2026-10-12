@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import type { Explanation, FunFact, WrittenSummary } from '../api/types'
+import { Link } from 'react-router-dom'
+import type { Explanation, FunFact, TopicLink, WrittenSummary } from '../api/types'
 import { linkClues, parseMarks, type Piece } from '../lib/marks'
 
 /** A clue named in the text: bold; hover or tap shows its one-line summary and a link to
@@ -25,12 +26,41 @@ export function ClueMention({ text, rank, line }: { text: string; rank: number; 
   )
 }
 
-function Pieces({ pieces, lines }: { pieces: Piece[]; lines: Map<number, string> }) {
+/** Render a plain-text span, linking any proper nouns that are themselves topics. */
+function LinkedText({ text, links }: { text: string; links: Record<string, TopicLink> }) {
+  const keys = Object.keys(links)
+  if (!keys.length) return <>{text}</>
+  // Build a regex matching the names, longest first, to find them in the text.
+  const sorted = keys.sort((a, b) => b.length - a.length)
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const pattern = new RegExp(`(${sorted.map(esc).join('|')})`, 'gi')
+  const parts = text.split(pattern)
+  // Build a case-insensitive lookup: the split preserves the original casing of the
+  // matched text, but the keys in `links` may differ in case.
+  const byLower = new Map(keys.map((k) => [k.toLowerCase(), links[k]]))
+  return (
+    <>
+      {parts.map((part, i) => {
+        const link = byLower.get(part.toLowerCase())
+        if (link) {
+          return (
+            <Link key={i} to={`/topic/${encodeURIComponent(link.id)}`} className="topic-link">
+              {part}
+            </Link>
+          )
+        }
+        return <span key={i}>{part}</span>
+      })}
+    </>
+  )
+}
+
+function Pieces({ pieces, lines, topicLinks = {} }: { pieces: Piece[]; lines: Map<number, string>; topicLinks?: Record<string, TopicLink> }) {
   return (
     <>
       {pieces.map((p, i) =>
         p.rank === undefined ? (
-          <span key={i}>{p.text}</span>
+          <LinkedText key={i} text={p.text} links={topicLinks} />
         ) : (
           <ClueMention key={i} text={p.text} rank={p.rank} line={lines.get(p.rank)} />
         ),
@@ -46,16 +76,18 @@ export function Hook({ summary }: { summary: WrittenSummary }) {
 export function Summary({
   summary,
   explanations,
+  topicLinks = {},
 }: {
   summary: WrittenSummary
   explanations: Explanation[]
+  topicLinks?: Record<string, TopicLink>
 }) {
   const lines = new Map(explanations.map((e) => [e.rank, e.one_line]))
   return (
     <>
       {summary.summary.split(/\n\s*\n/).map((para, i) => (
         <p key={i} className="prose">
-          <Pieces pieces={parseMarks(para)} lines={lines} />
+          <Pieces pieces={parseMarks(para)} lines={lines} topicLinks={topicLinks} />
         </p>
       ))}
       <p className="muted small attribution">
@@ -71,7 +103,8 @@ export function Summary({
         ) : (
           'general knowledge'
         )}
-        . Bold terms are clues: hover or tap for a summary.
+        . Bold terms are clues; <span className="topic-link-sample">linked names</span> have their
+        own page.
       </p>
     </>
   )

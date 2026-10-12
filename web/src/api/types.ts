@@ -188,6 +188,14 @@ export interface Stats {
   buzzing: BuzzStats
 }
 
+// --- Topic links: proper nouns and clue labels that are topics of their own.
+
+export interface TopicLink {
+  id: string
+  name: string
+  n_tossups: number
+}
+
 // --- Content service (Phase 5): fetched per topic, cached, filled in by a background worker.
 
 export interface WikiSection {

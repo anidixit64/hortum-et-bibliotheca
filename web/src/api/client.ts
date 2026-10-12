@@ -7,6 +7,7 @@ import type {
   SearchResult,
   Stats,
   TopicContent,
+  TopicLink,
   TopicRecord,
   TopicStats,
   Tossup,
@@ -74,6 +75,13 @@ export const api = {
       content(`/topics/${encodeURIComponent(topicId)}/explain-more?through=${through}`),
       { method: 'POST' },
     ),
+
+  /** Names (proper nouns, clue labels) that are topics of their own — for linking. */
+  topicLinks: (names: string[], exclude?: string) =>
+    request<Record<string, TopicLink>>(catalog('/topics/lookup'), {
+      method: 'POST',
+      body: JSON.stringify({ names, exclude: exclude ?? null }),
+    }),
 
   follow: (topicId: string) =>
     request<{ cards_created: number; cards_total: number }>(
