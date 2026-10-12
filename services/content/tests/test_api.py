@@ -262,3 +262,19 @@ def test_a_section_from_an_older_fetcher_is_shown_and_fetched_again(tmp_path: Pa
     wiki = content["sections"]["wiki"]
     assert wiki["payload"]["lead"] == "Old." and wiki["stale"] and content["status"] == "partial"
     assert jobs.open_kinds(conn, "Q1").get("wiki") == "queued"
+
+
+def test_sections_needing_a_failed_section_fail_instead_of_waiting_forever(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = Settings(_env_file=None, db_path=tmp_path / "content.db")  # type: ignore[call-arg]
+    conn = build_app(settings).state.db
+    jobs.enqueue(conn, "Q1", "clues")
+    clues = jobs.claim(conn)
+    assert clues is not None
+    jobs.fail(conn, clues, "the model kept failing", max_attempts=clues.attempts)
+    jobs.enqueue(conn, "Q1", "summary")
+    summary = jobs.claim(conn)
+    assert summary is not None
+    worker.run_generation(conn, settings, catalog(), summary)
+    assert jobs.open_kinds(conn, "Q1") == {"clues": "failed", "summary": "failed"}

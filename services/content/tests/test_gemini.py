@@ -44,3 +44,13 @@ def test_per_minute_limits_wait_minutes_and_daily_quotas_wait_for_midnight() -> 
     assert soon - datetime.now(UTC) < timedelta(minutes=5)
     later = gemini.rate_limit_until("Quota exceeded: GenerateRequestsPerDayPerProjectPerModel")
     assert later == gemini.next_pacific_midnight()
+
+
+def test_the_json_is_found_after_gemma_reasoning() -> None:
+    assert gemini.reply_json([{"text": '{"a": 1}'}]) == {"a": 1}
+    assert gemini.reply_json([{"text": "plan", "thought": True}, {"text": '{"a": 2}'}]) == {"a": 2}
+    reasoning = '*   Goal: facts {like this}\n\n```json\n{"a": 3}\n```'
+    assert gemini.reply_json([{"text": reasoning}]) == {"a": 3}
+    assert gemini.reply_json([{"text": 'Thinking about it.\n{"a": 4}'}]) == {"a": 4}
+    with pytest.raises(ValueError):
+        gemini.reply_json([{"text": "no json here"}])
