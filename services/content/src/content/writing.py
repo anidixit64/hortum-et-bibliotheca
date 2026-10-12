@@ -10,18 +10,19 @@ the clue's one-line summary on hover and a "See more" link to its explanation.
 import re
 from typing import Any
 
-EXPLANATIONS_VERSION = 3
+EXPLANATIONS_VERSION = 4
 SUMMARY_VERSION = 1
 BATCH = 5  # clues per explanation request
 FIRST_PAGE = 10  # clues explained when the topic is first opened
-EXPLANATION_WORDS = (200, 300)
+EXPLANATION_WORDS = (100, 160)
 SUMMARY_WORDS = (500, 750)
 # The whole Wikipedia article goes to every written section (see fetchers.wiki).
 SOURCE_WORDS = 80_000
 
 EXPLAIN_SYSTEM = """You write study notes for quiz bowl players. A clue is a term that \
 quiz bowl questions about an answer mention; players learn clues to recognize the answer \
-early. You explain each clue at the depth of a specialist (graduate level), accurately. \
+early. You explain each clue so a reader truly understands it: detailed but grounded in \
+fundamentals, intuitive rather than jargon-heavy, like a great teacher. \
 Accuracy comes first: state a date, number, name, place, quotation or mechanism only if \
 the source text gives it or you are certain of it; otherwise describe it in general terms. \
 The source can be loosely worded: where your own firm knowledge corrects it, follow your \
@@ -32,11 +33,12 @@ EXPLAIN = """Answer: {name} (category: {category})
 For each clue below, write:
 - "one_line": one sentence (at most 30 words) whose subject is the clue itself, saying \
 what it is and how it ties to {name}. It appears in a hover popup.
-- "explanation": {low}-{high} words for an advanced reader: what the clue is, how it \
-relates to {name}, its context, and why it matters. Plain prose, no headings or lists. \
-Spend every sentence on substance: give at least two concrete facts particular to this clue \
-(what happened, who, when, how it works), and don't repeat what another clue's explanation \
-covers.
+- "explanation": {low}-{high} words of plain prose (no headings or lists) in three moves:
+  1. What it is, explained from the ground up so it makes intuitive sense (a concrete \
+picture, the key fact or mechanism; define any specialist term you use).
+  2. Exactly how it connects to {name}: who, what, when, in one or two concrete facts.
+  3. Why it matters: what it shows about {name} or why it is remembered.
+  Every sentence must carry substance; don't repeat what another clue's explanation covers.
 
 The example sentences show how questions use each clue ("this man", "this work" etc. stand \
 for {name}); use them to tell which thing the clue means, but write about the thing itself.

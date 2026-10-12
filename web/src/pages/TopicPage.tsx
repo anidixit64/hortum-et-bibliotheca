@@ -7,7 +7,7 @@ import { ClueList } from '../components/ClueList'
 import { Gallery, Reading, Videos, WikiSummary } from '../components/Enrichment'
 import { FunFacts, Hook, Summary } from '../components/Written'
 import { Heatmap } from '../components/Heatmap'
-import { ConfusionList, RelatedList } from '../components/Related'
+import { ConfusionList } from '../components/Related'
 import { Timeline } from '../components/Timeline'
 import { ExhibitTimeline, Feature } from '../components/Special'
 import { TopicMap } from '../components/TopicMap'
@@ -190,16 +190,9 @@ export function TopicPage() {
   ))
   room('connections', 'Connections', (
     <>
-      <div className="grid-2">
-        <div>
-          <h3>Related</h3>
-          <RelatedList related={record.related} />
-        </div>
-        <div>
-          <h3>Don't confuse with</h3>
-          <ConfusionList confusions={record.confusions} />
-        </div>
-      </div>
+      {/* Related topics are left out for now: the summary links the topics it names. */}
+      <h3>Don't confuse with</h3>
+      <ConfusionList confusions={record.confusions} />
       {record.map.length > 0 && (
         <>
           <h3>Map</h3>

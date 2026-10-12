@@ -95,7 +95,7 @@ CANDIDATES = {
 def fake_reply(backends: Any, request: Any, check: Any = None) -> Reply:
     """A model that merges the two battle royals, drops the stand-in, and writes."""
     if request.task == "clue_explanations":
-        text = " ".join(["word"] * 220)
+        text = " ".join(["word"] * 130)
         data: dict[str, Any] = {
             "explanations": [
                 {"rank": r, "one_line": f"Clue {r} in one line.", "explanation": text}
@@ -221,7 +221,7 @@ def test_show_more_explains_only_the_new_clues(
         if request.task == "clue_explanations":
             ranks = [int(r) for r in re.findall(r'"rank": (\d+)', request.prompt)]
             asked.append(ranks)
-            text = " ".join(["word"] * 220)
+            text = " ".join(["word"] * 130)
             data = {"explanations": [{"rank": r, "one_line": f"Clue {r}.", "explanation": text}
                                      for r in ranks]}  # fmt: skip
             return Reply(data, "fake", "fake-model", 1, 1)

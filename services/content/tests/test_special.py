@@ -36,3 +36,11 @@ def test_forms_and_feature_checks() -> None:
     assert "words" in str(special.feature_problem({**good, "body": "short"}))
     long_step = [{"label": "a very long step label that goes on and on", "detail": "x"}]
     assert "short" in str(special.feature_problem({**good, "steps": long_step}))
+
+
+def test_history_and_science_features_are_short() -> None:
+    assert special.feature_words("History") == special.SHORT_FEATURE_WORDS
+    assert special.feature_words("Science") == special.SHORT_FEATURE_WORDS
+    assert special.feature_words("Literature") == special.FEATURE_WORDS
+    short = {"title": "T", "body": " ".join(["w"] * 700)}
+    assert "words" in str(special.feature_problem(short, special.SHORT_FEATURE_WORDS))

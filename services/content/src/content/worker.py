@@ -469,15 +469,15 @@ def write_special(
         category=category or "unknown",
         title=title,
         instructions=instructions.format(name=name),
-        low=special.FEATURE_WORDS[0],
-        high=special.FEATURE_WORDS[1],
+        low=special.feature_words(category)[0],
+        high=special.feature_words(category)[1],
         diagram=diagram,
         source=source,
     )
     reply = chain.run(
         chain.build(settings.writing_chain, settings),
         Request("feature", special.FEATURE_SYSTEM, prompt, special.FEATURE_SCHEMA),
-        special.feature_problem,
+        functools.partial(special.feature_problem, words=special.feature_words(category)),
     )
     total = reply if total is None else add(reply, total)  # recorded as the feature's model
     payload = {
