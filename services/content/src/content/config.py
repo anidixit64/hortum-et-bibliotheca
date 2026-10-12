@@ -133,16 +133,26 @@ class Settings(ServiceSettings):
     use_claude_code: bool = True  # false: Gemini only, and the worker can run in Docker
     claude_code_path: str = ""  # default: `claude` on the PATH or the VS Code extension's copy
     gemini_api_key: str = ""  # free key from Google AI Studio
-    # Claude Code first (the subscription), then free Gemini models. The free tier caps each
-    # model separately (gemini-3.8-flash: 20 requests a day), so the chains walk through
-    # several: when one is out for the day the next takes over. Pro models aren't free;
-    # Gemma writes its reasoning before the JSON (see generate.gemini.reply_json).
+    groq_api_key: str = ""  # free key from console.groq.com
+    cerebras_api_key: str = ""  # free key from cloud.cerebras.ai
+    openrouter_api_key: str = ""  # free key from openrouter.ai/keys
+    nvidia_api_key: str = ""  # free key from build.nvidia.com
+    github_api_key: str = ""  # free token from github.com/settings/tokens
+    mistral_api_key: str = ""  # free key from console.mistral.ai
+    # Claude Code first (the subscription), then free providers. Each provider's free tier
+    # has its own daily/minute caps, so the chains walk through several: when one is out
+    # the next takes over. Groq and Cerebras are fast inference providers with generous
+    # free tiers (14,400 RPD); Gemini is 20 RPD per model but has many models.
     light_chain: str = (
-        "claude_code:haiku,gemini:gemini-3.5-flash-lite,gemini:gemini-3.1-flash-lite,"
+        "claude_code:haiku,"
+        "groq:llama-3.3-70b-versatile,cerebras:llama-3.3-70b,"
+        "gemini:gemini-3.5-flash-lite,gemini:gemini-3.1-flash-lite,"
         "gemini:gemma-4-31b-it,gemini:gemma-4-26b-a4b-it"
     )
     writing_chain: str = (
-        "claude_code:opus,gemini:gemini-3.8-flash,gemini:gemini-3.5-flash,"
+        "claude_code:opus,"
+        "groq:llama-3.3-70b-versatile,cerebras:llama-3.3-70b,"
+        "gemini:gemini-3.8-flash,gemini:gemini-3.5-flash,"
         "gemini:gemini-3.7-flash,gemini:gemma-4-31b-it"
     )
     generation_timeout_seconds: float = 300.0

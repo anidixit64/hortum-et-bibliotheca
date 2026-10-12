@@ -8,13 +8,26 @@ from content.config import Settings
 from content.generate import Backend, GenerationError, QuotaExceeded, Reply, Request
 from content.generate.claude_code import ClaudeCode
 from content.generate.gemini import Gemini
+from content.generate.openai_compat import OpenAICompat
 
 log = logging.getLogger(__name__)
 
 
+# OpenAI-compatible providers: name → (base_url, default_model, settings_key_for_api_key).
+OPENAI_PROVIDERS: dict[str, tuple[str, str]] = {
+    "groq": ("https://api.groq.com/openai/v1", "llama-3.3-70b-versatile"),
+    "cerebras": ("https://api.cerebras.ai/v1", "llama-3.3-70b"),
+    "openrouter": ("https://openrouter.ai/api/v1", "meta-llama/llama-3.3-70b-instruct"),
+    "nvidia": ("https://integrate.api.nvidia.com/v1", "meta/llama-3.3-70b-instruct"),
+    "github": ("https://models.inference.ai.azure.com", "gpt-4o"),
+    "mistral": ("https://api.mistral.ai/v1", "mistral-large-latest"),
+}
+
+
 def build(spec: str, settings: Settings) -> list[Backend]:
-    """``"claude_code:haiku,gemini:gemini-3.8-flash"`` -> backends, dropping Claude
-    Code when ``use_claude_code`` is off."""
+    """``"claude_code:haiku,gemini:gemini-3.8-flash,groq:llama-3.3-70b-versatile"``
+    -> backends, dropping Claude Code when ``use_claude_code`` is off and skipping
+    providers with no API key."""
     backends: list[Backend] = []
     for part in filter(None, (p.strip() for p in spec.split(","))):
         name, _, model = part.partition(":")
@@ -29,6 +42,19 @@ def build(spec: str, settings: Settings) -> list[Backend]:
                 Gemini(model or "gemini-3.8-flash", settings.gemini_api_key,
                        settings.generation_timeout_seconds)
             )  # fmt: skip
+        elif name in OPENAI_PROVIDERS:
+            base_url, default_model = OPENAI_PROVIDERS[name]
+            key_attr = f"{name}_api_key"
+            api_key = getattr(settings, key_attr, "")
+            backends.append(
+                OpenAICompat(
+                    model=model or default_model,
+                    api_key=api_key,
+                    base_url=base_url,
+                    timeout=settings.generation_timeout_seconds,
+                    provider=name,
+                )
+            )
         else:
             raise ValueError(f"unknown backend {name!r} in chain {spec!r}")
     return backends

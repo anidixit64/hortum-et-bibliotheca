@@ -11,7 +11,7 @@ import re
 from typing import Any
 
 EXPLANATIONS_VERSION = 4
-SUMMARY_VERSION = 1
+SUMMARY_VERSION = 2
 BATCH = 5  # clues per explanation request
 FIRST_PAGE = 10  # clues explained when the topic is first opened
 EXPLANATION_WORDS = (100, 160)
@@ -76,19 +76,24 @@ EXPLAIN_SCHEMA: dict[str, Any] = {
     "required": ["explanations"],
 }
 
-SUMMARY_SYSTEM = """You write the opening of a study page about one quiz bowl answer. \
-Your writing is engaging and vivid, aimed at understanding and curiosity rather than \
-technical detail, readable by a high school student, while naming specialist terms \
-correctly. You use only facts supported by the source text or widely established; you \
-never invent quotations, dates or numbers."""
+SUMMARY_SYSTEM = """You write the opening essay of a study page about one quiz bowl answer, \
+like the first room of a museum exhibit. Your tone is narrative and conversational — you're \
+a knowledgeable friend walking someone through a topic they're curious about, not a \
+textbook. Use vivid language, tell the story, make connections, and let your enthusiasm \
+show. Name specialist terms correctly but explain them in passing, the way a good podcast \
+host would. Accuracy comes first: use only facts from the source text or widely established \
+knowledge; never invent quotations, dates or numbers."""
 
 SUMMARY = """Answer: {name} (category: {category})
 
 Write:
-- "hook": two or three short sentences that make a reader want to learn about {name}: a \
-striking fact, tension or image. No questions to the reader.
-- "summary": {low}-{high} words explaining {name} in an engaging, descriptive way that \
-builds understanding and interest. Paragraphs separated by blank lines, no headings.
+- "hook": two or three punchy sentences that pull a reader in — a striking image, a \
+surprising fact, an irresistible tension. Not a dry summary. No questions to the reader.
+- "summary": {low}-{high} words telling the story of {name}. Write it as a narrative essay: \
+paragraphs that flow from one to the next, building understanding the way a great \
+explainer would. Be conversational without being sloppy — you can use "you" or "imagine", \
+and short sentences for punch, alongside longer ones that develop ideas. Every paragraph \
+should leave the reader wanting to read the next one.
 
 Weave in as many of the clues below as fit naturally (aim for most of them). Mark each \
 mention exactly as [[RANK|the words you write]], e.g. [[3|the Battle Royal]]: RANK is the \
