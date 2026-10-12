@@ -1,5 +1,6 @@
 """Chains: the backends for one tier, tried in order."""
 
+import logging
 from collections.abc import Callable
 from datetime import datetime
 
@@ -7,6 +8,8 @@ from content.config import Settings
 from content.generate import Backend, GenerationError, QuotaExceeded, Reply, Request
 from content.generate.claude_code import ClaudeCode
 from content.generate.gemini import Gemini
+
+log = logging.getLogger(__name__)
 
 
 def build(spec: str, settings: Settings) -> list[Backend]:
@@ -49,11 +52,14 @@ def run(
             except QuotaExceeded as error:
                 if error.retry_at:
                     resets.append(error.retry_at)
+                log.info("%s: %s %s is out (%s), trying the next", request.task, backend.name,
+                         getattr(backend, "model", ""), error)  # fmt: skip
                 last = error
                 break
             problem = check(reply.data) if check else None
             if problem is None:
                 return reply
+            log.info("%s: %s reply rejected (%s)", request.task, reply.model, problem)
             last = GenerationError(problem)
             attempt = Request(
                 attempt.task,
