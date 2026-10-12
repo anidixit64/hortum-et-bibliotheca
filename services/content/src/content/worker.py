@@ -382,6 +382,51 @@ def header_image(images: list[dict[str, Any]]) -> dict[str, Any] | None:
     return max(pool, key=lambda i: i.get("width", 0) * i.get("height", 0))
 
 
+def _related_theme(
+    conn: sqlite3.Connection, catalog: httpx.Client, topic_id: str
+) -> str:
+    """If a closely related topic already has a theme, describe it so the AI can harmonise.
+    Uses the catalog's lookup endpoint to find which clue labels are themselves topics, then
+    checks if any of those topics already have a theme in content.db."""
+    clues_row = conn.execute(
+        "SELECT payload FROM generations WHERE topic_id = ? AND kind = 'clues'", (topic_id,)
+    ).fetchone()
+    if not clues_row:
+        return ""
+    clues = json.loads(clues_row[0]).get("clues", [])
+    labels = [c.get("label", "") for c in clues[:10]]
+    if not labels:
+        return ""
+    try:
+        resp = catalog.post(
+            "/topics/lookup", json={"names": labels, "exclude": topic_id}, timeout=2.0
+        )
+        if resp.status_code != 200:
+            return ""
+        linked: dict[str, dict[str, Any]] = resp.json()
+    except (httpx.HTTPError, ValueError):
+        return ""
+    # Check which linked topics already have a theme.
+    for name, info in linked.items():
+        row = conn.execute(
+            "SELECT payload FROM generations WHERE topic_id = ? AND kind = 'theme'",
+            (info["id"],),
+        ).fetchone()
+        if not row:
+            continue
+        other = json.loads(row[0])
+        light = other.get("light", {})
+        dark = other.get("dark", {})
+        font = other.get("font", "")
+        return (
+            f'The related topic "{name}" already uses these colors — you may harmonise '
+            f"with or reuse them: accent {light.get('accent', '?')}/{dark.get('accent', '?')}, "
+            f"accent2 {light.get('accent2', '?')}/{dark.get('accent2', '?')}, "
+            f"bg {light.get('bg', '?')}/{dark.get('bg', '?')}, font: {font}"
+        )
+    return ""
+
+
 def write_theme(
     conn: sqlite3.Connection, settings: Settings, catalog: httpx.Client, topic_id: str
 ) -> tuple[dict[str, Any], str, Reply | None]:
@@ -409,12 +454,14 @@ def write_theme(
     hook_row = conn.execute(
         "SELECT payload FROM generations WHERE topic_id = ? AND kind = 'summary'", (topic_id,)
     ).fetchone()
+    related = _related_theme(conn, catalog, topic_id)
     prompt = theme.PROMPT.format(
         name=topic["name"],
         category=topic.get("category") or "unknown",
         hook=json.loads(hook_row[0])["hook"] if hook_row else "(not written yet)",
         caption=(header or {}).get("caption") or (header or {}).get("file") or "(no image)",
         palette=", ".join(f"{c['hex']} ({c['share']:.0%})" for c in colors) or "(no image)",
+        related_colors=related,
         fonts="; ".join(f"{k}: {v}" for k, v in theme.FONT_PAIRINGS.items()),
         default=", ".join(f"{mode} {color}" for mode, color in theme.DEFAULT_ACCENT.items()),
     )
