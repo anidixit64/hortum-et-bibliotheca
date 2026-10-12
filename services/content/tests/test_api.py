@@ -247,3 +247,18 @@ def test_show_more_explains_only_the_new_clues(
     assert asked == [[1], [2]]  # rank 1 kept, only rank 2 written
     explained = api.get("/topics/Q1784288/content", params={"enqueue": False}).json()
     assert [c["rank"] for c in explained["sections"]["explanations"]["payload"]["clues"]] == [1, 2]
+
+
+def test_a_section_from_an_older_fetcher_is_shown_and_fetched_again(tmp_path: Path) -> None:
+    settings = Settings(_env_file=None, db_path=tmp_path / "content.db")  # type: ignore[call-arg]
+    app = build_app(settings)
+    conn: sqlite3.Connection = app.state.db
+    with conn:
+        conn.execute(
+            "INSERT INTO enrichments VALUES ('Q1', 'wiki', 'ok', '{\"lead\": \"Old.\"}', 1, "
+            "'2026-01-01T00:00:00+00:00')"
+        )
+    content = TestClient(app).get("/topics/Q1/content").json()
+    wiki = content["sections"]["wiki"]
+    assert wiki["payload"]["lead"] == "Old." and wiki["stale"] and content["status"] == "partial"
+    assert jobs.open_kinds(conn, "Q1").get("wiki") == "queued"

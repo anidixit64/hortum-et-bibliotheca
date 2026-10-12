@@ -235,7 +235,7 @@ def write_explanations(
         jobs.enqueue(conn, topic_id, "wiki", 10)
         raise NotReady("Wikipedia text not fetched yet")
     wiki = json.loads(wiki_row[1]) if wiki_row and wiki_row[0] == "ok" else None
-    source = writing.source_text(wiki, writing.EXPLAIN_SOURCE_WORDS)
+    source = writing.source_text(wiki)
     found, examples = clue_inputs(catalog, topic_id, todo)
     backends = chain.build(settings.light_chain, settings)
     total: Reply | None = None

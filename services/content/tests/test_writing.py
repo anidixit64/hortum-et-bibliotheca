@@ -24,9 +24,10 @@ def test_explanations_need_every_clue_at_length() -> None:
     assert "words" in str(writing.explain_problem(short, [1]))
 
 
-def test_source_text_is_capped() -> None:
+def test_source_text_is_the_whole_article_up_to_a_cap() -> None:
     wiki = {"lead": "lead " * 3000, "sections": [{"heading": "H", "text": "s " * 3000}]}
-    assert len(writing.source_text(wiki).split()) == writing.SOURCE_WORDS
+    assert len(writing.source_text(wiki).split()) == 6001  # every word, plus "H:"
+    assert len(writing.source_text(wiki, 100).split()) == 100
     assert "no Wikipedia" in writing.source_text(None)
 
 
