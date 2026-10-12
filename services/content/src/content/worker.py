@@ -416,6 +416,7 @@ def write_theme(
         caption=(header or {}).get("caption") or (header or {}).get("file") or "(no image)",
         palette=", ".join(f"{c['hex']} ({c['share']:.0%})" for c in colors) or "(no image)",
         fonts="; ".join(f"{k}: {v}" for k, v in theme.FONT_PAIRINGS.items()),
+        default=", ".join(f"{mode} {color}" for mode, color in theme.DEFAULT_ACCENT.items()),
     )
     reply = chain.run(
         chain.build(settings.light_chain, settings),

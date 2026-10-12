@@ -8,12 +8,13 @@ const TREND = { rising: '↑ rising', steady: '→ steady', fading: '↓ fading'
 export function ClueList({
   clues,
   explanations,
+  writing = false,
 }: {
   clues: Clue[]
   explanations?: Explanation[] // written for the cleaned clues; rank = clue rank
+  writing?: boolean // explanations are being written
 }) {
   const [open, setOpen] = useState<number | null>(null)
-  const [explained, setExplained] = useState<number | null>(null)
   const byRank = new Map((explanations ?? []).map((e) => [e.rank, e]))
   const lines = new Map((explanations ?? []).map((e) => [e.rank, e.one_line]))
   const names = clues.map((c) => ({ rank: c.rank, names: [c.label, ...(c.variants ?? [])] }))
@@ -30,16 +31,16 @@ export function ClueList({
               {clue.heatmap.share_in_power > 0.5 && ' · often in power'}
             </span>
           </div>
-          {byRank.get(clue.rank) && <p className="one-line">{byRank.get(clue.rank)!.one_line}</p>}
-          <p className="clue-text">{clue.text}</p>
-          {byRank.get(clue.rank) && (
+          {byRank.get(clue.rank) ? (
             <>
-              <button className="small" onClick={() => setExplained(explained === clue.rank ? null : clue.rank)}>
-                {explained === clue.rank ? 'Hide explanation' : 'Explain this clue'}
-              </button>{' '}
-              {explained === clue.rank && (
-                <ExplanationText explanation={byRank.get(clue.rank)!} names={names} lines={lines} />
-              )}
+              <p className="one-line">{byRank.get(clue.rank)!.one_line}</p>
+              <ExplanationText explanation={byRank.get(clue.rank)!} names={names} lines={lines} />
+              <p className="clue-text muted small">As asked: {clue.text}</p>
+            </>
+          ) : (
+            <>
+              <p className="clue-text">{clue.text}</p>
+              {writing && <p className="muted small writing-note">Explanation being written…</p>}
             </>
           )}
           {clue.cooccurs && clue.cooccurs.length > 0 && (

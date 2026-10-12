@@ -108,12 +108,12 @@ def fake_reply(backends: Any, request: Any, check: Any = None) -> Reply:
     elif request.task == "feature":
         data = {"title": "Walking through", "body": " ".join(["word"] * 700)}
     elif request.task == "theme":
-        light = {t: "#f7f6f2" for t in ("bg", "surface", "accent_soft", "header_tint")}
-        dark = {t: "#15171a" for t in ("bg", "surface", "accent_soft", "header_tint")}
+        light = {t: "#f4ead8" for t in ("bg", "surface", "accent_soft", "header_tint")}
+        dark = {t: "#24161f" for t in ("bg", "surface", "accent_soft", "header_tint")}
         data = {
-            "light": light | {"text": "#222222", "muted": "#555555", "accent": "#2f6f5e",
+            "light": light | {"text": "#222222", "muted": "#555555", "accent": "#7a3b8f",
                               "accent2": "#b5651d"},
-            "dark": dark | {"text": "#eeeeee", "muted": "#aaaaaa", "accent": "#7fc4ad",
+            "dark": dark | {"text": "#eeeeee", "muted": "#aaaaaa", "accent": "#c9a0dc",
                             "accent2": "#e2a160"},
             "font": "classical-serif",
         }  # fmt: skip
@@ -278,3 +278,16 @@ def test_sections_needing_a_failed_section_fail_instead_of_waiting_forever(
     assert summary is not None
     worker.run_generation(conn, settings, catalog(), summary)
     assert jobs.open_kinds(conn, "Q1") == {"clues": "failed", "summary": "failed"}
+
+
+def test_a_page_view_writes_the_summary_and_colors_before_the_rest(tmp_path: Path) -> None:
+    settings = Settings(_env_file=None, db_path=tmp_path / "content.db")  # type: ignore[call-arg]
+    app = build_app(settings)
+    TestClient(app).get("/topics/Q1/content")
+    order = []
+    while job := jobs.claim(app.state.db):
+        order.append(job.kind)
+        jobs.finish(app.state.db, job)
+    assert order.index("clues") < order.index("summary") < order.index("theme")
+    assert order.index("theme") < order.index("explanations") < order.index("facts")
+    assert set(order[:4]) == {"wiki", "images", "books", "videos"}

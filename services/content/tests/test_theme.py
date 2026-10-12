@@ -33,14 +33,18 @@ def test_palette_finds_the_dominant_colors() -> None:
 
 
 def test_problem_and_finish() -> None:
-    light = {t: "#f7f6f2" for t in theme.TOKENS} | {"text": "#cccccc", "muted": "#dddddd",
-                                                    "accent": "#7fc4ad"}  # fmt: skip
-    dark = {t: "#15171a" for t in theme.TOKENS} | {"text": "#444444", "muted": "#333333",
-                                                   "accent": "#2f6f5e"}  # fmt: skip
+    light = {t: "#f4ead8" for t in theme.TOKENS} | {"text": "#cccccc", "muted": "#dddddd",
+                                                    "accent": "#c9a0dc"}  # fmt: skip
+    dark = {t: "#24161f" for t in theme.TOKENS} | {"text": "#444444", "muted": "#333333",
+                                                   "accent": "#7a3b8f"}  # fmt: skip
     data = {"light": light, "dark": dark, "font": "classical-serif"}
     assert theme.problem(data) is None
     assert "hex" in str(theme.problem({**data, "light": {**light, "bg": "white"}}))
     assert "lighter" in str(theme.problem({**data, "light": dark, "dark": light}))
+    # A theme that looks like the site's own grey and teal is asked again.
+    assert "plain grey" in str(theme.problem({**data, "light": {**light, "bg": "#f7f6f2"}}))
+    teal = {**data, "dark": {**dark, "accent": "#7cc2ab"}}
+    assert "default teal" in str(theme.problem(teal))
     done = theme.finish(data)
     for mode in ("light", "dark"):
         colors = done[mode]

@@ -128,13 +128,33 @@ export function TopicPage() {
     }
   }
 
+  // AI sections still being written (the page polls until they arrive).
+  const WRITING: [keyof SectionPayloads, string][] = [
+    ['summary', 'summary'], ['theme', 'colors'], ['explanations', 'clue explanations'],
+    ['facts', 'fun facts'], ['special', 'special sections'],
+  ]
+  const isWriting = (kind: keyof SectionPayloads) => {
+    const s = content?.sections[kind]
+    return !!s && (s.status === 'pending' || !!s.stale)
+  }
+  const writing = WRITING.filter(([kind]) => isWriting(kind)).map(([, name]) => name)
+
   // The exhibit's rooms, numbered in walking order; a room shows only when it has something.
   const rooms: { id: string; title: string; body: ReactNode }[] = []
   const room = (id: string, title: string, body: ReactNode) => rooms.push({ id, title, body })
   if (content) {
     room('introduction', 'Introduction', written
       ? <Summary summary={written} explanations={explanations} />
-      : <WikiSummary section={content.sections.wiki} />)
+      : (
+        <>
+          {isWriting('summary') && (
+            <p className="muted small writing-note">
+              The AI summary is being written. Meanwhile, the opening of the Wikipedia article:
+            </p>
+          )}
+          <WikiSummary section={content.sections.wiki} />
+        </>
+      ))
     room('gallery', 'Gallery', <Gallery section={content.sections.images} />)
   }
   if (special) room('feature', special.feature.form, <Feature special={special} />)
@@ -153,7 +173,8 @@ export function TopicPage() {
           Tidied by AI{cleanedSection?.stale ? ' (updating…)' : ''}
         </p>
       )}
-      <ClueList clues={shown} explanations={cleaned ? explanations : undefined} />
+      <ClueList clues={shown} explanations={cleaned ? explanations : undefined}
+                writing={isWriting('explanations') || isWriting('clues')} />
       {shown.length < total && (
         <button onClick={showMore} disabled={loadingMore}>
           {loadingMore ? 'Loading…' : `Show ${Math.min(MORE, total - shown.length)} more`}
@@ -202,6 +223,12 @@ export function TopicPage() {
             <p className="exhibit-kicker">{topic.category ?? 'Exhibit'}</p>
             <h1 className="exhibit-sign">{topic.name}</h1>
             {written && <Hook summary={written} />}
+            {writing.length > 0 && (
+              <p className="writing-banner" role="status">
+                <span className="spinner" aria-hidden /> Writing this exhibit: {writing.join(', ')}. The
+                page fills in as each part is ready (a few minutes the first time anyone opens a topic).
+              </p>
+            )}
             {topic.description && <p className="muted">{topic.description}</p>}
             {topic.thin && <span className="pill">rarely asked</span>}
           </div>
