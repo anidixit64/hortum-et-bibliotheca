@@ -133,8 +133,18 @@ class Settings(ServiceSettings):
     use_claude_code: bool = True  # false: Gemini only, and the worker can run in Docker
     claude_code_path: str = ""  # default: `claude` on the PATH or the VS Code extension's copy
     gemini_api_key: str = ""  # free key from Google AI Studio
-    light_chain: str = "claude_code:haiku,gemini:gemini-flash-latest"
-    writing_chain: str = "claude_code:opus,gemini:gemini-pro-latest"
+    # Claude Code first (the subscription), then free Gemini models. The free tier caps each
+    # model separately (gemini-3.8-flash: 20 requests a day), so the chains walk through
+    # several: when one is out for the day the next takes over. Pro models aren't free;
+    # Gemma writes its reasoning before the JSON (see generate.gemini.reply_json).
+    light_chain: str = (
+        "claude_code:haiku,gemini:gemini-3.5-flash-lite,gemini:gemini-3.1-flash-lite,"
+        "gemini:gemma-4-31b-it,gemini:gemma-4-26b-a4b-it"
+    )
+    writing_chain: str = (
+        "claude_code:opus,gemini:gemini-3.8-flash,gemini:gemini-3.5-flash,"
+        "gemini:gemini-3.7-flash,gemini:gemma-4-31b-it"
+    )
     generation_timeout_seconds: float = 300.0
     # NER at first open: a Python with spaCy and en_core_web_trf (make ner-env); empty = off.
     ner_python: str = ""

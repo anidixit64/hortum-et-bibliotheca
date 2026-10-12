@@ -3,9 +3,11 @@
 import hashlib
 import json
 import random
+import re
 import sqlite3
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote, quote_plus
 
 from pydantic import BaseModel
 
@@ -45,6 +47,8 @@ class Tossup(BaseModel):
     topic_id: str | None
     clues: list[ClueSpan]
     answer_line: AnswerLine | None
+    # The answer's Wikipedia article, or a Wikipedia search for it when it isn't linked.
+    wikipedia_url: str
 
 
 class TossupPage(BaseModel):
@@ -54,15 +58,16 @@ class TossupPage(BaseModel):
 
 _TOSSUP_COLUMNS = (
     "t.id, s.name, s.year, t.difficulty, t.category, t.subcategory, q.clean_text, "
-    "q.power_word, t.answer_text, t.answer_html, tt.topic_id"
+    "q.power_word, t.answer_text, t.answer_html, tt.topic_id, tp.wikipedia_title"
 )
 _TOSSUP_FIELDS = (
     "id", "set_name", "year", "difficulty", "category", "subcategory", "question",
-    "power_word", "answer", "answer_html", "topic_id",
+    "power_word", "answer", "answer_html", "topic_id", "wikipedia_title",
 )  # fmt: skip
 _TOSSUP_FROM = (
     "FROM tossups t JOIN question_layout q ON q.tossup_id = t.id "
-    "LEFT JOIN sets s ON s.id = t.set_id LEFT JOIN tossup_topics tt ON tt.tossup_id = t.id"
+    "LEFT JOIN sets s ON s.id = t.set_id LEFT JOIN tossup_topics tt ON tt.tossup_id = t.id "
+    "LEFT JOIN topics tp ON tp.id = tt.topic_id"
 )
 
 
@@ -259,6 +264,7 @@ class TopicStore:
     @staticmethod
     def _tossup(conn: sqlite3.Connection, row: tuple[object, ...]) -> Tossup:
         fields: dict[str, object] = dict(zip(_TOSSUP_FIELDS, row, strict=True))
+        title = fields.pop("wikipedia_title")
         spans = conn.execute(
             "SELECT c.ordinal, c.kind, c.word_start, c.word_end, c.in_power, m.topic_clue_id "
             "FROM clues c LEFT JOIN sentence_clues m ON m.clue_id = c.id "
@@ -285,4 +291,14 @@ class TopicStore:
             if parse
             else None
         )
+        main = parse[0] if parse else str(fields["answer"])
+        fields["wikipedia_url"] = wikipedia_url(title if isinstance(title, str) else None, main)
         return Tossup.model_validate(fields)
+
+
+def wikipedia_url(title: str | None, answer: str) -> str:
+    """The linked article, or a Wikipedia search for the answer without its brackets."""
+    if title:
+        return "https://en.wikipedia.org/wiki/" + quote(title.replace(" ", "_"), safe="_(),'")
+    plain = re.sub(r"\s+", " ", re.sub(r"[\[(].*?[\])]", " ", answer)).strip() or answer
+    return "https://en.wikipedia.org/w/index.php?search=" + quote_plus(plain)

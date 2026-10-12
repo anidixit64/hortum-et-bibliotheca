@@ -1,5 +1,6 @@
 """Chains: the backends for one tier, tried in order."""
 
+import logging
 from collections.abc import Callable
 from datetime import datetime
 
@@ -8,9 +9,11 @@ from content.generate import Backend, GenerationError, QuotaExceeded, Reply, Req
 from content.generate.claude_code import ClaudeCode
 from content.generate.gemini import Gemini
 
+log = logging.getLogger(__name__)
+
 
 def build(spec: str, settings: Settings) -> list[Backend]:
-    """``"claude_code:haiku,gemini:gemini-flash-latest"`` -> backends, dropping Claude
+    """``"claude_code:haiku,gemini:gemini-3.8-flash"`` -> backends, dropping Claude
     Code when ``use_claude_code`` is off."""
     backends: list[Backend] = []
     for part in filter(None, (p.strip() for p in spec.split(","))):
@@ -23,7 +26,7 @@ def build(spec: str, settings: Settings) -> list[Backend]:
                 )  # fmt: skip
         elif name == "gemini":
             backends.append(
-                Gemini(model or "gemini-flash-latest", settings.gemini_api_key,
+                Gemini(model or "gemini-3.8-flash", settings.gemini_api_key,
                        settings.generation_timeout_seconds)
             )  # fmt: skip
         else:
@@ -49,11 +52,14 @@ def run(
             except QuotaExceeded as error:
                 if error.retry_at:
                     resets.append(error.retry_at)
+                log.info("%s: %s %s is out (%s), trying the next", request.task, backend.name,
+                         getattr(backend, "model", ""), error)  # fmt: skip
                 last = error
                 break
             problem = check(reply.data) if check else None
             if problem is None:
                 return reply
+            log.info("%s: %s reply rejected (%s)", request.task, reply.model, problem)
             last = GenerationError(problem)
             attempt = Request(
                 attempt.task,

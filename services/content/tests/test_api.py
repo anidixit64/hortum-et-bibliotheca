@@ -1,3 +1,4 @@
+import re
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -28,7 +29,15 @@ def fake_web(request: httpx.Request) -> Any:
     params = request.url.params
     if params.get("prop") == "extracts|info":
         return {
-            "query": {"pages": [{"title": "Invisible Man", "extract": "A novel.\n\n== Plot ==\nX"}]}
+            "query": {
+                "pages": [
+                    {
+                        "title": "Invisible Man",
+                        "extract": "A novel about a man who "
+                        "lives underground and steals power.\n\n== Plot ==\nX",
+                    }
+                ]
+            }
         }
     if params.get("prop") == "pageimages|images":
         return {"query": {"pages": [{"images": []}]}}
@@ -84,17 +93,47 @@ CANDIDATES = {
 
 
 def fake_reply(backends: Any, request: Any, check: Any = None) -> Reply:
-    """A model that merges the two battle royals and drops the stand-in."""
-    edits = {
-        "edits": [
-            {"id": 1, "action": "keep"},
-            {"id": 2, "action": "rename", "label": "battle royal"},
-            {"id": 3, "action": "merge", "into": 2},
-            {"id": 4, "action": "drop", "reason": "answer_itself"},
-        ]
-    }
-    assert check is None or check(edits) is None
-    return Reply(edits, "fake", "fake-model", 100, 20)
+    """A model that merges the two battle royals, drops the stand-in, and writes."""
+    if request.task == "clue_explanations":
+        text = " ".join(["word"] * 220)
+        data: dict[str, Any] = {
+            "explanations": [
+                {"rank": r, "one_line": f"Clue {r} in one line.", "explanation": text}
+                for r in (1, 2)
+            ]
+        }
+    elif request.task == "timeline":
+        quote = "A novel about a man who lives underground and steals power."
+        data = {"events": []}
+    elif request.task == "feature":
+        data = {"title": "Walking through", "body": " ".join(["word"] * 700)}
+    elif request.task == "theme":
+        light = {t: "#f7f6f2" for t in ("bg", "surface", "accent_soft", "header_tint")}
+        dark = {t: "#15171a" for t in ("bg", "surface", "accent_soft", "header_tint")}
+        data = {
+            "light": light | {"text": "#222222", "muted": "#555555", "accent": "#2f6f5e",
+                              "accent2": "#b5651d"},
+            "dark": dark | {"text": "#eeeeee", "muted": "#aaaaaa", "accent": "#7fc4ad",
+                            "accent2": "#e2a160"},
+            "font": "classical-serif",
+        }  # fmt: skip
+    elif request.task == "fun_facts":
+        quote = "A novel about a man who lives underground and steals power."
+        data = {"facts": [{"fact": f"Fact {i}.", "source_sentence": quote} for i in range(5)]}
+    elif request.task == "summary":
+        body = "[[1|The battle royal]] opens the novel. " + " ".join(["word"] * 600)
+        data = {"hook": "A young man fights blindfolded for a scholarship.", "summary": body}
+    else:
+        data = {
+            "edits": [
+                {"id": 1, "action": "keep"},
+                {"id": 2, "action": "rename", "label": "battle royal"},
+                {"id": 3, "action": "merge", "into": 2},
+                {"id": 4, "action": "drop", "reason": "answer_itself"},
+            ]
+        }
+    assert check is None or check(data) is None
+    return Reply(data, "fake", "fake-model", 100, 20)
 
 
 def catalog() -> httpx.Client:
@@ -135,7 +174,16 @@ def test_page_view_queues_then_the_worker_fills_in(
         "videos": "unavailable",
         "books": "pending",
         "clues": "ok",
+        "explanations": "ok",
+        "summary": "ok",
+        "facts": "ok",
+        "theme": "ok",
+        "special": "ok",
     }
+    explained = second["sections"]["explanations"]["payload"]["clues"]
+    assert [c["one_line"] for c in explained] == ["Clue 1 in one line.", "Clue 2 in one line."]
+    summary = second["sections"]["summary"]["payload"]
+    assert summary["marked"] == [1] and summary["hook"].startswith("A young man")
     # Recounted from the questions behind each spelling: q1 counts once.
     cleaned = second["sections"]["clues"]["payload"]["clues"]
     assert [(c["label"], c["n_questions"], c["clue_ids"]) for c in cleaned] == [
@@ -162,3 +210,71 @@ def test_unknown_topic_fails_without_retrying(tmp_path: Path, web: Any) -> None:
     jobs.enqueue(conn, "nope", "wiki")
     worker.run_once(conn, settings, web(conn, fake_web), catalog())
     assert conn.execute("SELECT status FROM jobs").fetchone()[0] == "failed"
+
+
+def test_show_more_explains_only_the_new_clues(
+    tmp_path: Path, web: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    asked: list[list[int]] = []
+
+    def fake(backends: Any, request: Any, check: Any = None) -> Reply:
+        if request.task == "clue_explanations":
+            ranks = [int(r) for r in re.findall(r'"rank": (\d+)', request.prompt)]
+            asked.append(ranks)
+            text = " ".join(["word"] * 220)
+            data = {"explanations": [{"rank": r, "one_line": f"Clue {r}.", "explanation": text}
+                                     for r in ranks]}  # fmt: skip
+            return Reply(data, "fake", "fake-model", 1, 1)
+        return fake_reply(backends, request, check)
+
+    monkeypatch.setattr(worker.chain, "run", fake)
+    monkeypatch.setattr(worker.writing, "FIRST_PAGE", 1)
+    monkeypatch.setattr(routes, "clue_fingerprint", lambda request, topic_id, stored: stored)
+    settings = Settings(_env_file=None, db_path=tmp_path / "content.db")  # type: ignore[call-arg]
+    app = build_app(settings)
+    api, conn = TestClient(app), app.state.db
+    http, cat = web(conn, fake_web), catalog()
+    for kind in ("wiki", "clues", "explanations"):  # explanations are written from the text
+        jobs.enqueue(conn, "Q1784288", kind)
+    while worker.run_once(conn, settings, http, cat):
+        pass
+    assert asked == [[1]]
+    assert api.post("/topics/Q1784288/explain-more", params={"through": 2}).json()["queued"]
+    content = api.get("/topics/Q1784288/content", params={"enqueue": False}).json()
+    assert content["sections"]["explanations"]["stale"] and content["status"] == "partial"
+    while worker.run_once(conn, settings, http, cat):
+        pass
+    assert asked == [[1], [2]]  # rank 1 kept, only rank 2 written
+    explained = api.get("/topics/Q1784288/content", params={"enqueue": False}).json()
+    assert [c["rank"] for c in explained["sections"]["explanations"]["payload"]["clues"]] == [1, 2]
+
+
+def test_a_section_from_an_older_fetcher_is_shown_and_fetched_again(tmp_path: Path) -> None:
+    settings = Settings(_env_file=None, db_path=tmp_path / "content.db")  # type: ignore[call-arg]
+    app = build_app(settings)
+    conn: sqlite3.Connection = app.state.db
+    with conn:
+        conn.execute(
+            "INSERT INTO enrichments VALUES ('Q1', 'wiki', 'ok', '{\"lead\": \"Old.\"}', 1, "
+            "'2026-01-01T00:00:00+00:00')"
+        )
+    content = TestClient(app).get("/topics/Q1/content").json()
+    wiki = content["sections"]["wiki"]
+    assert wiki["payload"]["lead"] == "Old." and wiki["stale"] and content["status"] == "partial"
+    assert jobs.open_kinds(conn, "Q1").get("wiki") == "queued"
+
+
+def test_sections_needing_a_failed_section_fail_instead_of_waiting_forever(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = Settings(_env_file=None, db_path=tmp_path / "content.db")  # type: ignore[call-arg]
+    conn = build_app(settings).state.db
+    jobs.enqueue(conn, "Q1", "clues")
+    clues = jobs.claim(conn)
+    assert clues is not None
+    jobs.fail(conn, clues, "the model kept failing", max_attempts=clues.attempts)
+    jobs.enqueue(conn, "Q1", "summary")
+    summary = jobs.claim(conn)
+    assert summary is not None
+    worker.run_generation(conn, settings, catalog(), summary)
+    assert jobs.open_kinds(conn, "Q1") == {"clues": "failed", "summary": "failed"}

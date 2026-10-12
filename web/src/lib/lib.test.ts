@@ -1,3 +1,5 @@
+import { themeVariables } from './theme'
+import { linkClues, parseMarks } from './marks'
 import { applyCleanup } from './cleanClues'
 import type { Clue } from '../api/types'
 import { binOf, cellShades } from './heatmap'
@@ -60,5 +62,35 @@ describe('applyCleanup', () => {
     ])
     expect(out[0].heatmap.position_hist).toEqual([1, 2])
     expect(out[0].examples).toEqual(['boarders text'])
+  })
+})
+
+describe('marks', () => {
+  it('parses summary marks', () => {
+    expect(parseMarks('A [[3|battle royal]] and [[5|Mr. Norton]].')).toEqual([
+      { text: 'A ' }, { text: 'battle royal', rank: 3 }, { text: ' and ' },
+      { text: 'Mr. Norton', rank: 5 }, { text: '.' },
+    ])
+  })
+  it('links other clues once, longest name first, never itself', () => {
+    const clues = [
+      { rank: 1, names: ['Ambrose Burnside', 'Burnside'] },
+      { rank: 2, names: ["Burnside's Bridge"] },
+      { rank: 3, names: ['Antietam'] },
+    ]
+    const pieces = linkClues("Burnside took Burnside's Bridge at Antietam; Antietam again.", clues, 1)
+    expect(pieces.filter((p) => p.rank).map((p) => [p.text, p.rank])).toEqual([
+      ["Burnside's Bridge", 2], ['Antietam', 3],
+    ])
+  })
+})
+
+describe('themeVariables', () => {
+  it('maps light and dark colors and the font pairing to CSS variables', () => {
+    const colors = (c: string) => ({ bg: c, surface: c, text: c, muted: c, accent: c, accent2: c, accent_soft: c, header_tint: c })
+    const vars = themeVariables({ light: colors('#ffffff'), dark: colors('#000000'), font: 'elegant-serif', header: null })
+    expect(vars['--l-accent-soft']).toBe('#ffffff')
+    expect(vars['--d-header-tint']).toBe('#000000')
+    expect(vars['--font-body']).toContain('Didot')
   })
 })
