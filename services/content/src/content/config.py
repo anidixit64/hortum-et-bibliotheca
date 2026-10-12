@@ -133,25 +133,33 @@ class Settings(ServiceSettings):
     use_claude_code: bool = True  # false: Gemini only, and the worker can run in Docker
     claude_code_path: str = ""  # default: `claude` on the PATH or the VS Code extension's copy
     gemini_api_key: str = ""  # free key from Google AI Studio
-    groq_api_key: str = ""  # free key from console.groq.com
-    cerebras_api_key: str = ""  # free key from cloud.cerebras.ai
+    groq_api_key: str = ""  # free key from console.groq.com (8K TPM — small prompts only)
+    cerebras_api_key: str = ""  # cloud.cerebras.ai ($5 free credit, very generous limits)
     openrouter_api_key: str = ""  # free key from openrouter.ai/keys
     nvidia_api_key: str = ""  # free key from build.nvidia.com
     github_api_key: str = ""  # free token from github.com/settings/tokens
     mistral_api_key: str = ""  # free key from console.mistral.ai
     # Claude Code first (the subscription), then free providers. Each provider's free tier
     # has its own daily/minute caps, so the chains walk through several: when one is out
-    # the next takes over. Groq and Cerebras are fast inference providers with generous
-    # free tiers (14,400 RPD); Gemini is 20 RPD per model but has many models.
+    # the next takes over.
+    #
+    # Groq free tier: 8K TPM, 200K TPD — too tight for writing (our prompts send the full
+    # Wikipedia article, 20-80K tokens). Good only for the light chain (theme, cleanup).
+    # Models: gpt-oss-20b (1000 t/s), gpt-oss-120b (500 t/s), qwen3.8-27b.
+    #
+    # Cerebras: $5 free credit, needs a payment method. qwen-3.8-27b is very generous
+    # (450 RPM, 150K tokens/min) — handles everything including long writing prompts.
+    #
+    # Gemini free tier: 20 RPD per model, but many models. Handles long prompts fine.
     light_chain: str = (
         "claude_code:haiku,"
-        "groq:llama-3.3-70b-versatile,cerebras:llama-3.3-70b,"
+        "cerebras:qwen-3.8-27b,groq:openai/gpt-oss-20b,"
         "gemini:gemini-3.5-flash-lite,gemini:gemini-3.1-flash-lite,"
         "gemini:gemma-4-31b-it,gemini:gemma-4-26b-a4b-it"
     )
     writing_chain: str = (
         "claude_code:opus,"
-        "groq:llama-3.3-70b-versatile,cerebras:llama-3.3-70b,"
+        "cerebras:qwen-3.8-27b,cerebras:gpt-oss-120b,"
         "gemini:gemini-3.8-flash,gemini:gemini-3.5-flash,"
         "gemini:gemini-3.7-flash,gemini:gemma-4-31b-it"
     )

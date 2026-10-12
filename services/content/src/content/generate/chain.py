@@ -15,8 +15,10 @@ log = logging.getLogger(__name__)
 
 # OpenAI-compatible providers: name → (base_url, default_model, settings_key_for_api_key).
 OPENAI_PROVIDERS: dict[str, tuple[str, str]] = {
-    "groq": ("https://api.groq.com/openai/v1", "llama-3.3-70b-versatile"),
-    "cerebras": ("https://api.cerebras.ai/v1", "llama-3.3-70b"),
+    # Groq free tier: 8K TPM, 200K TPD — only usable for short prompts (theme, cleanup).
+    "groq": ("https://api.groq.com/openai/v1", "openai/gpt-oss-20b"),
+    # Cerebras: $5 free credit; qwen-3.8-27b has 450 RPM, 150K tokens/min — very generous.
+    "cerebras": ("https://api.cerebras.ai/v1", "qwen-3.8-27b"),
     "openrouter": ("https://openrouter.ai/api/v1", "meta-llama/llama-3.3-70b-instruct"),
     "nvidia": ("https://integrate.api.nvidia.com/v1", "meta/llama-3.3-70b-instruct"),
     "github": ("https://models.inference.ai.azure.com", "gpt-4o"),

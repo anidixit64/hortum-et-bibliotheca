@@ -6,6 +6,7 @@ briefly then defers. Each provider's daily quota resets at its own midnight (UTC
 """
 
 import json
+import re
 import time
 from datetime import datetime, timedelta
 from typing import Any
@@ -77,12 +78,17 @@ class OpenAICompat:
                 )
             time.sleep(wait)
         if response.status_code == 429:
-            # Check if it's a daily or per-minute limit.
-            text = response.text.lower()
-            if "per day" in text or "daily" in text:
-                retry_at = datetime.now(ZoneInfo("UTC")) + timedelta(hours=DAILY_DEFER_HOURS)
+            # Use the retry-after header when the provider sends one (Groq does, in
+            # seconds); otherwise check the body for daily vs. per-minute signals.
+            retry_after = response.headers.get("retry-after")
+            if retry_after and retry_after.replace(".", "").isdigit():
+                retry_at = datetime.now(ZoneInfo("UTC")) + timedelta(seconds=float(retry_after))
             else:
-                retry_at = datetime.now(ZoneInfo("UTC")) + RATE_LIMIT_DEFER
+                body_text = response.text.lower()
+                if "per day" in body_text or "daily" in body_text or "PerDay" in response.text:
+                    retry_at = datetime.now(ZoneInfo("UTC")) + timedelta(hours=DAILY_DEFER_HOURS)
+                else:
+                    retry_at = datetime.now(ZoneInfo("UTC")) + RATE_LIMIT_DEFER
             raise QuotaExceeded(f"{self.provider} rate limit", retry_at)
         if response.status_code >= 400:
             raise GenerationError(f"{self.provider} {response.status_code}: {response.text[:300]}")
@@ -112,8 +118,6 @@ class OpenAICompat:
 
 def _extract_json(text: str) -> dict[str, Any] | None:
     """Try to find a JSON object in text that may have markdown fences or reasoning."""
-    import re
-
     # Try fenced code blocks first.
     for match in reversed(re.findall(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.S)):
         try:
