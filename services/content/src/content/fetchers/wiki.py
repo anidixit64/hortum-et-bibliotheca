@@ -6,9 +6,11 @@ from typing import Any
 from content.fetchers import Topic, Unavailable
 from content.http import PoliteClient
 
-VERSION = 1
+VERSION = 2  # 2: the whole article, not the first 24,000 characters
 API = "https://en.wikipedia.org/w/api.php"
-MAX_CHARS = 24_000  # ~6k tokens
+# The whole article goes to the writing models (the longest are ~40k tokens, well inside
+# their context); this only guards against a freak page.
+MAX_CHARS = 400_000
 SKIP_SECTIONS = {
     "see also",
     "references",

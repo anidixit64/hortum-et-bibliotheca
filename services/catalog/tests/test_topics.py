@@ -23,7 +23,8 @@ def client(tmp_path: Path) -> TestClient:
     conn = sqlite3.connect(path)
     conn.executescript(
         """
-        CREATE TABLE topics (id TEXT PRIMARY KEY, slug TEXT, display_name TEXT);
+        CREATE TABLE topics (id TEXT PRIMARY KEY, slug TEXT, display_name TEXT,
+                             wikipedia_title TEXT);
         CREATE TABLE topic_snapshots (topic_id TEXT PRIMARY KEY, json TEXT, schema_version INT);
         CREATE TABLE sets (id TEXT PRIMARY KEY, name TEXT, year INTEGER);
         CREATE TABLE tossups (id TEXT PRIMARY KEY, set_id TEXT, difficulty INTEGER,
@@ -46,7 +47,7 @@ def client(tmp_path: Path) -> TestClient:
     )
     for tid, slug, name in [("Q1784288", "invisible-man", "Invisible Man"),
                             ("Q308", "mercury-planet", "Mercury (planet)")]:  # fmt: skip
-        conn.execute("INSERT INTO topics VALUES (?, ?, ?)", (tid, slug, name))
+        conn.execute("INSERT INTO topics VALUES (?, ?, ?, ?)", (tid, slug, name, name))
         record = {"topic": {"id": tid, "name": name}, "clues": [], "tossup_ids": []}
         conn.execute("INSERT INTO topic_snapshots VALUES (?, ?, 1)", (tid, json.dumps(record)))
     for rank in range(1, 18):
@@ -121,4 +122,16 @@ def test_one_tossup_with_its_answer_line_and_clues(client: TestClient) -> None:
         ("clue", 7),
         ("giveaway", None),
     ]
+    assert tossup["wikipedia_url"] == "https://en.wikipedia.org/wiki/Invisible_Man"
     assert client.get("/tossups/nope").status_code == 404
+
+
+def test_unlinked_answers_get_a_wikipedia_search() -> None:
+    from catalog.topics import wikipedia_url
+
+    assert (
+        wikipedia_url("Mercury (planet)", "x") == "https://en.wikipedia.org/wiki/Mercury_(planet)"
+    )
+    assert wikipedia_url(None, "playing chess [accept chess]") == (
+        "https://en.wikipedia.org/w/index.php?search=playing+chess"
+    )

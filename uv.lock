@@ -379,6 +379,9 @@ dependencies = [
     { name = "fastapi" },
     { name = "hortum-common" },
     { name = "httpx" },
+    { name = "numpy" },
+    { name = "pillow", version = "10.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13'" },
+    { name = "pillow", version = "12.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.13'" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -387,6 +390,8 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
     { name = "hortum-common", editable = "libs/common" },
     { name = "httpx", specifier = ">=0.27" },
+    { name = "numpy", specifier = ">=1.26" },
+    { name = "pillow", specifier = ">=10" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]
 

@@ -130,6 +130,7 @@ export interface Tossup {
   answer_html: string | null
   topic_id: string | null
   clues: ClueSpan[]
+  wikipedia_url?: string // the answer's article, or a Wikipedia search when unlinked
 }
 
 export type BuzzResult = 'correct' | 'incorrect' | 'no_buzz' | 'prompt'
@@ -258,6 +259,55 @@ export interface SectionPayloads {
   books: { books: Book[]; references: Reference[] }
   videos: { videos: Video[] }
   clues: { clues: CleanedClue[] }
+  explanations: { clues: Explanation[] }
+  summary: WrittenSummary
+  facts: { facts: FunFact[]; source?: { title: string; url: string } }
+  theme: Theme
+  special: SpecialPayload
+}
+
+export interface FeatureStep {
+  label: string
+  detail: string
+}
+
+/** Two sections chosen by category: a dated timeline and a long feature piece. */
+export interface SpecialPayload {
+  timeline: { kind: string; events: { year: number; label: string; source: string }[] }
+  feature: { form: string; title: string; body: string; steps: FeatureStep[]; dramatized: boolean }
+  source: { title: string; url: string } | null
+}
+
+export type ThemeColors = Record<
+  'bg' | 'surface' | 'text' | 'muted' | 'accent' | 'accent2' | 'accent_soft' | 'header_tint',
+  string
+>
+
+export interface Theme {
+  light: ThemeColors
+  dark: ThemeColors
+  font: string // one of a fixed set of pairings
+  header: WikiImage | null
+}
+
+export interface FunFact {
+  fact: string
+  source_sentence: string // the Wikipedia sentence it rests on
+}
+
+// Written from the cleaned clues: rank is the cleaned clue's rank.
+export interface Explanation {
+  rank: number
+  label: string
+  one_line: string
+  explanation: string
+}
+
+export interface WrittenSummary {
+  hook: string
+  summary: string // clue mentions marked [[rank|words]]
+  marked: number[]
+  source: { title: string; url: string; license: string } | null
 }
 
 export type ContentKind = keyof SectionPayloads

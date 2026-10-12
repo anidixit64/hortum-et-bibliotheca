@@ -1,4 +1,4 @@
-import type { ContentKind, Section, SectionPayloads } from '../api/types'
+import type { ContentKind, Section, SectionPayloads, WikiImage } from '../api/types'
 
 function payload<K extends ContentKind>(section: Section<K>): SectionPayloads[K] | null {
   return section.status === 'ok' ? (section.payload as SectionPayloads[K]) : null
@@ -58,6 +58,13 @@ export function WikiSummary({ section }: { section: Section<'wiki'> }) {
   )
 }
 
+/** A museum label's title: the caption, or the file name made readable. */
+function labelTitle(img: WikiImage) {
+  const text = img.caption ?? img.file.replace(/^File:/, '').replace(/\.[a-z0-9]+$/i, '').replace(/_/g, ' ')
+  const words = text.split(/\s+/)
+  return words.length > 16 ? `${words.slice(0, 14).join(' ')}…` : text // full caption on hover
+}
+
 export function Gallery({ section }: { section: Section<'images'> }) {
   const data = payload(section)
   if (!data) return <Status section={section} what="images" />
@@ -69,8 +76,8 @@ export function Gallery({ section }: { section: Section<'images'> }) {
           <a href={img.page ?? img.url} target="_blank" rel="noreferrer">
             <img src={img.url} alt={img.caption ?? img.file} loading="lazy" />
           </a>
-          <figcaption className="small muted">
-            {img.caption && <span className="caption">{img.caption}</span>}
+          <figcaption className="museum-label small">
+            <strong title={img.caption ?? undefined}>{labelTitle(img)}</strong>
             <span>
               {img.artist && <>{img.artist} · </>}
               {img.license_url ? (

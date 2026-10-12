@@ -46,6 +46,11 @@ CREATE TABLE IF NOT EXISTS generations (
     created_at TEXT NOT NULL,
     PRIMARY KEY (topic_id, kind)
 );
+-- How many cleaned clues a reader has asked to see explained ("show more").
+CREATE TABLE IF NOT EXISTS explain_depth (
+    topic_id TEXT PRIMARY KEY,
+    through INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS http_cache (
     url TEXT PRIMARY KEY,
     status INTEGER NOT NULL,

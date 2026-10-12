@@ -6,12 +6,30 @@ import httpx
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 
-from content import cleanup, jobs
+from content import cleanup, jobs, special, theme, writing
+from content.fetchers import books, images, videos, wiki
 
 router = APIRouter()
 
 PAGE_VIEW_PRIORITY = 10
-PROMPT_VERSIONS = {"clues": cleanup.PROMPT_VERSION}
+# Fetched sections stored by an older fetcher are shown while a fresh fetch is queued.
+FETCHER_VERSIONS = {
+    "wiki": wiki.VERSION,
+    "images": images.VERSION,
+    "books": books.VERSION,
+    "videos": videos.VERSION,
+}
+PROMPT_VERSIONS = {
+    "clues": cleanup.PROMPT_VERSION,
+    "explanations": writing.EXPLANATIONS_VERSION,
+    "summary": writing.SUMMARY_VERSION,
+    "facts": writing.FACTS_VERSION,
+    "theme": theme.THEME_VERSION,
+    "special": special.SPECIAL_VERSION,
+}
+# Generated sections written from a fetched one: current while that one is the same.
+FROM_FETCHED = {"facts": "wiki", "theme": "images", "special": "wiki"}
+DERIVED = ("explanations", "summary")  # written from the clue cleanup
 
 
 def clue_fingerprint(request: Request, topic_id: str, stored: str) -> str:
@@ -58,18 +76,38 @@ def topic_content(
     """What's been fetched for a topic. Anything missing is queued (unless ``enqueue=false``)
     and shows as "pending": the page can poll until the status is "ready"."""
     rows = db.execute(
-        "SELECT kind, status, payload, fetched_at FROM enrichments WHERE topic_id = ?",
+        "SELECT kind, status, payload, fetched_at, source_version FROM enrichments "
+        "WHERE topic_id = ?",
         (topic_id,),
     ).fetchall()
-    have = {kind: Section(status=s, payload=json.loads(p), fetched_at=f) for kind, s, p, f in rows}
-    for kind, fingerprint, version, payload, created in db.execute(
+    have: dict[str, Section] = {}
+    for kind, status, payload, fetched, version in rows:
+        old = version < FETCHER_VERSIONS.get(kind, 0)
+        have[kind] = Section(status=status, payload=json.loads(payload), fetched_at=fetched,
+                             stale=old)  # fmt: skip
+        if old and enqueue:
+            jobs.enqueue(db, topic_id, kind, PAGE_VIEW_PRIORITY)
+    rows = db.execute(
         "SELECT kind, fingerprint, prompt_version, payload, created_at FROM generations "
         "WHERE topic_id = ?",
         (topic_id,),
-    ):
-        current = PROMPT_VERSIONS.get(kind) == version and fingerprint == clue_fingerprint(
-            request, topic_id, fingerprint
-        )
+    ).fetchall()
+    # Explanations and the summary are current while they match the cleanup they were
+    # written from; the cleanup, while it matches the catalog's clue candidates.
+    clues_row = next((r for r in rows if r[0] == "clues"), None)
+    cleanup_identity = f"{clues_row[1]}:{clues_row[4]}" if clues_row else None
+    fetched_at = dict(
+        db.execute("SELECT kind, fetched_at FROM enrichments WHERE topic_id = ?", (topic_id,))
+    )
+    for kind, fingerprint, version, payload, created in rows:
+        if kind in DERIVED:
+            matches = fingerprint == cleanup_identity
+        elif kind in FROM_FETCHED:
+            source = FROM_FETCHED[kind]
+            matches = fingerprint == f"{source}:{fetched_at.get(source)}"
+        else:
+            matches = fingerprint == clue_fingerprint(request, topic_id, fingerprint)
+        current = PROMPT_VERSIONS.get(kind) == version and matches
         have[kind] = Section(
             status="ok", payload=json.loads(payload), fetched_at=created, stale=not current
         )
@@ -86,7 +124,10 @@ def topic_content(
             if enqueue:
                 jobs.enqueue(db, topic_id, kind, PAGE_VIEW_PRIORITY)
             sections[kind] = Section(status="pending")
-    pending = any(s.status == "pending" for s in sections.values())
+    for kind in jobs.GENERATED:  # stored, but more is being written ("show more")
+        if kind in sections and sections[kind].status == "ok" and kind in open_jobs:
+            sections[kind].stale = True
+    pending = any(s.status == "pending" or s.stale for s in sections.values())
     return TopicContent(
         topic_id=topic_id, status="partial" if pending else "ready", sections=sections
     )
@@ -106,6 +147,22 @@ def refresh(
             )
     queued = [k for k in chosen if jobs.enqueue(db, topic_id, k, PAGE_VIEW_PRIORITY)]
     return {"topic_id": topic_id, "queued": queued}
+
+
+@router.post("/topics/{topic_id}/explain-more", status_code=202, tags=["content"])
+def explain_more(
+    topic_id: str, db: Db, through: Annotated[int, Query(ge=1, le=cleanup.CANDIDATES)]
+) -> dict[str, Any]:
+    """Explain the cleaned clues through rank ``through`` (the page asks as "show more"
+    reveals them); only the missing ones are written."""
+    with db:
+        db.execute(
+            "INSERT INTO explain_depth VALUES (?, ?) ON CONFLICT(topic_id) "
+            "DO UPDATE SET through = MAX(through, excluded.through)",
+            (topic_id, through),
+        )
+    queued = jobs.enqueue(db, topic_id, "explanations", PAGE_VIEW_PRIORITY)
+    return {"topic_id": topic_id, "through": through, "queued": queued}
 
 
 @router.get("/jobs", tags=["jobs"])
