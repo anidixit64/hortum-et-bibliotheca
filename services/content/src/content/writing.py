@@ -16,8 +16,8 @@ BATCH = 5  # clues per explanation request
 FIRST_PAGE = 10  # clues explained when the topic is first opened
 EXPLANATION_WORDS = (200, 300)
 SUMMARY_WORDS = (500, 750)
-SOURCE_WORDS = 3500  # Wikipedia text given to the summary
-EXPLAIN_SOURCE_WORDS = 2500  # and to each batch of clue explanations
+# The whole Wikipedia article goes to every written section (see fetchers.wiki).
+SOURCE_WORDS = 80_000
 
 EXPLAIN_SYSTEM = """You write study notes for quiz bowl players. A clue is a term that \
 quiz bowl questions about an answer mention; players learn clues to recognize the answer \

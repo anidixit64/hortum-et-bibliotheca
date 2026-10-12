@@ -7,10 +7,18 @@ from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 
 from content import cleanup, jobs, special, theme, writing
+from content.fetchers import books, images, videos, wiki
 
 router = APIRouter()
 
 PAGE_VIEW_PRIORITY = 10
+# Fetched sections stored by an older fetcher are shown while a fresh fetch is queued.
+FETCHER_VERSIONS = {
+    "wiki": wiki.VERSION,
+    "images": images.VERSION,
+    "books": books.VERSION,
+    "videos": videos.VERSION,
+}
 PROMPT_VERSIONS = {
     "clues": cleanup.PROMPT_VERSION,
     "explanations": writing.EXPLANATIONS_VERSION,
@@ -68,10 +76,17 @@ def topic_content(
     """What's been fetched for a topic. Anything missing is queued (unless ``enqueue=false``)
     and shows as "pending": the page can poll until the status is "ready"."""
     rows = db.execute(
-        "SELECT kind, status, payload, fetched_at FROM enrichments WHERE topic_id = ?",
+        "SELECT kind, status, payload, fetched_at, source_version FROM enrichments "
+        "WHERE topic_id = ?",
         (topic_id,),
     ).fetchall()
-    have = {kind: Section(status=s, payload=json.loads(p), fetched_at=f) for kind, s, p, f in rows}
+    have: dict[str, Section] = {}
+    for kind, status, payload, fetched, version in rows:
+        old = version < FETCHER_VERSIONS.get(kind, 0)
+        have[kind] = Section(status=status, payload=json.loads(payload), fetched_at=fetched,
+                             stale=old)  # fmt: skip
+        if old and enqueue:
+            jobs.enqueue(db, topic_id, kind, PAGE_VIEW_PRIORITY)
     rows = db.execute(
         "SELECT kind, fingerprint, prompt_version, payload, created_at FROM generations "
         "WHERE topic_id = ?",
