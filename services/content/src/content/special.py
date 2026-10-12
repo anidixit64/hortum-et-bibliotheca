@@ -14,9 +14,17 @@ from typing import Any
 
 from content.writing import _squash
 
-SPECIAL_VERSION = 1
+SPECIAL_VERSION = 2
 TIMELINE_EVENTS = (4, 12)
 FEATURE_WORDS = (600, 900)
+# History and science pieces read better short: one vivid scene, one concept.
+SHORT_FEATURE_WORDS = (300, 450)
+SHORT_FEATURES = {"History", "Current Events", "Science", "Social Science"}
+
+
+def feature_words(category: str | None) -> tuple[int, int]:
+    return SHORT_FEATURE_WORDS if category in SHORT_FEATURES else FEATURE_WORDS
+
 
 FORMS: dict[str, tuple[str, str, str]] = {
     # category: (title, what to write, timeline kind)

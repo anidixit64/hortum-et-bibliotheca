@@ -473,6 +473,17 @@ details h3 {
   flex-direction: column;
   gap: 0.35rem;
 }
+.topic-link {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid var(--accent-soft);
+}
+.topic-link:hover {
+  border-bottom-color: var(--accent);
+}
+.topic-link-sample {
+  border-bottom: 1px solid var(--accent-soft);
+}
 .one-line {
   margin: 0.2rem 0;
   color: var(--muted);
@@ -524,6 +535,8 @@ details h3 {
   --accent-2: var(--l-accent2);
   --accent-soft: var(--l-accent-soft);
   --header-tint: var(--l-header-tint);
+  /* Derive border from the accent-soft: a subtle tinted line instead of grey */
+  --border: var(--l-accent-soft);
 }
 @media (prefers-color-scheme: dark) {
   :root.themed {
@@ -535,6 +548,7 @@ details h3 {
     --accent-2: var(--d-accent2);
     --accent-soft: var(--d-accent-soft);
     --header-tint: var(--d-header-tint);
+    --border: var(--d-accent-soft);
   }
 }
 body {
@@ -576,7 +590,8 @@ body {
 
 /* Exhibit layout: entrance sign, floor plan, numbered rooms, plaques between rooms. */
 .exhibit-kicker { text-transform: uppercase; letter-spacing: 0.16em; font-size: 0.75rem; color: var(--accent); margin: 0; }
-.exhibit-sign { font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.05; margin: 0.15rem 0 0.5rem; }
+.exhibit-sign { font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.05; margin: 0.15rem 0 0.5rem; font-family: var(--font-body); }
+:root.themed .exhibit-sign { color: var(--accent); }
 .floor-plan { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 1rem; padding-top: 0.8rem; border-top: 1px solid var(--border); }
 .floor-plan a { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.25rem 0.6rem 0.25rem 0.25rem;
   border: 1px solid var(--border); border-radius: 999px; font-size: 0.85rem; text-decoration: none; color: var(--text); }
@@ -585,8 +600,8 @@ body {
   background: var(--accent); color: var(--surface); font-size: 0.8em; font-weight: 700; margin-right: 0.5rem; }
 .floor-plan .room-number { margin-right: 0; }
 .room { scroll-margin-top: 1rem; }
-.room h2 { display: flex; align-items: center; }
-.room h3 { margin-top: 1.4rem; }
+.room h2 { display: flex; align-items: center; font-family: var(--font-body); }
+.room h3 { margin-top: 1.4rem; font-family: var(--font-body); }
 .plaque-row { margin: 1rem 0; }
 .plaque-row > h2 { text-align: center; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--accent); }
 .museum-label { display: flex; flex-direction: column; gap: 0.15rem; border-left: 3px solid var(--accent); padding-left: 0.5rem; margin-top: 0.4rem; }

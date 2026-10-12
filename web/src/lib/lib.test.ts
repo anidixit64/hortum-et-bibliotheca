@@ -1,5 +1,5 @@
 import { themeVariables } from './theme'
-import { linkClues, parseMarks } from './marks'
+import { extractProperNouns, linkClues, parseMarks } from './marks'
 import { applyCleanup } from './cleanClues'
 import type { Clue } from '../api/types'
 import { binOf, cellShades } from './heatmap'
@@ -82,6 +82,28 @@ describe('marks', () => {
     expect(pieces.filter((p) => p.rank).map((p) => [p.text, p.rank])).toEqual([
       ["Burnside's Bridge", 2], ['Antietam', 3],
     ])
+  })
+})
+
+describe('extractProperNouns', () => {
+  it('finds capitalized names, including multi-word with joiners', () => {
+    const text = 'The Battle of Waterloo was fought near Brussels. Napoleon led the French army.'
+    const names = extractProperNouns(text)
+    expect(names).toContain('Battle of Waterloo')
+    expect(names).toContain('Brussels')
+    expect(names).toContain('Napoleon')
+    expect(names).toContain('French')
+  })
+  it('strips marks and finds multi-word names with lowercase joiners', () => {
+    const text = '[[1|Some clue]] was used. Alexander the Great conquered Persia.'
+    const names = extractProperNouns(text)
+    expect(names).toContain('Alexander the Great')
+    expect(names).toContain('Persia')
+  })
+  it('strips leading articles from phrases', () => {
+    const names = extractProperNouns('He crossed the Rubicon. The Aztec Empire fell.')
+    expect(names).toContain('Rubicon')
+    expect(names).toContain('Aztec Empire')
   })
 })
 

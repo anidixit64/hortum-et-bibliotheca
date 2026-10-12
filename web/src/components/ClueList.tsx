@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import type { Clue, Explanation } from '../api/types'
+import { Link } from 'react-router-dom'
+import type { Clue, Explanation, TopicLink } from '../api/types'
 import { ExplanationText } from './Written'
 import { percent } from '../lib/format'
 
@@ -9,10 +10,12 @@ export function ClueList({
   clues,
   explanations,
   writing = false,
+  topicLinks = {},
 }: {
   clues: Clue[]
   explanations?: Explanation[] // written for the cleaned clues; rank = clue rank
   writing?: boolean // explanations are being written
+  topicLinks?: Record<string, TopicLink>
 }) {
   const [open, setOpen] = useState<number | null>(null)
   const byRank = new Map((explanations ?? []).map((e) => [e.rank, e]))
@@ -24,7 +27,14 @@ export function ClueList({
       {clues.map((clue) => (
         <li key={clue.cluster_id} id={`clue-${clue.rank}`}>
           <div>
-            <span className="clue-label">{clue.rank}. {clue.label}</span>{' '}
+            <span className="clue-label">
+              {clue.rank}.{' '}
+              {topicLinks[clue.label] ? (
+                <Link to={`/topic/${encodeURIComponent(topicLinks[clue.label].id)}`} className="topic-link">
+                  {clue.label}
+                </Link>
+              ) : clue.label}
+            </span>{' '}
             <span className="muted small">
               {clue.n_questions ?? clue.n_tossups} questions · {clue.n_sets} sets · usually at{' '}
               {percent(clue.median_position)} of the question · {TREND[clue.heatmap.trend]}

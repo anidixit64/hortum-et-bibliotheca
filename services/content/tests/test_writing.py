@@ -16,7 +16,7 @@ def test_clean_summary_unmarks_unknown_and_repeated() -> None:
 
 
 def test_explanations_need_every_clue_at_length() -> None:
-    entry = {"one_line": "One line.", "explanation": " ".join(["w"] * 230)}
+    entry = {"one_line": "One line.", "explanation": " ".join(["w"] * 130)}
     good = {"explanations": [{"rank": 1, **entry}, {"rank": 2, **entry}]}
     assert writing.explain_problem(good, [1, 2]) is None
     assert "missing" in str(writing.explain_problem(good, [1, 2, 3]))
@@ -64,5 +64,5 @@ def test_meta_talk_about_the_quiz_is_caught_but_subject_prose_is_not() -> None:
             "the source of the Nile"]  # fmt: skip
     assert all(writing.meta_phrase(x) for x in caught)
     assert not any(writing.meta_phrase(x) for x in fine)
-    entry = {"rank": 1, "one_line": "x", "explanation": " ".join(["w"] * 240) + " the example"}
+    entry = {"rank": 1, "one_line": "x", "explanation": " ".join(["w"] * 130) + " the example"}
     assert "the example" in str(writing.explain_problem({"explanations": [entry]}, [1]))

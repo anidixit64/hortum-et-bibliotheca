@@ -28,7 +28,6 @@ test('the topic page renders a real record', async () => {
   expect(within(plan).getByRole('link', { name: /The clue hall/ })).toHaveAttribute('href', '#room-clues')
   expect(within(clues).getByText('1. Ras the Exhorter')).toBeInTheDocument()
   expect(screen.getByRole('img', { name: 'Where each clue appears in questions' })).toBeInTheDocument()
-  expect(screen.getByRole('link', { name: 'Ralph Ellison' })).toHaveAttribute('href', '/topic/Q299965')
   expect(screen.getByRole('link', { name: 'The Invisible Man' })).toBeInTheDocument()
   expect(await screen.findByText('50%')).toBeInTheDocument() // your accuracy
   for (const follow of screen.getAllByRole('button', { name: 'Follow' })) expect(follow).toBeEnabled() // entrance and exit

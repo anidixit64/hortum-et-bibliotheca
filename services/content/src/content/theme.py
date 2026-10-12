@@ -15,7 +15,7 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
-THEME_VERSION = 2
+THEME_VERSION = 3
 TOKENS = ("bg", "surface", "text", "muted", "accent", "accent2", "accent_soft", "header_tint")
 FONT_PAIRINGS = {
     "classical-serif": "Old-style serif (Palatino, Iowan): history, classics, literature",
@@ -144,31 +144,33 @@ def palette(image: bytes, k: int = 6, seed: int = 7) -> list[dict[str, Any]]:
 
 # --- the request and its checks ---------------------------------------------------------
 
-SYSTEM = """You design the colors of a study page about one topic, like the color \
-scheme of a museum exhibit. The colors must look good together, suit the topic's mood and \
-era, and blend with the page's header image. Text stays easy to read."""
+SYSTEM = """You design the color palette of a study page about one topic, like the color \
+scheme of a museum exhibit. First envision the 5-6 colors that represent the topic — for \
+a polar topic, whites, icy purples and blues with hints of aurora green and pink; for the \
+Aztec Empire, jade, terracotta, obsidian, gold and turquoise. Then map those colors to a \
+coherent page scheme. Text stays easy to read."""
 
 PROMPT = """Topic: {name} (category: {category})
 Opening of the page: {hook}
 Header image: {caption}
 Dominant colors of the header image (hex, share of the image): {palette}
-
-Choose two color sets, "light" and "dark", each with these hex colors:
-- bg: page background, clearly tinted with the topic's mood (light: a pale parchment, \
-sand, rose, sky or sage; dark: a deep ink, wine, forest, navy or umber), never plain grey, \
-white or black
+{related_colors}
+First think of 5-6 colors that REPRESENT this topic — what a designer would put in a \
+mood board. Then map them into two color sets, "light" and "dark", each with these hex \
+colors:
+- bg: page background, clearly tinted with the topic's character (light: a pale version \
+of a topic color; dark: a deep, rich version), never plain grey, white or black
 - surface: card background, slightly lifted from bg, with the same tint
 - text: body text (near-neutral, very readable on surface)
 - muted: secondary text
-- accent: links and highlights, evocative of the topic (take it from the image or the \
-topic: polar blue, Aztec jade, imperial purple, oxidized copper...)
-- accent2: a complementary second accent
+- accent: links and highlights drawn from the topic's palette — the most evocative color
+- accent2: a second color from the topic palette that complements accent
 - accent_soft: a pale (light) or deep (dark) tint of accent for highlighted boxes
 - header_tint: the color the header image fades into (close to bg)
 Then pick "font" from: {fonts}
 The site's default scheme is grey with a teal-green accent ({default}); this page must \
-look distinctly different from it. Avoid plain grey schemes and garish colors; harmony \
-with the image and the topic matters most."""
+look distinctly different from it. The colors should feel like the topic — someone seeing \
+only the colors should guess the subject. Avoid plain grey schemes and garish neon."""
 
 SCHEMA: dict[str, Any] = {
     "type": "object",
