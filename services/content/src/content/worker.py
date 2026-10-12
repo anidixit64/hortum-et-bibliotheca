@@ -7,7 +7,7 @@ import sqlite3
 import time
 from collections.abc import Callable
 from datetime import timedelta
-from typing import Any
+from typing import Any, NoReturn
 
 import httpx
 
@@ -167,6 +167,19 @@ class NotReady(Exception):
     """A section this one is written from isn't there yet: try again shortly."""
 
 
+class Blocked(Exception):
+    """A section this one is written from failed for good, so this one can't be written
+    either (a refresh queues them all again)."""
+
+
+def wait_for(conn: sqlite3.Connection, topic_id: str, kind: str, what: str) -> NoReturn:
+    """Queue the missing section and wait for it, unless it has already failed."""
+    if jobs.open_kinds(conn, topic_id).get(kind) == "failed":
+        raise Blocked(f"{what} failed")
+    jobs.enqueue(conn, topic_id, kind, 10)
+    raise NotReady(f"{what} not done yet")
+
+
 def cleaned(conn: sqlite3.Connection, topic_id: str) -> tuple[dict[str, Any], str]:
     """The topic's clue cleanup and its identity (what derived sections are written from)."""
     row = conn.execute(
@@ -175,8 +188,7 @@ def cleaned(conn: sqlite3.Connection, topic_id: str) -> tuple[dict[str, Any], st
         (topic_id,),
     ).fetchone()
     if row is None:
-        jobs.enqueue(conn, topic_id, "clues", 10)
-        raise NotReady("clue cleanup not done yet")
+        wait_for(conn, topic_id, "clues", "clue cleanup")
     return json.loads(row[0]), f"{row[1]}:{row[2]}"
 
 
@@ -232,8 +244,7 @@ def write_explanations(
         (topic_id,),
     ).fetchone()
     if todo and wiki_row is None:
-        jobs.enqueue(conn, topic_id, "wiki", 10)
-        raise NotReady("Wikipedia text not fetched yet")
+        wait_for(conn, topic_id, "wiki", "Wikipedia text")
     wiki = json.loads(wiki_row[1]) if wiki_row and wiki_row[0] == "ok" else None
     source = writing.source_text(wiki)
     found, examples = clue_inputs(catalog, topic_id, todo)
@@ -286,8 +297,7 @@ def write_summary(
         (topic_id,),
     ).fetchone()
     if wiki_row is None:
-        jobs.enqueue(conn, topic_id, "wiki", 10)
-        raise NotReady("Wikipedia text not fetched yet")
+        wait_for(conn, topic_id, "wiki", "Wikipedia text")
     wiki = json.loads(wiki_row[1]) if wiki_row[0] == "ok" else None
     explained = conn.execute(
         "SELECT payload FROM generations WHERE topic_id = ? AND kind = 'explanations'",
@@ -338,8 +348,7 @@ def write_facts(
         (topic_id,),
     ).fetchone()
     if row is None:
-        jobs.enqueue(conn, topic_id, "wiki", 10)
-        raise NotReady("Wikipedia text not fetched yet")
+        wait_for(conn, topic_id, "wiki", "Wikipedia text")
     identity = f"wiki:{row[2]}"
     if row[0] != "ok":
         return {"facts": []}, identity, None  # nothing to ground facts in
@@ -383,8 +392,7 @@ def write_theme(
         (topic_id,),
     ).fetchone()
     if row is None:
-        jobs.enqueue(conn, topic_id, "images", 10)
-        raise NotReady("images not fetched yet")
+        wait_for(conn, topic_id, "images", "images")
     images = json.loads(row[1]).get("images", []) if row[0] == "ok" else []
     header = header_image(images)
     colors: list[dict[str, Any]] = []
@@ -427,8 +435,7 @@ def write_special(
         (topic_id,),
     ).fetchone()
     if row is None:
-        jobs.enqueue(conn, topic_id, "wiki", 10)
-        raise NotReady("Wikipedia text not fetched yet")
+        wait_for(conn, topic_id, "wiki", "Wikipedia text")
     wiki = json.loads(row[1]) if row[0] == "ok" else None
     source = writing.source_text(wiki)
     topic = catalog.get(f"/topics/{topic_id}/clue-candidates", params={"limit": 1}).json()
@@ -513,6 +520,8 @@ def run_generation(
         log.info("wrote %s for %s (%s)", job.kind, job.topic_id, reply.model if reply else "none")
     except NotReady as exc:
         jobs.defer(conn, job, jobs.now() + timedelta(seconds=20), str(exc))
+    except Blocked as exc:
+        jobs.fail(conn, job, str(exc), max_attempts=job.attempts)
     except QuotaExceeded as exc:
         until = exc.retry_at or jobs.now() + timedelta(hours=1)
         log.warning("%s for %s waits until %s: %s", job.kind, job.topic_id, until, exc)
