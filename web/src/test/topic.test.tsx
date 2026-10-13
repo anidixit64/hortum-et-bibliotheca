@@ -66,7 +66,7 @@ function content(status: 'ready' | 'partial') {
   }
 }
 
-test('the topic page polls until the content is ready', async () => {
+test('the topic page shows loading screen until all content is ready', async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   let contentCalls = 0
   vi.stubGlobal('fetch', vi.fn(async (url: string) => {
@@ -83,11 +83,10 @@ test('the topic page polls until the content is ready', async () => {
       <Routes><Route path="/topic/:key" element={<TopicPage />} /></Routes>
     </MemoryRouter>,
   )
-  expect(await screen.findByText('Fetching images…')).toBeInTheDocument()
-  expect(screen.getByText('Fetching books…')).toBeInTheDocument()
+  expect(await screen.findByText('Curating this exhibit...')).toBeInTheDocument()
   await act(() => vi.advanceTimersByTimeAsync(3000))
   expect(await screen.findByRole('img', { name: 'First edition cover' })).toBeInTheDocument()
-  expect(screen.queryByText('Fetching images…')).not.toBeInTheDocument()
+  expect(screen.queryByText('Curating this exhibit...')).not.toBeInTheDocument()
   expect(contentCalls).toBe(2)
   await act(() => vi.advanceTimersByTimeAsync(10000))
   expect(contentCalls).toBe(2) // stopped polling once ready
@@ -107,8 +106,9 @@ test('show more loads the next five clues', async () => {
     let body: unknown = { detail: 'offline' }
     if (url.startsWith('/api/catalog/topics/') && url.includes('/clues?')) body = extra
     else if (url.startsWith('/api/catalog/topics/')) body = first
+    else if (url.startsWith('/api/content/')) body = content('ready')
     return new Response(JSON.stringify(body), {
-      status: url.startsWith('/api/catalog/') ? 200 : 503,
+      status: body && !(body as Record<string, unknown>).detail ? 200 : 503,
       headers: { 'Content-Type': 'application/json' },
     })
   }))

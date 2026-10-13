@@ -8,7 +8,7 @@ const IMAGES = Array.from({ length: 8 }, (_, i) => `/loading/${i + 1}.png`)
 
 interface Props {
   topicId?: string
-  progress: number // 0–1
+  progress: number // 0-1
   topicName?: string
 }
 
@@ -172,7 +172,7 @@ function MiniPractice({ topicId }: { topicId?: string }) {
 
 // --- Main loading screen --------------------------------------------------
 
-export function LoadingScreen({ topicId, progress, topicName }: Props) {
+export function LoadingScreen({ topicId, progress }: Props) {
   const image = useMemo(() => IMAGES[Math.floor(Math.random() * IMAGES.length)], [])
   const [playing, setPlaying] = useState(false)
 
@@ -189,7 +189,6 @@ export function LoadingScreen({ topicId, progress, topicName }: Props) {
 
   return (
     <div className="loading-screen">
-      {topicName && <p className="loading-topic">{topicName}</p>}
       <div className="loading-orbit">
         <img src={image} alt="" className="loading-image" draggable={false} />
       </div>
@@ -197,7 +196,7 @@ export function LoadingScreen({ topicId, progress, topicName }: Props) {
         <div className="loading-bar-fill" style={{ width: `${Math.max(progress * 100, 3)}%` }} />
       </div>
       <p className="muted small loading-hint">
-        {progress < 1 ? 'Building this exhibit...' : 'Almost ready...'}
+        {progress < 0.8 ? 'Curating this exhibit...' : 'Finishing touches...'}
       </p>
       <button className="loading-play" onClick={() => setPlaying(true)}>
         Practice while you wait

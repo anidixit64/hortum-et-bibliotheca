@@ -104,7 +104,7 @@ export function TopicPage() {
       .topic(key)
       .then((r) => {
         setLoaded({ key, record: r })
-        document.title = `${r.topic.name} · Hortum et Bibliotheca`
+        document.title = `${r.topic.name} · Museo`
         loadStats(r.topic.id)
       })
       .catch((e: Error) => setError({ key, message: e.message }))
@@ -113,8 +113,9 @@ export function TopicPage() {
   if (error?.key === key) return <p className="error">{error.message}</p>
   const record = current
 
-  // --- Loading screen: show while record or summary aren't ready yet ---
-  if (!record || (!written && content?.status === 'partial')) {
+  // --- Loading screen: wait for ALL content before showing the page ---
+  const contentReady = content?.status === 'ready'
+  if (!record || !contentReady) {
     const sectionKeys = content ? Object.keys(content.sections) : []
     const done = content
       ? sectionKeys.filter((k) => {
@@ -176,16 +177,6 @@ export function TopicPage() {
     }
   }
 
-  const WRITING: [keyof SectionPayloads, string][] = [
-    ['summary', 'summary'], ['theme', 'colors'], ['explanations', 'clue explanations'],
-    ['facts', 'fun facts'], ['special', 'special sections'],
-  ]
-  const isWriting = (kind: keyof SectionPayloads) => {
-    const s = content?.sections[kind]
-    return !!s && (s.status === 'pending' || !!s.stale)
-  }
-  const writing = WRITING.filter(([kind]) => isWriting(kind)).map(([, name]) => name)
-
   const sideImages = images.filter((img) => !img.is_main).slice(0, 4)
 
   // Has a timeline?
@@ -203,11 +194,6 @@ export function TopicPage() {
             <p className="exhibit-kicker">{topic.category ?? 'Exhibit'}</p>
             <h1 className="exhibit-sign">{topic.name}</h1>
             {written && <Hook summary={written} />}
-            {writing.length > 0 && (
-              <p className="writing-banner" role="status">
-                <span className="spinner" aria-hidden /> Writing: {writing.join(', ')}.
-              </p>
-            )}
             {topic.description && <p className="muted">{topic.description}</p>}
             {topic.thin && <span className="pill">rarely asked</span>}
           </div>
@@ -275,14 +261,7 @@ export function TopicPage() {
             {written ? (
               <Summary summary={written} explanations={explanations} topicLinks={topicLinks} />
             ) : (
-              <>
-                {isWriting('summary') && (
-                  <p className="muted small writing-note">
-                    The AI summary is being written. Meanwhile, the opening of the Wikipedia article:
-                  </p>
-                )}
-                {content && <WikiSummary section={content.sections.wiki} />}
-              </>
+              <WikiSummary section={content.sections.wiki} />
             )}
           </section>
 
@@ -306,11 +285,11 @@ export function TopicPage() {
             <h2><span className="room-number">C</span> The clue hall</h2>
             {cleaned && (
               <p className="muted small" title="An AI pass merged duplicate spellings, dropped generic terms and fixed labels; counts are recomputed from the questions.">
-                Tidied by AI{cleanedSection?.stale ? ' (updating...)' : ''}
+                Tidied by AI
               </p>
             )}
             <ClueList clues={shown} explanations={cleaned ? explanations : undefined}
-                      writing={isWriting('explanations') || isWriting('clues')}
+                      writing={false}
                       topicLinks={topicLinks} />
             {shown.length < total && (
               <button onClick={showMore} disabled={loadingMore}>

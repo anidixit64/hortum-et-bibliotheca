@@ -6,7 +6,7 @@ import { msPerWord, pastPower, words as split } from '../lib/reveal'
 
 type Phase = 'loading' | 'reading' | 'answering' | 'result' | 'empty'
 
-const WPM_KEY = 'hortum.wpm'
+const WPM_KEY = 'museo.wpm'
 
 export function PracticePage() {
   const [params] = useSearchParams()
