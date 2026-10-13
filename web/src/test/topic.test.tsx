@@ -64,7 +64,7 @@ function content(status: 'ready' | 'partial') {
   }
 }
 
-test('the topic page shows loading screen until all content is ready', async () => {
+test('the topic page shows the catalog while content is still arriving', async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   let contentCalls = 0
   vi.stubGlobal('fetch', vi.fn(async (url: string) => {
@@ -81,10 +81,10 @@ test('the topic page shows loading screen until all content is ready', async () 
       <Routes><Route path="/topic/:key" element={<TopicPage />} /></Routes>
     </MemoryRouter>,
   )
-  expect(await screen.findByText('Curating this exhibit...')).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { level: 1, name: 'Invisible Man' })).toBeInTheDocument()
+  expect(screen.queryByRole('img', { name: 'First edition cover' })).not.toBeInTheDocument()
   await act(() => vi.advanceTimersByTimeAsync(3000))
   expect(await screen.findByRole('img', { name: 'First edition cover' })).toBeInTheDocument()
-  expect(screen.queryByText('Curating this exhibit...')).not.toBeInTheDocument()
   expect(contentCalls).toBe(2)
   await act(() => vi.advanceTimersByTimeAsync(10000))
   expect(contentCalls).toBe(2) // stopped polling once ready

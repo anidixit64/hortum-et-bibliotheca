@@ -113,26 +113,11 @@ export function TopicPage() {
   if (error?.key === key) return <p className="error">{error.message}</p>
   const record = current
 
-  // --- Loading screen: wait for ALL content before showing the page ---
-  const contentReady = content?.status === 'ready'
-  if (!record || !contentReady) {
-    const sectionKeys = content ? Object.keys(content.sections) : []
-    const done = content
-      ? sectionKeys.filter((k) => {
-          const s = content.sections[k as keyof typeof content.sections]
-          return s.status === 'ok' || s.status === 'empty' || s.status === 'unavailable'
-        }).length
-      : 0
-    const total = sectionKeys.length || 10
-    const progress = record ? done / total : 0
-
-    return (
-      <LoadingScreen
-        topicId={record?.topic.id}
-        progress={progress}
-        topicName={record?.topic.name}
-      />
-    )
+  // The catalog page is one read. Model writing can take minutes, or never start when no
+  // provider is configured; holding the whole exhibit for that left a loading screen up
+  // and then a page with only the fetched text.
+  if (!record) {
+    return <LoadingScreen progress={0} />
   }
 
   const { topic } = record
@@ -254,8 +239,10 @@ export function TopicPage() {
             {summaryFloat && <FloatImage image={summaryFloat} side="right" />}
             {written ? (
               <Summary summary={written} explanations={explanations} topicLinks={topicLinks} />
-            ) : (
+            ) : content ? (
               <WikiSummary section={content.sections.wiki} />
+            ) : (
+              <p className="muted">Curating this exhibit...</p>
             )}
           </section>
 
@@ -281,7 +268,7 @@ export function TopicPage() {
             <ClueCarousel
               clues={shown}
               explanations={cleaned ? explanations : undefined}
-              writing={false}
+              writing={content?.status === 'partial'}
               topicLinks={topicLinks}
               topicName={topic.name}
               topicId={topic.id}

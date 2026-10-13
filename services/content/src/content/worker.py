@@ -593,7 +593,19 @@ def run_generation(
         jobs.defer(conn, job, until, str(exc))
     except TopicNotFound:
         jobs.fail(conn, job, "topic not in the catalog", max_attempts=job.attempts)
-    except (GenerationError, httpx.HTTPError, KeyError, ValueError) as exc:
+    except GenerationError as exc:
+        # No model is configured. Retrying would keep the section pending through the
+        # backoff, so the topic page stays on the loading screen and then opens with
+        # only the fetched text.
+        give_up = str(exc) == "no backends configured"
+        log.warning("%s for %s failed (attempt %d): %s", job.kind, job.topic_id, job.attempts, exc)
+        jobs.fail(
+            conn,
+            job,
+            str(exc),
+            max_attempts=job.attempts if give_up else settings.job_max_attempts,
+        )
+    except (httpx.HTTPError, KeyError, ValueError) as exc:
         log.warning("%s for %s failed (attempt %d): %s", job.kind, job.topic_id, job.attempts, exc)
         jobs.fail(conn, job, f"{type(exc).__name__}: {exc}", settings.job_max_attempts)
 

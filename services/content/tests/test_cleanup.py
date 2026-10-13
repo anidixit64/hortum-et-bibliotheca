@@ -107,11 +107,19 @@ def test_chain_falls_back_on_quota_and_retries_a_bad_reply_once() -> None:
 
 
 def test_turning_claude_code_off_leaves_gemini() -> None:
-    on = Settings(_env_file=None, use_claude_code=True)  # type: ignore[call-arg]
-    off = Settings(_env_file=None, use_claude_code=False)  # type: ignore[call-arg]
+    on = Settings(_env_file=None, use_claude_code=True, gemini_api_key="k")  # type: ignore[call-arg]
+    off = Settings(_env_file=None, use_claude_code=False, gemini_api_key="k")  # type: ignore[call-arg]
     spec = "claude_code:haiku,gemini:gemini-flash-latest"
     assert [b.name for b in chain.build(spec, on)] == ["claude_code", "gemini"]
     assert [b.name for b in chain.build(spec, off)] == ["gemini"]
+
+
+def test_providers_without_keys_are_not_backends() -> None:
+    settings = Settings(_env_file=None, use_claude_code=False)  # type: ignore[call-arg]
+    spec = "claude_code:haiku,gemini:gemini-flash-latest,groq:llama"
+    assert chain.build(spec, settings) == []
+    with pytest.raises(GenerationError, match="no backends configured"):
+        chain.run([], Request("t", "s", "p", {}))
 
 
 def test_renames_may_correct_a_misspelling_but_not_invent_words() -> None:

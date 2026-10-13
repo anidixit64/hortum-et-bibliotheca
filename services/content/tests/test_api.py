@@ -264,6 +264,25 @@ def test_a_section_from_an_older_fetcher_is_shown_and_fetched_again(tmp_path: Pa
     assert jobs.open_kinds(conn, "Q1").get("wiki") == "queued"
 
 
+def test_missing_model_keys_fail_writing_instead_of_deferring(
+    tmp_path: Path,
+) -> None:
+    settings = Settings(_env_file=None, db_path=tmp_path / "content.db")  # type: ignore[call-arg]
+    app = build_app(settings)
+    conn: sqlite3.Connection = app.state.db
+    jobs.enqueue(conn, "Q1784288", "clues")
+    job = jobs.claim(conn)
+    assert job is not None
+    worker.run_generation(conn, settings, catalog(), job)
+    status, error = conn.execute(
+        "SELECT status, last_error FROM jobs WHERE kind = 'clues'"
+    ).fetchone()
+    assert status == "failed"
+    assert error == "no backends configured"
+    content = TestClient(app).get("/topics/Q1784288/content", params={"enqueue": False}).json()
+    assert content["sections"]["clues"]["status"] == "failed"
+
+
 def test_sections_needing_a_failed_section_fail_instead_of_waiting_forever(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

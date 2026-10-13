@@ -42,23 +42,27 @@ def build(spec: str, settings: Settings) -> list[Backend]:
                                settings.generation_timeout_seconds)
                 )  # fmt: skip
         elif name == "gemini":
-            backends.append(
-                Gemini(model or "gemini-3.8-flash", settings.gemini_api_key,
-                       settings.generation_timeout_seconds)
-            )  # fmt: skip
+            # An empty key is not a quota outage. Leaving it in the chain made every
+            # writing job defer for an hour, and the topic page waited on that.
+            if settings.gemini_api_key:
+                backends.append(
+                    Gemini(model or "gemini-3.8-flash", settings.gemini_api_key,
+                           settings.generation_timeout_seconds)
+                )  # fmt: skip
         elif name in OPENAI_PROVIDERS:
             base_url, default_model = OPENAI_PROVIDERS[name]
             key_attr = f"{name}_api_key"
             api_key = getattr(settings, key_attr, "")
-            backends.append(
-                OpenAICompat(
-                    model=model or default_model,
-                    api_key=api_key,
-                    base_url=base_url,
-                    timeout=settings.generation_timeout_seconds,
-                    provider=name,
+            if api_key:
+                backends.append(
+                    OpenAICompat(
+                        model=model or default_model,
+                        api_key=api_key,
+                        base_url=base_url,
+                        timeout=settings.generation_timeout_seconds,
+                        provider=name,
+                    )
                 )
-            )
         else:
             raise ValueError(f"unknown backend {name!r} in chain {spec!r}")
     return backends
