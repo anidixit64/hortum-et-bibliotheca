@@ -32,6 +32,7 @@ export interface Clue {
   impact?: number
   median_position: number
   mean_position?: number
+  earliest_position?: number
   variants?: string[] // spellings questions use
   cooccurs?: { id: number; label: string; count: number }[] // clues in the same sentences
   categories?: Record<string, number> // {category: sentence_count}

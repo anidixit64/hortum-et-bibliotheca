@@ -96,7 +96,7 @@ function matchClueImages(clues: Clue[], images: WikiImage[]): Map<number, WikiIm
 
 type SortMode = 'frequency' | 'rarity'
 
-function dominantCategory(clue: Clue): string | null {
+export function dominantCategory(clue: Clue): string | null {
   const cats = clue.categories
   if (!cats) return null
   let best: string | null = null
@@ -107,11 +107,55 @@ function dominantCategory(clue: Clue): string | null {
   return best
 }
 
-function sortedClues(clues: Clue[], mode: SortMode): Clue[] {
-  if (mode === 'rarity') {
-    return [...clues].sort((a, b) => a.median_position - b.median_position)
+function categoryList(clues: Clue[]): string[] {
+  const counts = new Map<string, number>()
+  for (const clue of clues) {
+    const cat = dominantCategory(clue)
+    if (cat) counts.set(cat, (counts.get(cat) ?? 0) + 1)
   }
-  return clues
+  return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([k]) => k)
+}
+
+function interleaveByCategory(clues: Clue[]): Clue[] {
+  const cats = categoryList(clues)
+  if (cats.length <= 1) return clues
+  const buckets = new Map(cats.map((cat) => [cat, [] as Clue[]]))
+  const none: Clue[] = []
+  for (const clue of clues) {
+    const cat = dominantCategory(clue)
+    if (cat && buckets.has(cat)) buckets.get(cat)!.push(clue)
+    else none.push(clue)
+  }
+  const out: Clue[] = []
+  let i = 0
+  while (out.length < clues.length) {
+    let added = false
+    for (const cat of cats) {
+      const bucket = buckets.get(cat)!
+      if (i < bucket.length) {
+        out.push(bucket[i])
+        added = true
+      }
+    }
+    if (i < none.length) {
+      out.push(none[i])
+      added = true
+    }
+    if (!added) break
+    i += 1
+  }
+  return out
+}
+
+function sortedClues(clues: Clue[], mode: SortMode, category: string | null): Clue[] {
+  const list = category ? clues.filter((c) => dominantCategory(c) === category) : [...clues]
+  if (mode === 'rarity') {
+    return list.sort((a, b) => {
+      const early = (c: Clue) => c.earliest_position ?? c.median_position
+      return early(a) - early(b) || a.median_position - b.median_position
+    })
+  }
+  return category ? list : interleaveByCategory(list)
 }
 
 export function ClueCarousel({
@@ -134,12 +178,14 @@ export function ClueCarousel({
   const [index, setIndex] = useState(0)
   const [flashMsg, setFlashMsg] = useState<string | null>(null)
   const [sortMode, setSortMode] = useState<SortMode>('frequency')
+  const [category, setCategory] = useState<string | null>(null)
 
   const byRank = new Map((explanations ?? []).map((e) => [e.rank, e]))
   const lines = new Map((explanations ?? []).map((e) => [e.rank, e.one_line]))
   const names = clues.map((c) => ({ rank: c.rank, names: [c.label, ...(c.variants ?? [])] }))
+  const categories = useMemo(() => categoryList(clues), [clues])
 
-  const sorted = useMemo(() => sortedClues(clues, sortMode), [clues, sortMode])
+  const sorted = useMemo(() => sortedClues(clues, sortMode, category), [clues, sortMode, category])
   const clueImages = useMemo(() => matchClueImages(clues, images), [clues, images])
 
   if (!clues.length) return <p className="muted">Not asked often enough to rank clues yet.</p>
@@ -149,7 +195,7 @@ export function ClueCarousel({
   const explanation = byRank.get(clue.rank)
   const clueImage = clueImages.get(clue.rank)
   const allLines = [clue.text, ...clue.examples]
-  const category = dominantCategory(clue)
+  const currentCategory = dominantCategory(clue)
 
   const go = (dir: -1 | 1) => {
     setIndex((i) => Math.max(0, Math.min(sorted.length - 1, i + dir)))
@@ -158,6 +204,12 @@ export function ClueCarousel({
 
   const changeSort = (mode: SortMode) => {
     setSortMode(mode)
+    setIndex(0)
+    setFlashMsg(null)
+  }
+
+  const changeCategory = (next: string | null) => {
+    setCategory(next)
     setIndex(0)
     setFlashMsg(null)
   }
@@ -183,6 +235,16 @@ export function ClueCarousel({
         <button className={`pill-btn${sortMode === 'rarity' ? ' active' : ''}`}
           onClick={() => changeSort('rarity')}>Rarity</button>
       </div>
+      {categories.length > 1 && (
+        <div className="clue-sort" role="group" aria-label="Filter clues by category">
+          <button className={`pill-btn${category === null ? ' active' : ''}`}
+            onClick={() => changeCategory(null)}>All</button>
+          {categories.map((cat) => (
+            <button key={cat} className={`pill-btn${category === cat ? ' active' : ''}`}
+              onClick={() => changeCategory(cat)}>{cat}</button>
+          ))}
+        </div>
+      )}
 
       <div className="clue-slide" key={clue.cluster_id}>
         {clueImage && (
@@ -194,7 +256,7 @@ export function ClueCarousel({
 
         <p className="clue-slide-rank muted small">
           Clue {safeIndex + 1} of {sorted.length}
-          {category && <span className="clue-category-badge">{category}</span>}
+          {category && <span className="clue-category-badge">{currentCategory}</span>}
         </p>
         <h3 className="clue-slide-title">
           {topicLinks[clue.label] ? (
