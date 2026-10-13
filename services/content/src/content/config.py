@@ -172,14 +172,14 @@ class Settings(ServiceSettings):
     writing_chain: str = (
         "claude_code:opus,"
         "cerebras:qwen-3.8-27b,cerebras:gpt-oss-120b,"
-        "groq:openai/gpt-oss-20b,"
         "mistral:mistral-large-latest,"
         "gemini:gemini-3.8-flash,gemini:gemini-3.5-flash,"
         "gemini:gemini-3.7-flash,gemini:gemma-4-31b-it"
     )
-    # One model call. A provider that hangs is abandoned after five minutes and the chain
-    # tries the next configured model.
-    generation_timeout_seconds: float = 300.0
+    # One model call. Diocletian's theme sat on a Gemini read for the full five minutes
+    # and the page stayed on the loader. Ninety seconds is long enough for a real reply
+    # and short enough that the chain can try the next model inside the same visit.
+    generation_timeout_seconds: float = 90.0
     # NER at first open: a Python with spaCy and en_core_web_trf (make ner-env); empty = off.
     ner_python: str = ""
 

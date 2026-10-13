@@ -13,6 +13,10 @@ from content.trace import event as trace_event
 
 log = logging.getLogger(__name__)
 
+# Groq's free tier rejects a request over 8,000 tokens (Diocletian's article was 16,309).
+# Stay under that before the HTTP call; a 413 used to fail the whole section.
+GROQ_CHAR_LIMIT = 24_000
+
 
 # OpenAI-compatible providers: name → (base_url, default_model, settings_key_for_api_key).
 OPENAI_PROVIDERS: dict[str, tuple[str, str]] = {
@@ -121,6 +125,15 @@ def run(
     for backend in ordered:
         attempt = request
         model = getattr(backend, "model", "")
+        prompt_chars = len(attempt.system) + len(attempt.prompt)
+        if backend.name == "groq" and prompt_chars > GROQ_CHAR_LIMIT:
+            log.info("%s: groq %s skipped, prompt is over the 8k token cap", request.task, model)
+            trace_event(
+                "model.error", task=request.task, provider="groq", model=model,
+                error="prompt over groq token cap", output=None,
+            )  # fmt: skip
+            last = GenerationError("prompt over groq token cap")
+            continue
         for _ in range(2):
             try:
                 reply = backend.generate(attempt)

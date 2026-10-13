@@ -1,5 +1,6 @@
 import json
 import sqlite3
+import time
 from datetime import datetime, timedelta
 from typing import Annotated, Any, Literal
 from zoneinfo import ZoneInfo
@@ -44,9 +45,19 @@ FROM_FETCHED = {"facts": "wiki", "theme": "images", "special": "wiki"}
 DERIVED = ("explanations", "summary")  # written from the clue cleanup
 
 
+# The open page polls every few seconds. Each poll was asking the catalog for the same
+# clue fingerprint, which is what filled the catalog log while Diocletian was generating.
+_FINGERPRINT_TTL = 30.0
+_fingerprint_cache: dict[str, tuple[float, str]] = {}
+
+
 def clue_fingerprint(request: Request, topic_id: str, stored: str) -> str:
     """The catalog's current fingerprint of the topic's clue candidates. If the catalog
     can't be reached, the stored one counts as current (better shown than hidden)."""
+    now = time.monotonic()
+    cached = _fingerprint_cache.get(topic_id)
+    if cached is not None and now - cached[0] < _FINGERPRINT_TTL:
+        return cached[1]
     settings = request.app.state.settings
     try:
         response = httpx.get(
@@ -55,9 +66,11 @@ def clue_fingerprint(request: Request, topic_id: str, stored: str) -> str:
             timeout=2.0,
         )
         response.raise_for_status()
-        return str(response.json()["fingerprint"])
+        fingerprint = str(response.json()["fingerprint"])
     except (httpx.HTTPError, KeyError, ValueError):
         return stored  # someone is looking at the page: ahead of batch jobs
+    _fingerprint_cache[topic_id] = (now, fingerprint)
+    return fingerprint
 
 
 def get_db(request: Request) -> sqlite3.Connection:

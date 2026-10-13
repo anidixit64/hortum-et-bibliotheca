@@ -116,6 +116,27 @@ def test_turning_claude_code_off_leaves_gemini() -> None:
     assert [b.name for b in chain.build(spec, off)] == ["gemini"]
 
 
+def test_a_long_prompt_skips_groq(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(chain, "order_backends", lambda backends, task: backends)
+    request = Request("facts", "system", "x" * (chain.GROQ_CHAR_LIMIT + 1), {})
+    blocked = GenerationError("should not be called")
+    groq = Fake("groq", [blocked])
+    gemini = Fake("gemini", [{"ok": True}])
+    reply = chain.run([groq, gemini], request)
+    assert reply.backend == "gemini"
+    assert groq.replies == [blocked]
+
+
+def test_a_short_prompt_still_uses_groq(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(chain, "order_backends", lambda backends, task: backends)
+    request = Request("theme", "system", "a tinted background", {})
+    groq = Fake("groq", [{"ok": True}])
+    gemini = Fake("gemini", [GenerationError("should not be called")])
+    reply = chain.run([groq, gemini], request)
+    assert reply.backend == "groq"
+    assert gemini.replies
+
+
 def test_a_provider_error_tries_the_next_provider() -> None:
     request = Request("summary", "s", "p", {})
     first = Fake("cerebras", [GenerationError("cerebras 400: unknown model")])
