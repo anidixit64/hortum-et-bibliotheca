@@ -94,6 +94,26 @@ function matchClueImages(clues: Clue[], images: WikiImage[]): Map<number, WikiIm
   return matched
 }
 
+type SortMode = 'frequency' | 'rarity'
+
+function dominantCategory(clue: Clue): string | null {
+  const cats = clue.categories
+  if (!cats) return null
+  let best: string | null = null
+  let max = 0
+  for (const [cat, n] of Object.entries(cats)) {
+    if (n > max) { best = cat; max = n }
+  }
+  return best
+}
+
+function sortedClues(clues: Clue[], mode: SortMode): Clue[] {
+  if (mode === 'rarity') {
+    return [...clues].sort((a, b) => a.median_position - b.median_position)
+  }
+  return clues
+}
+
 export function ClueCarousel({
   clues,
   explanations,
@@ -113,23 +133,32 @@ export function ClueCarousel({
 }) {
   const [index, setIndex] = useState(0)
   const [flashMsg, setFlashMsg] = useState<string | null>(null)
+  const [sortMode, setSortMode] = useState<SortMode>('frequency')
 
   const byRank = new Map((explanations ?? []).map((e) => [e.rank, e]))
   const lines = new Map((explanations ?? []).map((e) => [e.rank, e.one_line]))
   const names = clues.map((c) => ({ rank: c.rank, names: [c.label, ...(c.variants ?? [])] }))
 
+  const sorted = useMemo(() => sortedClues(clues, sortMode), [clues, sortMode])
   const clueImages = useMemo(() => matchClueImages(clues, images), [clues, images])
 
   if (!clues.length) return <p className="muted">Not asked often enough to rank clues yet.</p>
 
-  const safeIndex = Math.min(index, clues.length - 1)
-  const clue = clues[safeIndex]
+  const safeIndex = Math.min(index, sorted.length - 1)
+  const clue = sorted[safeIndex]
   const explanation = byRank.get(clue.rank)
   const clueImage = clueImages.get(clue.rank)
   const allLines = [clue.text, ...clue.examples]
+  const category = dominantCategory(clue)
 
   const go = (dir: -1 | 1) => {
-    setIndex((i) => Math.max(0, Math.min(clues.length - 1, i + dir)))
+    setIndex((i) => Math.max(0, Math.min(sorted.length - 1, i + dir)))
+    setFlashMsg(null)
+  }
+
+  const changeSort = (mode: SortMode) => {
+    setSortMode(mode)
+    setIndex(0)
     setFlashMsg(null)
   }
 
@@ -148,6 +177,13 @@ export function ClueCarousel({
 
   return (
     <div className="clue-carousel">
+      <div className="clue-sort" role="group" aria-label="Sort clues by">
+        <button className={`pill-btn${sortMode === 'frequency' ? ' active' : ''}`}
+          onClick={() => changeSort('frequency')}>Frequency</button>
+        <button className={`pill-btn${sortMode === 'rarity' ? ' active' : ''}`}
+          onClick={() => changeSort('rarity')}>Rarity</button>
+      </div>
+
       <div className="clue-slide" key={clue.cluster_id}>
         {clueImage && (
           <figure className="float-image float-right clue-img">
@@ -156,7 +192,10 @@ export function ClueCarousel({
           </figure>
         )}
 
-        <p className="clue-slide-rank muted small">Clue {clue.rank} of {clues.length}</p>
+        <p className="clue-slide-rank muted small">
+          Clue {safeIndex + 1} of {sorted.length}
+          {category && <span className="clue-category-badge">{category}</span>}
+        </p>
         <h3 className="clue-slide-title">
           {topicLinks[clue.label] ? (
             <Link to={`/topic/${encodeURIComponent(topicLinks[clue.label].id)}`} className="topic-link">
@@ -215,9 +254,9 @@ export function ClueCarousel({
           ←
         </button>
         <span>
-          {safeIndex + 1} of {clues.length}
+          {safeIndex + 1} of {sorted.length}
         </span>
-        <button onClick={() => go(1)} disabled={safeIndex === clues.length - 1} aria-label="Next clue">
+        <button onClick={() => go(1)} disabled={safeIndex === sorted.length - 1} aria-label="Next clue">
           →
         </button>
       </nav>

@@ -94,13 +94,14 @@ def _load_clues(conn: sqlite3.Connection) -> dict[str, list[dict[str, Any]]]:
     for row in conn.execute(
         "SELECT id, topic_id, rank, label, names_topic, n_questions, n_sets, n_mentions, "
         "mean_position, median_position, earliest_position, share_in_power, share_last_line, "
-        "position_hist, difficulty_hist, first_year, last_year, trend, variants, cooccurs "
+        "position_hist, difficulty_hist, first_year, last_year, trend, variants, cooccurs, "
+        "categories "
         "FROM topic_clues WHERE rank <= ?",
         (RECORD_CLUES,),
     ):
         (cid, topic_id, rank, label, names_topic, n_q, n_sets, n_mentions, mean_pos,
          median_pos, earliest, power, last, hist, bands, first, last_year, trend, variants,
-         cooccurs) = row  # fmt: skip
+         cooccurs, categories) = row  # fmt: skip
         owner[cid] = topic_id
         records[cid] = {
             "rank": rank,
@@ -116,6 +117,7 @@ def _load_clues(conn: sqlite3.Connection) -> dict[str, list[dict[str, Any]]]:
             "median_position": round(median_pos, 4),
             "earliest_position": round(earliest, 4),
             "names_topic": names_topic,
+            "categories": json.loads(categories),
             "variants": list(json.loads(variants))[:_VARIANTS],
             "cooccurs": [
                 {"id": other, "label": other_label, "count": n}
@@ -175,6 +177,42 @@ def _best_dates(rows: list[tuple[str, dict[str, Any]]]) -> list[tuple[str, dict[
     return sorted(best.items(), key=lambda kv: kv[1].get("time", ""))
 
 
+def _dominant_category(clue: dict[str, Any]) -> str | None:
+    cats = clue.get("categories", {})
+    return max(cats, key=cats.get) if cats else None
+
+
+def _balanced_page(clues: list[dict[str, Any]], n: int) -> list[dict[str, Any]]:
+    """Pick page clues ensuring each category with enough data is represented."""
+    if len(clues) <= n:
+        return clues
+
+    selected = list(clues[:n])
+    selected_cats = {_dominant_category(c) for c in selected}
+
+    by_cat: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for c in clues:
+        dom = _dominant_category(c)
+        if dom:
+            by_cat[dom].append(c)
+
+    missing = [cat for cat, items in by_cat.items()
+               if cat not in selected_cats and len(items) >= 2]
+    if not missing:
+        return selected
+
+    for cat in missing:
+        best = by_cat[cat][0]
+        for i in range(len(selected) - 1, -1, -1):
+            dom_i = _dominant_category(selected[i])
+            if sum(1 for s in selected if _dominant_category(s) == dom_i) > 1:
+                selected[i] = best
+                break
+
+    selected.sort(key=lambda c: c["rank"])
+    return selected
+
+
 def build_snapshot(
     topic: dict[str, Any],
     clues: list[dict[str, Any]],
@@ -187,7 +225,7 @@ def build_snapshot(
     return {
         "schema_version": SCHEMA_VERSION,
         "topic": topic,
-        "clues": clues[:PAGE_CLUES],
+        "clues": _balanced_page(clues, PAGE_CLUES),
         "n_clues": len(clues),
         "related": related,
         "confusions": confusions,

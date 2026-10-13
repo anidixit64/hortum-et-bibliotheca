@@ -425,6 +425,39 @@ main {
 .clue-carousel {
   min-height: 200px;
 }
+.clue-sort {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+.pill-btn {
+  font-size: 0.78rem;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.pill-btn:hover { background: color-mix(in oklab, var(--accent) 10%, var(--bg)); }
+.pill-btn.active {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+}
+.clue-category-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  text-transform: none;
+  letter-spacing: normal;
+  background: color-mix(in oklab, var(--accent-2, var(--accent)) 15%, var(--bg));
+  color: var(--accent-2, var(--accent));
+  border: 1px solid color-mix(in oklab, var(--accent-2, var(--accent)) 30%, var(--bg));
+}
 .clue-slide {
   display: flow-root;
   padding: 0.5rem 0 0.75rem;

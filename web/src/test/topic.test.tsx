@@ -93,6 +93,34 @@ test('the topic page shows loading screen until all content is ready', async () 
 })
 
 
+test('sort toggle switches between frequency and rarity ordering', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    const body = url.startsWith('/api/catalog/topics/')
+      ? record
+      : url.startsWith('/api/content/')
+        ? content('ready')
+        : { topic_id: 'Q1784288', followed: false, cards: 0, due: 0, buzzed_clusters: {},
+          buzzing: { buzzes: 0, correct: 0, accuracy: null, median_correct_position: null, power_rate: null } }
+    return new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } })
+  }))
+  render(
+    <MemoryRouter initialEntries={['/topic/invisible-man']}>
+      <Routes><Route path="/topic/:key" element={<TopicPage />} /></Routes>
+    </MemoryRouter>,
+  )
+  const freq = await screen.findByRole('button', { name: 'Frequency' })
+  const rarity = screen.getByRole('button', { name: 'Rarity' })
+  expect(freq.className).toContain('active')
+  expect(rarity.className).not.toContain('active')
+  // Switch to rarity
+  fireEvent.click(rarity)
+  expect(rarity.className).toContain('active')
+  expect(freq.className).not.toContain('active')
+  // Category badge visible on the clue slide
+  expect(document.querySelector('.clue-category-badge')).toHaveTextContent('Literature')
+  vi.unstubAllGlobals()
+})
+
 test('show more loads the next five clues', async () => {
   const first = { ...record, n_clues: record.clues.length + 2 }
   const extra = [0, 1].map((i) => ({

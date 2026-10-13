@@ -71,7 +71,8 @@ CREATE TABLE topic_clues (
     last_year INTEGER,
     trend TEXT NOT NULL,              -- rising | steady | fading
     variants TEXT NOT NULL,           -- JSON: {spelling: mentions}
-    cooccurs TEXT NOT NULL            -- JSON: [[clue id, label, shared sentences], ...]
+    cooccurs TEXT NOT NULL,            -- JSON: [[clue id, label, shared sentences], ...]
+    categories TEXT NOT NULL DEFAULT '{}'  -- JSON: {category: sentence_count}
 );
 CREATE INDEX topic_clues_topic ON topic_clues(topic_id, rank);
 CREATE TABLE topic_clue_sentences (
@@ -207,6 +208,7 @@ class Sentence:
     difficulty: int
     year: int | None
     text: str
+    category: str | None = None
 
 
 @dataclass
@@ -680,20 +682,27 @@ def rank_topic(
         tossups = _distinct_questions(sentences, idx)
         sets = {sentences[i].set_id for i in idx}
         merged.append((len(tossups), len(sets), len(idx), label, key, group, idx))
-    merged.sort(
-        key=lambda c: (
-            -c[0], -c[1], c[3][:1].islower(), -c[2], min(sentences[i].position for i in c[6])
-        )
-    )  # fmt: skip
+    def rank_key(c):
+        n_q, n_sets, n_ment, label, _key, _group, idx = c
+        earliest = min(sentences[i].position for i in idx)
+        boost = 0.5 if n_q <= 2 and earliest < 0.2 else 0
+        return (-(n_q + boost), -n_sets, label[:1].islower(), -n_ment, earliest)
+
+    merged.sort(key=rank_key)
     out = []
     for n_q, n_sets, n_mentions, label, key, group, idx in merged[:KEEP]:
         rows = [sentences[i] for i in sorted(idx)]
         positions = [r.position for r in rows]
         variants: Counter[str] = Counter()
         named: Counter[str] = Counter()
+        cats: Counter[str] = Counter()
         for cand in group:
             variants.update(cand.forms)
             named.update(cand.names_topic)
+        for i in idx:
+            cat = sentences[i].category
+            if cat:
+                cats[cat] += 1
         out.append(
             {
                 "topic_id": topic_id,
@@ -712,6 +721,7 @@ def rank_topic(
                 "difficulty_hist": dict(Counter(difficulty_band(r.difficulty) for r in rows)),
                 "years": [r.year for r in rows if r.year],
                 "variants": dict(variants.most_common()),
+                "categories": dict(cats.most_common()),
                 "sentences": idx,
             }
         )
@@ -724,14 +734,15 @@ def load_sentences(
     """Every clue sentence (no giveaways), topic by topic, with its key terms."""
     rows = conn.execute(
         "SELECT c.topic_id, c.id, c.tossup_id, t.set_id, c.position, c.in_power, "
-        "c.ordinal = l.last_ordinal, COALESCE(t.difficulty, 0), s.year, c.text, c.key_terms "
+        "c.ordinal = l.last_ordinal, COALESCE(t.difficulty, 0), s.year, c.text, "
+        "t.category, c.key_terms "
         "FROM clues c JOIN tossups t ON t.id = c.tossup_id JOIN sets s ON s.id = t.set_id "
         "JOIN (SELECT tossup_id, MAX(ordinal) AS last_ordinal FROM clues "
         "      WHERE kind = 'clue' GROUP BY tossup_id) l ON l.tossup_id = c.tossup_id "
         "WHERE c.kind = 'clue' AND c.topic_id IS NOT NULL ORDER BY c.topic_id, c.id"
     )
     for topic_id, group in itertools.groupby(rows, key=lambda r: r[0]):
-        yield topic_id, [(Sentence(*r[1:10]), json.loads(r[10])) for r in group]
+        yield topic_id, [(Sentence(*r[1:11]), json.loads(r[11])) for r in group]
 
 
 def parse_all(
@@ -856,7 +867,8 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
                  min(years, default=None), max(years, default=None),
                  trend(years, topic_years.get(topic_id, [])),
                  json.dumps(clue["variants"], ensure_ascii=False),
-                 json.dumps(cooccurs, ensure_ascii=False))
+                 json.dumps(cooccurs, ensure_ascii=False),
+                 json.dumps(clue["categories"], ensure_ascii=False))
             )  # fmt: skip
             link_rows.extend((cid, sentences[i].clue_id) for i in clue["sentences"])
         for i, ranks in by_sentence.items():
@@ -879,7 +891,7 @@ def _flush(
     links: list[tuple[int, int]],
     primary: list[tuple[int, int]],
 ) -> None:
-    conn.executemany(f"INSERT INTO topic_clues VALUES ({','.join('?' * 21)})", clues)
+    conn.executemany(f"INSERT INTO topic_clues VALUES ({','.join('?' * 22)})", clues)
     conn.executemany("INSERT INTO topic_clue_sentences VALUES (?, ?)", links)
     conn.executemany("INSERT INTO sentence_clues VALUES (?, ?)", primary)
     clues.clear()

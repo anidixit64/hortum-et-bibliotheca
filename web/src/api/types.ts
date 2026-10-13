@@ -34,6 +34,7 @@ export interface Clue {
   mean_position?: number
   variants?: string[] // spellings questions use
   cooccurs?: { id: number; label: string; count: number }[] // clues in the same sentences
+  categories?: Record<string, number> // {category: sentence_count}
   heatmap: Heatmap
 }
 
