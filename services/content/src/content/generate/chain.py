@@ -69,8 +69,28 @@ def build(spec: str, settings: Settings) -> list[Backend]:
 
 
 def _task_offset(task: str, n: int) -> int:
-    """Deterministic offset so parallel tasks start at different backends."""
+    """Deterministic offset so parallel tasks start at different providers."""
     return sum(ord(c) for c in task) % n
+
+
+def order_backends(backends: list[Backend], task: str) -> list[Backend]:
+    """Providers in chain order, rotated so concurrent tasks try a different one first.
+
+    Models of one provider stay together: the section tries that provider's models, then
+    the next provider. A hashed task name spreads summary, facts, theme, and the rest
+    across Gemini, Groq, and Cerebras when all three keys are set.
+    """
+    groups: dict[str, list[Backend]] = {}
+    names: list[str] = []
+    for backend in backends:
+        if backend.name not in groups:
+            names.append(backend.name)
+            groups[backend.name] = []
+        groups[backend.name].append(backend)
+    if len(names) > 1:
+        off = _task_offset(task, len(names))
+        names = names[off:] + names[:off]
+    return [backend for name in names for backend in groups[name]]
 
 
 def run(
@@ -79,17 +99,11 @@ def run(
     check: Callable[[dict[str, object]], str | None] | None = None,
 ) -> Reply:
     """The first backend's reply that passes ``check`` (which returns an error message or
-    None). A failed check is retried once with the error attached. Quota errors move on;
-    when every backend is out, the earliest reset is raised so the job can wait.
-
-    Backends are rotated by a hash of the task name so that concurrent tasks for different
-    generation kinds naturally hit different providers first, spreading the load.
+    None). A failed check is retried once with the error attached. Quota errors and any
+    other provider error move on to the next model; when every backend is out of quota,
+    the earliest reset is raised so the job can wait.
     """
-    if len(backends) > 1:
-        off = _task_offset(request.task, len(backends))
-        ordered = backends[off:] + backends[:off]
-    else:
-        ordered = backends
+    ordered = order_backends(backends, request.task)
     resets: list[datetime] = []
     last: Exception | None = None
     for backend in ordered:
@@ -101,6 +115,11 @@ def run(
                 if error.retry_at:
                     resets.append(error.retry_at)
                 log.info("%s: %s %s is out (%s), trying the next", request.task, backend.name,
+                         getattr(backend, "model", ""), error)  # fmt: skip
+                last = error
+                break
+            except GenerationError as error:
+                log.info("%s: %s %s failed (%s), trying the next", request.task, backend.name,
                          getattr(backend, "model", ""), error)  # fmt: skip
                 last = error
                 break

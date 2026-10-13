@@ -299,14 +299,49 @@ def test_sections_needing_a_failed_section_fail_instead_of_waiting_forever(
     assert jobs.open_kinds(conn, "Q1") == {"clues": "failed", "summary": "failed"}
 
 
-def test_a_page_view_writes_the_summary_and_colors_before_the_rest(tmp_path: Path) -> None:
+def test_a_page_view_holds_dependents_until_their_inputs_exist(tmp_path: Path) -> None:
     settings = Settings(_env_file=None, db_path=tmp_path / "content.db")  # type: ignore[call-arg]
     app = build_app(settings)
+    conn = app.state.db
     TestClient(app).get("/topics/Q1/content")
-    order = []
-    while job := jobs.claim(app.state.db):
-        order.append(job.kind)
-        jobs.finish(app.state.db, job)
-    assert order.index("clues") < order.index("summary") < order.index("theme")
-    assert order.index("theme") < order.index("explanations") < order.index("facts")
-    assert set(order[:4]) == {"wiki", "images", "books", "videos"}
+    first: list[str] = []
+    while job := jobs.claim(conn):
+        first.append(job.kind)
+        jobs.finish(conn, job)
+    assert set(first) == {"wiki", "images", "books", "videos", "clues"}
+    with conn:
+        conn.execute(
+            "INSERT INTO enrichments VALUES "
+            "('Q1', 'wiki', 'ok', '{}', 1, '2026-01-01T00:00:00+00:00')"
+        )
+        conn.execute(
+            "INSERT INTO enrichments VALUES "
+            "('Q1', 'images', 'ok', '{}', 1, '2026-01-01T00:00:00+00:00')"
+        )
+        conn.execute(
+            "INSERT INTO generations VALUES "
+            "('Q1', 'clues', 'fp', 1, 'gemini', 'm', '{}', 0, 0, '2026-01-01T00:00:00+00:00')"
+        )
+    rest: list[str] = []
+    while job := jobs.claim(conn):
+        rest.append(job.kind)
+        jobs.finish(conn, job)
+    assert rest == ["summary", "theme", "explanations", "facts", "special"]
+
+
+def test_failed_writing_stays_partial_until_it_is_stored(tmp_path: Path) -> None:
+    settings = Settings(_env_file=None, db_path=tmp_path / "content.db")  # type: ignore[call-arg]
+    app = build_app(settings)
+    conn: sqlite3.Connection = app.state.db
+    jobs.enqueue(conn, "Q1", "clues")
+    job = jobs.claim(conn)
+    assert job is not None
+    jobs.fail(conn, job, "no backends configured", max_attempts=job.attempts)
+    conn.execute(
+        "UPDATE jobs SET updated_at = ? WHERE id = ?", ("2000-01-01T00:00:00+00:00", job.id)
+    )
+    client = TestClient(app)
+    content = client.get("/topics/Q1/content").json()
+    assert content["status"] == "partial"
+    assert content["sections"]["clues"]["status"] == "pending"
+    assert jobs.open_kinds(conn, "Q1")["clues"] == "queued"

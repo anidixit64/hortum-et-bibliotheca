@@ -114,6 +114,22 @@ def test_turning_claude_code_off_leaves_gemini() -> None:
     assert [b.name for b in chain.build(spec, off)] == ["gemini"]
 
 
+def test_a_provider_error_tries_the_next_provider() -> None:
+    request = Request("summary", "s", "p", {})
+    first = Fake("cerebras", [GenerationError("cerebras 400: unknown model")])
+    second = Fake("gemini", [{"ok": True}])
+    reply = chain.run([first, second], request)
+    assert reply.backend == "gemini" and reply.data == {"ok": True}
+
+
+def test_parallel_tasks_start_on_different_providers() -> None:
+    cerebras, groq, gemini = Fake("cerebras", []), Fake("groq", []), Fake("gemini", [])
+    backends = [cerebras, groq, gemini]
+    tasks = ("clues", "facts", "summary")
+    firsts = {chain.order_backends(backends, task)[0].name for task in tasks}
+    assert firsts == {"cerebras", "groq", "gemini"}
+
+
 def test_providers_without_keys_are_not_backends() -> None:
     settings = Settings(_env_file=None, use_claude_code=False)  # type: ignore[call-arg]
     spec = "claude_code:haiku,gemini:gemini-flash-latest,groq:llama"

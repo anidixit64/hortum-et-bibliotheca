@@ -126,18 +126,30 @@ def clean_clues(
             hint = cleanup.ner_hint(clue["label"], mine)
             if hint:
                 hints[clue["id"]] = hint
+    backends = chain.build(settings.light_chain, settings)
     request = Request("clue_cleanup", cleanup.SYSTEM, cleanup.prompt(found, hints), cleanup.SCHEMA)
-    reply = chain.run(
-        chain.build(settings.light_chain, settings), request, lambda d: cleanup.problem(found, d)
-    )
     off_topic: list[int] = []
     if found.get("groups"):
-        groups_reply = chain.run(
-            chain.build(settings.light_chain, settings),
-            Request("answer_groups", cleanup.GROUP_SYSTEM, cleanup.group_prompt(found),
-                    cleanup.GROUP_SCHEMA),
-        )  # fmt: skip
+        # The group pass reads the same candidates and does not use the cleanup reply.
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            cleanup_call = pool.submit(
+                chain.run, backends, request, lambda d: cleanup.problem(found, d)
+            )
+            groups_call = pool.submit(
+                chain.run,
+                backends,
+                Request(
+                    "answer_groups",
+                    cleanup.GROUP_SYSTEM,
+                    cleanup.group_prompt(found),
+                    cleanup.GROUP_SCHEMA,
+                ),
+            )
+            reply = cleanup_call.result()
+            groups_reply = groups_call.result()
         off_topic = list(groups_reply.data.get("off_topic_groups") or [])
+    else:
+        reply = chain.run(backends, request, lambda d: cleanup.problem(found, d))
     checked = cleanup.check(found, reply.data, hints, off_topic)
     payload = {
         "clues": cleanup.apply(found, checked),
@@ -506,10 +518,22 @@ def write_special(
     topic = catalog.get(f"/topics/{topic_id}/clue-candidates", params={"limit": 1}).json()
     name, category = topic["name"], topic.get("category")
     title, instructions, kind = special.form(category)
-    total: Reply | None = None
-    events: list[dict[str, Any]] = []
-    if wiki:
-        reply = chain.run(
+    diagram = special.DIAGRAM if category in special.DIAGRAM_CATEGORIES else ""
+    feature_prompt = special.FEATURE.format(
+        name=name,
+        category=category or "unknown",
+        title=title,
+        instructions=instructions.format(name=name),
+        low=special.feature_words(category)[0],
+        high=special.feature_words(category)[1],
+        diagram=diagram,
+        source=source,
+    )
+
+    def write_timeline() -> tuple[list[dict[str, Any]], Reply | None]:
+        if not wiki:
+            return [], None
+        timeline_reply = chain.run(
             chain.build(settings.light_chain, settings),
             Request(
                 "timeline",
@@ -520,30 +544,27 @@ def write_special(
                     source=source,
                     low=special.TIMELINE_EVENTS[0],
                     high=special.TIMELINE_EVENTS[1],
-                ),  # fmt: skip
+                ),
                 special.TIMELINE_SCHEMA,
             ),
             functools.partial(special.timeline_problem, source=source),
         )
-        total = add(total, reply)
-        events = special.timeline(reply.data.get("events", []), source)
-    diagram = special.DIAGRAM if category in special.DIAGRAM_CATEGORIES else ""
-    prompt = special.FEATURE.format(
-        name=name,
-        category=category or "unknown",
-        title=title,
-        instructions=instructions.format(name=name),
-        low=special.feature_words(category)[0],
-        high=special.feature_words(category)[1],
-        diagram=diagram,
-        source=source,
-    )
-    reply = chain.run(
-        chain.build(settings.writing_chain, settings),
-        Request("feature", special.FEATURE_SYSTEM, prompt, special.FEATURE_SCHEMA),
-        functools.partial(special.feature_problem, words=special.feature_words(category)),
-    )
-    total = reply if total is None else add(reply, total)  # recorded as the feature's model
+        return special.timeline(timeline_reply.data.get("events", []), source), timeline_reply
+
+    def write_feature() -> Reply:
+        return chain.run(
+            chain.build(settings.writing_chain, settings),
+            Request("feature", special.FEATURE_SYSTEM, feature_prompt, special.FEATURE_SCHEMA),
+            functools.partial(special.feature_problem, words=special.feature_words(category)),
+        )
+
+    # Timeline and the feature essay read the same Wikipedia text and can run together.
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        timeline_call = pool.submit(write_timeline)
+        feature_call = pool.submit(write_feature)
+        events, timeline_reply = timeline_call.result()
+        reply = feature_call.result()
+    total = reply if timeline_reply is None else add(reply, timeline_reply)
     payload = {
         "timeline": {"kind": kind, "events": events},
         "feature": {
@@ -594,9 +615,8 @@ def run_generation(
     except TopicNotFound:
         jobs.fail(conn, job, "topic not in the catalog", max_attempts=job.attempts)
     except GenerationError as exc:
-        # No model is configured. Retrying would keep the section pending through the
-        # backoff, so the topic page stays on the loading screen and then opens with
-        # only the fetched text.
+        # No model is configured. Retrying on a backoff would hide that for an hour;
+        # the page view queues the section again once a key is present.
         give_up = str(exc) == "no backends configured"
         log.warning("%s for %s failed (attempt %d): %s", job.kind, job.topic_id, job.attempts, exc)
         jobs.fail(
@@ -654,8 +674,16 @@ def run_once(
     return job
 
 
+def log_providers(settings: Settings) -> None:
+    """Which model keys the worker can see. Values stay out of the log."""
+    for name in ("gemini", "groq", "cerebras"):
+        present = bool(getattr(settings, f"{name}_api_key", ""))
+        log.info("provider %s %s", name, "configured" if present else "missing")
+
+
 def run_forever(conn: sqlite3.Connection, settings: Settings) -> None:
     jobs.recover(conn)
+    log_providers(settings)
     n = max(1, settings.worker_threads)
 
     if n == 1:

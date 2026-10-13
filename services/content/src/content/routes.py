@@ -139,9 +139,22 @@ def topic_content(
     for kind in jobs.GENERATED:  # stored, but more is being written ("show more")
         if kind in sections and sections[kind].status == "ok" and kind in open_jobs:
             sections[kind].stale = True
-    pending = any(s.status == "pending" or s.stale for s in sections.values())
+    if enqueue:
+        for kind in jobs.GENERATED:
+            if sections[kind].status != "failed":
+                continue
+            if jobs.requeue_failed(db, topic_id, kind, view_priority(kind)):
+                sections[kind] = Section(status="pending")
+    # The exhibit waits until every model-written section is stored. A failed section stays
+    # partial (and is queued again above) so the page does not open on Wikipedia alone.
+    generated_done = all(
+        sections[kind].status == "ok" and not sections[kind].stale for kind in jobs.GENERATED
+    )
+    waiting = any(section.status == "pending" or section.stale for section in sections.values())
     return TopicContent(
-        topic_id=topic_id, status="partial" if pending else "ready", sections=sections
+        topic_id=topic_id,
+        status="ready" if generated_done and not waiting else "partial",
+        sections=sections,
     )
 
 

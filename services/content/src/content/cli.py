@@ -73,6 +73,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{kind:8} {status:8} {n}")
     elif args.once:
         jobs.recover(conn)
+        worker.log_providers(settings)
         http = worker.make_http(conn, settings)
         with httpx.Client(base_url=settings.catalog_url, timeout=30) as catalog:
             done = 0

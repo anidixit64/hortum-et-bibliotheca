@@ -113,8 +113,17 @@ DEFAULT_VIDEO_CHANNELS = [
 ]
 
 
+def _env_file() -> Path:
+    """The repo's ``.env``, wherever the worker was started from."""
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        if (parent / "pyproject.toml").is_file() and (parent / "services").is_dir():
+            return parent / ".env"
+    return Path(".env")
+
+
 class Settings(ServiceSettings):
-    model_config = SettingsConfigDict(env_prefix="CONTENT_", env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_prefix="CONTENT_", env_file=_env_file(), extra="ignore")
 
     service_name: str = "content"
     db_path: Path = Path("data/content.db")
@@ -163,15 +172,18 @@ class Settings(ServiceSettings):
     writing_chain: str = (
         "claude_code:opus,"
         "cerebras:qwen-3.8-27b,cerebras:gpt-oss-120b,"
+        "groq:openai/gpt-oss-20b,"
         "mistral:mistral-large-latest,"
         "gemini:gemini-3.8-flash,gemini:gemini-3.5-flash,"
         "gemini:gemini-3.7-flash,gemini:gemma-4-31b-it"
     )
-    generation_timeout_seconds: float = 300.0
+    # One model call. Sections run together, so the page stays inside a few minutes even
+    # when the first provider errors and the chain tries the next.
+    generation_timeout_seconds: float = 75.0
     # NER at first open: a Python with spaCy and en_core_web_trf (make ner-env); empty = off.
     ner_python: str = ""
 
-    worker_threads: int = 4
+    worker_threads: int = 8
     worker_poll_seconds: float = 2.0
     job_max_attempts: int = 5
     request_timeout_seconds: float = 30.0
