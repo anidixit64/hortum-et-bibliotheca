@@ -177,9 +177,9 @@ class Settings(ServiceSettings):
         "gemini:gemini-3.8-flash,gemini:gemini-3.5-flash,"
         "gemini:gemini-3.7-flash,gemini:gemma-4-31b-it"
     )
-    # One model call. Sections run together, so the page stays inside a few minutes even
-    # when the first provider errors and the chain tries the next.
-    generation_timeout_seconds: float = 75.0
+    # One model call. A provider that hangs is abandoned after five minutes and the chain
+    # tries the next configured model.
+    generation_timeout_seconds: float = 300.0
     # NER at first open: a Python with spaCy and en_core_web_trf (make ner-env); empty = off.
     ner_python: str = ""
 

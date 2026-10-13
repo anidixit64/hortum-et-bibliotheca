@@ -21,10 +21,14 @@ from typing import Any, NoReturn
 import httpx
 
 from content import cleanup, jobs, special, theme, writing
-from content.config import Settings
+from content.config import Settings, _env_file
 from content.fetchers import Topic, Unavailable, books, images, videos, wiki
 from content.generate import GenerationError, QuotaExceeded, Reply, Request, chain
 from content.http import FetchError, PoliteClient
+from content.trace import bind as bind_trace
+from content.trace import configure as configure_trace
+from content.trace import event as trace_event
+from content.trace import reset as reset_trace
 
 log = logging.getLogger("content.worker")
 
@@ -595,29 +599,59 @@ GENERATORS: dict[str, tuple[Generator, int]] = {
 }  # fmt: skip
 
 
+def loaded_for(conn: sqlite3.Connection, topic_id: str) -> dict[str, Any]:
+    """What is already stored for this topic, before a model call."""
+    enrichments = {
+        kind: {"status": status, "chars": len(payload)}
+        for kind, status, payload in conn.execute(
+            "SELECT kind, status, payload FROM enrichments WHERE topic_id = ?", (topic_id,)
+        )
+    }
+    generations = {
+        kind: {"model": model, "chars": len(payload)}
+        for kind, model, payload in conn.execute(
+            "SELECT kind, model, payload FROM generations WHERE topic_id = ?", (topic_id,)
+        )
+    }
+    return {"enrichments": enrichments, "generations": generations}
+
+
 def run_generation(
     conn: sqlite3.Connection, settings: Settings, catalog: httpx.Client, job: jobs.Job
 ) -> None:
     generate, version = GENERATORS[job.kind]
+    tokens = bind_trace(job.topic_id, job.kind)
+    trace_event("job.start", loaded=loaded_for(conn, job.topic_id))
     try:
         payload, fingerprint, reply = generate(conn, settings, catalog, job.topic_id)
         store_generation(conn, job.topic_id, job.kind, fingerprint, version, payload, reply)
         jobs.finish(conn, job)
+        trace_event(
+            "job.stored",
+            provider=reply.backend if reply else None,
+            model=reply.model if reply else None,
+            output=payload,
+        )
         log.info("wrote %s for %s (%s)", job.kind, job.topic_id, reply.model if reply else "none")
     except NotReady as exc:
+        trace_event("job.waiting", error=str(exc), output=None)
         jobs.defer(conn, job, jobs.now() + timedelta(seconds=20), str(exc))
     except Blocked as exc:
+        trace_event("job.blocked", error=str(exc), output=None)
         jobs.fail(conn, job, str(exc), max_attempts=job.attempts)
     except QuotaExceeded as exc:
         until = exc.retry_at or jobs.now() + timedelta(hours=1)
+        trace_event("job.quota", error=str(exc), output=None)
         log.warning("%s for %s waits until %s: %s", job.kind, job.topic_id, until, exc)
         jobs.defer(conn, job, until, str(exc))
     except TopicNotFound:
+        trace_event("job.failed", error="topic not in the catalog", output=None)
         jobs.fail(conn, job, "topic not in the catalog", max_attempts=job.attempts)
     except GenerationError as exc:
         # No model is configured. Retrying on a backoff would hide that for an hour;
         # the page view queues the section again once a key is present.
         give_up = str(exc) == "no backends configured"
+        trace_event("job.failed", error=str(exc), output=None)
         log.warning("%s for %s failed (attempt %d): %s", job.kind, job.topic_id, job.attempts, exc)
         jobs.fail(
             conn,
@@ -626,8 +660,12 @@ def run_generation(
             max_attempts=job.attempts if give_up else settings.job_max_attempts,
         )
     except (httpx.HTTPError, KeyError, ValueError) as exc:
+        message = f"{type(exc).__name__}: {exc}"
+        trace_event("job.failed", error=message, output=None)
         log.warning("%s for %s failed (attempt %d): %s", job.kind, job.topic_id, job.attempts, exc)
-        jobs.fail(conn, job, f"{type(exc).__name__}: {exc}", settings.job_max_attempts)
+        jobs.fail(conn, job, message, settings.job_max_attempts)
+    finally:
+        reset_trace(tokens)
 
 
 def process_job(
@@ -645,6 +683,8 @@ def process_job(
         jobs.defer(conn, job, jobs.now() + timedelta(minutes=1), f"unknown kind {job.kind!r}")
         return
     version, fetch = fetchers(settings)[job.kind]
+    tokens = bind_trace(job.topic_id, job.kind)
+    trace_event("job.start", loaded=loaded_for(conn, job.topic_id))
     try:
         topic = load_topic(catalog, job.topic_id)
         payload = fetch(topic, http)
@@ -652,15 +692,23 @@ def process_job(
             conn, job.topic_id, job.kind, "empty" if is_empty(payload) else "ok", payload, version
         )
         jobs.finish(conn, job)
+        trace_event("job.stored", output=payload)
         log.info("fetched %s for %s", job.kind, job.topic_id)
     except Unavailable as exc:
-        store(conn, job.topic_id, job.kind, "unavailable", {"reason": str(exc)}, version)
+        stored = {"reason": str(exc)}
+        store(conn, job.topic_id, job.kind, "unavailable", stored, version)
         jobs.finish(conn, job)
+        trace_event("job.stored", output=stored, error=str(exc))
     except TopicNotFound:
+        trace_event("job.failed", error="topic not in the catalog", output=None)
         jobs.fail(conn, job, "topic not in the catalog", max_attempts=job.attempts)
     except (FetchError, httpx.HTTPError, KeyError, ValueError) as exc:
+        message = f"{type(exc).__name__}: {exc}"
+        trace_event("job.failed", error=message, output=None)
         log.warning("%s for %s failed (attempt %d): %s", job.kind, job.topic_id, job.attempts, exc)
-        jobs.fail(conn, job, f"{type(exc).__name__}: {exc}", settings.job_max_attempts)
+        jobs.fail(conn, job, message, settings.job_max_attempts)
+    finally:
+        reset_trace(tokens)
 
 
 def run_once(
@@ -676,6 +724,23 @@ def run_once(
 
 def log_providers(settings: Settings) -> None:
     """Which model keys the worker can see. Values stay out of the log."""
+    configure_trace(settings.db_path.parent / "generation-trace.jsonl")
+    env_path = _env_file()
+    found = env_path.is_file()
+    trace_event(
+        "worker.start",
+        topic_id="",
+        kind="",
+        loaded={
+            "env_file": str(env_path),
+            "env_file_found": found,
+            "call_timeout_seconds": settings.generation_timeout_seconds,
+            "providers": {
+                name: "configured" if getattr(settings, f"{name}_api_key", "") else "missing"
+                for name in ("gemini", "groq", "cerebras")
+            },
+        },
+    )
     for name in ("gemini", "groq", "cerebras"):
         present = bool(getattr(settings, f"{name}_api_key", ""))
         log.info("provider %s %s", name, "configured" if present else "missing")

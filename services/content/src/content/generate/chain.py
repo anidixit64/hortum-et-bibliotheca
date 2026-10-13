@@ -9,6 +9,7 @@ from content.generate import Backend, GenerationError, QuotaExceeded, Reply, Req
 from content.generate.claude_code import ClaudeCode
 from content.generate.gemini import Gemini
 from content.generate.openai_compat import OpenAICompat
+from content.trace import event as trace_event
 
 log = logging.getLogger(__name__)
 
@@ -104,10 +105,22 @@ def run(
     the earliest reset is raised so the job can wait.
     """
     ordered = order_backends(backends, request.task)
+    providers = [f"{backend.name}:{getattr(backend, 'model', '')}" for backend in ordered]
+    trace_event(
+        "model.input",
+        task=request.task,
+        providers=providers,
+        system=request.system,
+        prompt=request.prompt,
+    )
+    if not ordered:
+        trace_event("model.error", task=request.task, error="no backends configured", output=None)
+        raise GenerationError("no backends configured")
     resets: list[datetime] = []
     last: Exception | None = None
     for backend in ordered:
         attempt = request
+        model = getattr(backend, "model", "")
         for _ in range(2):
             try:
                 reply = backend.generate(attempt)
@@ -115,18 +128,39 @@ def run(
                 if error.retry_at:
                     resets.append(error.retry_at)
                 log.info("%s: %s %s is out (%s), trying the next", request.task, backend.name,
-                         getattr(backend, "model", ""), error)  # fmt: skip
+                         model, error)  # fmt: skip
+                trace_event(
+                    "model.error", task=request.task, provider=backend.name, model=model,
+                    error=str(error), output=None,
+                )  # fmt: skip
                 last = error
                 break
             except GenerationError as error:
                 log.info("%s: %s %s failed (%s), trying the next", request.task, backend.name,
-                         getattr(backend, "model", ""), error)  # fmt: skip
+                         model, error)  # fmt: skip
+                trace_event(
+                    "model.error", task=request.task, provider=backend.name, model=model,
+                    error=str(error), output=None,
+                )  # fmt: skip
                 last = error
                 break
             problem = check(reply.data) if check else None
             if problem is None:
+                trace_event(
+                    "model.output",
+                    task=request.task,
+                    provider=reply.backend,
+                    model=reply.model,
+                    input_tokens=reply.input_tokens,
+                    output_tokens=reply.output_tokens,
+                    output=reply.data,
+                )
                 return reply
             log.info("%s: %s reply rejected (%s)", request.task, reply.model, problem)
+            trace_event(
+                "model.rejected", task=request.task, provider=reply.backend, model=reply.model,
+                error=problem, output=reply.data,
+            )  # fmt: skip
             last = GenerationError(problem)
             attempt = Request(
                 attempt.task,
@@ -135,5 +169,9 @@ def run(
                 attempt.schema,
             )
     if resets and isinstance(last, QuotaExceeded):
-        raise QuotaExceeded("every backend is out of quota", min(resets))
-    raise last or GenerationError("no backends configured")
+        last = QuotaExceeded("every backend is out of quota", min(resets))
+    error = last or GenerationError("no backends configured")
+    trace_event(
+        "model.error", task=request.task, error=str(error), providers=providers, output=None
+    )
+    raise error

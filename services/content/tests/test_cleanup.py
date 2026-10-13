@@ -1,4 +1,6 @@
+import json
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -128,6 +130,21 @@ def test_parallel_tasks_start_on_different_providers() -> None:
     tasks = ("clues", "facts", "summary")
     firsts = {chain.order_backends(backends, task)[0].name for task in tasks}
     assert firsts == {"cerebras", "groq", "gemini"}
+
+
+def test_a_missing_key_records_the_prompt_and_no_output(tmp_path: Path) -> None:
+    from content import trace
+
+    trace.configure(tmp_path / "trace.jsonl")
+    request = Request("summary", "system text", "prompt text", {})
+    with pytest.raises(GenerationError, match="no backends configured"):
+        chain.run([], request)
+    lines = (tmp_path / "trace.jsonl").read_text().splitlines()
+    stages = [json.loads(line)["stage"] for line in lines]
+    assert stages == ["model.input", "model.error"]
+    recorded = json.loads(lines[0])
+    assert recorded["prompt"] == "prompt text" and recorded["system"] == "system text"
+    assert json.loads(lines[1])["output"] is None
 
 
 def test_providers_without_keys_are_not_backends() -> None:
