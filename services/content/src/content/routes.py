@@ -177,6 +177,28 @@ def explain_more(
     return {"topic_id": topic_id, "through": through, "queued": queued}
 
 
+class ThumbnailRequest(BaseModel):
+    topic_ids: list[str]
+
+
+@router.post("/thumbnails", tags=["content"])
+def thumbnails(body: ThumbnailRequest, db: Db) -> dict[str, str | None]:
+    """Return the main image URL for each topic that has one stored."""
+    out: dict[str, str | None] = {}
+    for tid in body.topic_ids[:50]:
+        row = db.execute(
+            "SELECT payload FROM enrichments WHERE topic_id = ? AND kind = 'images' AND status = 'ok'",
+            (tid,),
+        ).fetchone()
+        if row:
+            imgs = json.loads(row[0]).get("images", [])
+            main = next((i["url"] for i in imgs if i.get("is_main")), None)
+            out[tid] = main or (imgs[0]["url"] if imgs else None)
+        else:
+            out[tid] = None
+    return out
+
+
 @router.get("/jobs", tags=["jobs"])
 def job_counts(db: Db) -> dict[str, dict[str, int]]:
     """Job counts by kind and status, to watch the worker."""

@@ -44,14 +44,9 @@ export function WikiSummary({ section }: { section: Section<'wiki'> }) {
           ))}
         </details>
       )}
-      <p className="muted small attribution">
-        {wiki.attribution}{' '}
+      <p className="muted small">
         <a href={wiki.url} target="_blank" rel="noreferrer">
           Read on Wikipedia
-        </a>{' '}
-        ·{' '}
-        <a href={wiki.license_url} target="_blank" rel="noreferrer">
-          {wiki.license}
         </a>
       </p>
     </>
@@ -118,7 +113,6 @@ export function Reading({ section }: { section: Section<'books'> }) {
                 </a>
                 <div className="muted small">
                   {[b.author, b.year].filter(Boolean).join(', ')}
-                  {b.cited > 0 && <span className="pill">cited by Wikipedia</span>}
                 </div>
               </div>
             </li>
@@ -138,7 +132,6 @@ export function Reading({ section }: { section: Section<'books'> }) {
           ))}
         </p>
       )}
-      <p className="muted small">Book data from Open Library.</p>
     </>
   )
 }

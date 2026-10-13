@@ -33,7 +33,6 @@ test('the topic page renders a real record', async () => {
   expect(screen.getByRole('img', { name: 'First edition cover' })).toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Public domain' })).toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Ralph Ellison: A Biography' })).toBeInTheDocument()
-  expect(screen.getByText('cited by Wikipedia')).toBeInTheDocument()
   expect(screen.getByText('Videos: coming soon.')).toBeInTheDocument()
   vi.unstubAllGlobals()
 })

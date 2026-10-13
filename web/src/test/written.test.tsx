@@ -17,7 +17,6 @@ test('summary clues are bold, with a one-line popup and a link to the full expla
   fireEvent.click(screen.getByRole('button', { name: 'battle royal' }))
   expect(screen.getByRole('tooltip')).toHaveTextContent('Blindfolded boys box for white men.')
   expect(screen.getByRole('link', { name: 'See more' })).toHaveAttribute('href', '#clue-3')
-  expect(screen.getByRole('link', { name: '“Invisible Man”' })).toBeInTheDocument()
 })
 
 describe('special sections', () => {

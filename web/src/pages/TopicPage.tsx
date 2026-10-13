@@ -269,7 +269,7 @@ export function TopicPage() {
           {facts && facts.facts.length > 0 && (
             <aside className="plaque-row" aria-label="Did you know?">
               <h2>Did you know?</h2>
-              <FunFacts facts={facts.facts} source={facts.source} />
+              <FunFacts facts={facts.facts} />
             </aside>
           )}
 
@@ -283,11 +283,6 @@ export function TopicPage() {
           {/* Clue hall */}
           <section className="exhibit-clues" id="room-clues">
             <h2><span className="room-number">C</span> The clue hall</h2>
-            {cleaned && (
-              <p className="muted small" title="An AI pass merged duplicate spellings, dropped generic terms and fixed labels; counts are recomputed from the questions.">
-                Tidied by AI
-              </p>
-            )}
             <ClueList clues={shown} explanations={cleaned ? explanations : undefined}
                       writing={false}
                       topicLinks={topicLinks} />
@@ -352,6 +347,14 @@ export function TopicPage() {
           </button>
         </div>
       </section>
+
+      <footer className="page-disclaimer">
+        <p>
+          Summaries, fun facts, and explanations are AI-generated from Wikipedia and may contain errors.
+          Images and text are sourced from Wikipedia and Wikimedia Commons under CC BY-SA 4.0.
+          Book data from Open Library.
+        </p>
+      </footer>
     </>
   )
 }

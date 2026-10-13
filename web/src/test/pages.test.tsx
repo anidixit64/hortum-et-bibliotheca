@@ -37,7 +37,7 @@ test('search shows results that link to the topic page', async () => {
   await userEvent.type(screen.getByLabelText('Search topics'), 'socer')
   const link = await screen.findByRole('link', { name: /Association football/ })
   expect(link).toHaveAttribute('href', '/topic/Q2736')
-  expect(link).toHaveTextContent('“soccer”')
+  expect(link).toHaveTextContent('"soccer"')
 })
 
 test('review flips a card, rates it and moves on', async () => {

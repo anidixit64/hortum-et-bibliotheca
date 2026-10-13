@@ -79,8 +79,10 @@ class SearchIndex:
             for topic_id, alias, source in rows:
                 similarity = fuzz.WRatio(needle, alias) / 100
                 if alias == needle:
-                    similarity += 0.15
+                    similarity += 0.30
                 elif alias.startswith(needle):
+                    similarity += 0.20
+                elif (" " + needle) in (" " + alias):
                     similarity += 0.05
                 similarity *= _SOURCE_WEIGHT.get(source, 0.9)
                 if similarity > best.get(topic_id, (0.0, ""))[0]:

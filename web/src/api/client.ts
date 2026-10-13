@@ -77,7 +77,12 @@ export const api = {
       { method: 'POST' },
     ),
 
-  /** Names (proper nouns, clue labels) that are topics of their own — for linking. */
+  thumbnails: (topicIds: string[]) =>
+    request<Record<string, string | null>>(content('/thumbnails'), {
+      method: 'POST',
+      body: JSON.stringify({ topic_ids: topicIds }),
+    }),
+
   topicLinks: (names: string[], exclude?: string) =>
     request<Record<string, TopicLink>>(catalog('/topics/lookup'), {
       method: 'POST',
