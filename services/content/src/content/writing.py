@@ -16,8 +16,11 @@ BATCH = 5  # clues per explanation request
 FIRST_PAGE = 10  # clues explained when the topic is first opened
 EXPLANATION_WORDS = (100, 160)
 SUMMARY_WORDS = (500, 750)
-# The whole Wikipedia article goes to every written section (see fetchers.wiki).
-SOURCE_WORDS = 80_000
+# What a prompt may carry from the stored article. The full page is what Groq rejected
+# for Diocletian (about 16,300 tokens against an 8,000 token free-tier cap). Facts and
+# the timeline quote this excerpt. Essays and clue notes get the lead only.
+SOURCE_WORDS = 1_500
+LEAD_WORDS = 800
 
 EXPLAIN_SYSTEM = """You write study notes for quiz bowl players. A clue is a term that \
 quiz bowl questions about an answer mention; players learn clues to recognize the answer \
@@ -54,7 +57,8 @@ students...")
 Clues (JSON):
 {clues}
 
-Source (Wikipedia, CC BY-SA):
+Wikipedia lead (CC BY-SA), the article's summary. Use it for names, dates and numbers, \
+and add only facts you are sure of:
 {source}"""
 
 EXPLAIN_SCHEMA: dict[str, Any] = {
@@ -103,7 +107,8 @@ where the text is really about it, and only once.
 Clues (rank: label — what it is):
 {clues}
 
-Source (Wikipedia, CC BY-SA):
+Wikipedia lead (CC BY-SA), the article's summary. Use it for names, dates and numbers, \
+and add only facts you are sure of:
 {source}"""
 
 SUMMARY_SCHEMA: dict[str, Any] = {
@@ -193,14 +198,44 @@ def clean_summary(summary: str, ranks: list[int]) -> tuple[str, list[int]]:
     return MARK.sub(keep, summary), seen
 
 
-def source_text(wiki: dict[str, Any] | None, words: int = SOURCE_WORDS) -> str:
-    """The Wikipedia lead and sections, cut to ``words``."""
+_NO_SOURCE = "(no Wikipedia text: use only widely established facts)"
+
+
+def _words(text: str) -> list[str]:
+    return str(text).split()
+
+
+def lead_text(wiki: dict[str, Any] | None, words: int = LEAD_WORDS) -> str:
+    """The Wikipedia lead, for the summary, the feature and clue explanations."""
     if not wiki:
-        return "(no Wikipedia text: use only widely established facts)"
-    parts = [wiki.get("lead", "")] + [
-        f"{s.get('heading', '')}: {s.get('text', '')}" for s in wiki.get("sections", [])
-    ]
-    return " ".join(" ".join(parts).split()[:words])
+        return _NO_SOURCE
+    lead = " ".join(_words(wiki.get("lead", ""))[:words])
+    return lead or source_text(wiki, words)
+
+
+def source_text(wiki: dict[str, Any] | None, words: int = SOURCE_WORDS) -> str:
+    """The lead, then the next sections, stopping at ``words``. Facts and the timeline
+    quote this, so it has to be text that is actually in the article."""
+    if not wiki:
+        return _NO_SOURCE
+    kept: list[str] = []
+    used = 0
+    lead = _words(wiki.get("lead", ""))
+    if lead and used < words:
+        take = lead[: words - used]
+        kept.append(" ".join(take))
+        used += len(take)
+    for section in wiki.get("sections", []):
+        if used >= words:
+            break
+        heading = str(section.get("heading", "")).strip()
+        piece = ([f"{heading}:"] if heading else []) + _words(section.get("text", ""))
+        if not piece:
+            continue
+        take = piece[: words - used]
+        kept.append(" ".join(take))
+        used += len(take)
+    return " ".join(kept) if kept else _NO_SOURCE
 
 
 # --- fun facts ---------------------------------------------------------------------------
@@ -221,7 +256,8 @@ exactly (word for word).
 Prefer facts that surprise, connect to something familiar, or explain why {name} matters; \
 avoid dry dates and lists.
 
-Source (Wikipedia, CC BY-SA):
+Opening of the Wikipedia article (CC BY-SA). Copy each source_sentence from this text \
+word for word:
 {source}"""
 
 FACTS_SCHEMA: dict[str, Any] = {

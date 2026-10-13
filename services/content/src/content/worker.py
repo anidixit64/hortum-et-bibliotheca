@@ -281,7 +281,7 @@ def write_explanations(
     if todo and wiki_row is None:
         wait_for(conn, topic_id, "wiki", "Wikipedia text")
     wiki = json.loads(wiki_row[1]) if wiki_row and wiki_row[0] == "ok" else None
-    source = writing.source_text(wiki)
+    source = writing.lead_text(wiki)
     found, examples = clue_inputs(catalog, topic_id, todo)
     backends = chain.build(settings.light_chain, settings)
     total: Reply | None = None
@@ -353,7 +353,7 @@ def write_summary(
         low=writing.SUMMARY_WORDS[0],
         high=writing.SUMMARY_WORDS[1],
         clues=listing,
-        source=writing.source_text(wiki),
+        source=writing.lead_text(wiki),
     )
     reply = chain.run(
         chain.build(settings.writing_chain, settings),
@@ -518,7 +518,8 @@ def write_special(
     if row is None:
         wait_for(conn, topic_id, "wiki", "Wikipedia text")
     wiki = json.loads(row[1]) if row[0] == "ok" else None
-    source = writing.source_text(wiki)
+    excerpt = writing.source_text(wiki)
+    lead = writing.lead_text(wiki)
     topic = catalog.get(f"/topics/{topic_id}/clue-candidates", params={"limit": 1}).json()
     name, category = topic["name"], topic.get("category")
     title, instructions, kind = special.form(category)
@@ -531,7 +532,7 @@ def write_special(
         low=special.feature_words(category)[0],
         high=special.feature_words(category)[1],
         diagram=diagram,
-        source=source,
+        source=lead,
     )
 
     def write_timeline() -> tuple[list[dict[str, Any]], Reply | None]:
@@ -545,15 +546,15 @@ def write_special(
                 special.TIMELINE.format(
                     name=name,
                     kind=kind,
-                    source=source,
+                    source=excerpt,
                     low=special.TIMELINE_EVENTS[0],
                     high=special.TIMELINE_EVENTS[1],
                 ),
                 special.TIMELINE_SCHEMA,
             ),
-            functools.partial(special.timeline_problem, source=source),
+            functools.partial(special.timeline_problem, source=excerpt),
         )
-        return special.timeline(timeline_reply.data.get("events", []), source), timeline_reply
+        return special.timeline(timeline_reply.data.get("events", []), excerpt), timeline_reply
 
     def write_feature() -> Reply:
         return chain.run(
@@ -562,7 +563,7 @@ def write_special(
             functools.partial(special.feature_problem, words=special.feature_words(category)),
         )
 
-    # Timeline and the feature essay read the same Wikipedia text and can run together.
+    # The timeline quotes the excerpt. The feature reads the lead. They can run together.
     with ThreadPoolExecutor(max_workers=2) as pool:
         timeline_call = pool.submit(write_timeline)
         feature_call = pool.submit(write_feature)

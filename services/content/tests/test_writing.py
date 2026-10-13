@@ -1,4 +1,5 @@
 from content import writing
+from content.generate import chain
 
 
 def test_summary_checks_marks_length_and_hook() -> None:
@@ -24,11 +25,22 @@ def test_explanations_need_every_clue_at_length() -> None:
     assert "words" in str(writing.explain_problem(short, [1]))
 
 
-def test_source_text_is_the_whole_article_up_to_a_cap() -> None:
-    wiki = {"lead": "lead " * 3000, "sections": [{"heading": "H", "text": "s " * 3000}]}
-    assert len(writing.source_text(wiki).split()) == 6001  # every word, plus "H:"
-    assert len(writing.source_text(wiki, 100).split()) == 100
+def test_source_text_is_the_lead_then_sections_up_to_a_cap() -> None:
+    huge = {"lead": "lead " * 3000, "sections": [{"heading": "H", "text": "s " * 3000}]}
+    text = writing.source_text(huge)
+    assert len(text.split()) == writing.SOURCE_WORDS
+    assert text.startswith("lead") and "H:" not in text
+    assert len(writing.source_text(huge, 100).split()) == 100
+    short = {
+        "lead": "Diocletian ruled.",
+        "sections": [{"heading": "Reign", "text": "He abdicated in 305."}],
+    }
+    assert writing.source_text(short) == "Diocletian ruled. Reign: He abdicated in 305."
+    assert writing.lead_text(short) == "Diocletian ruled."
     assert "no Wikipedia" in writing.source_text(None)
+    assert "no Wikipedia" in writing.lead_text(None)
+    prompt = writing.FACTS.format(name="Diocletian", category="History", low=5, high=8, source=text)
+    assert len(writing.FACTS_SYSTEM) + len(prompt) < chain.GROQ_CHAR_LIMIT
 
 
 def test_facts_must_quote_the_source() -> None:

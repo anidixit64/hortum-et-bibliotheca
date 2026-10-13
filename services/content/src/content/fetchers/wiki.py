@@ -6,10 +6,10 @@ from typing import Any
 from content.fetchers import Topic, Unavailable
 from content.http import PoliteClient
 
-VERSION = 2  # 2: the whole article, not the first 24,000 characters
+VERSION = 2  # 2: store the whole article. Prompts send an excerpt (writing.source_text).
 API = "https://en.wikipedia.org/w/api.php"
-# The whole article goes to the writing models (the longest are ~40k tokens, well inside
-# their context); this only guards against a freak page.
+# The article is stored in full so a prompt can take the lead and the next sections.
+# Models never see more than writing.SOURCE_WORDS. This cap only guards a freak page.
 MAX_CHARS = 400_000
 SKIP_SECTIONS = {
     "see also",

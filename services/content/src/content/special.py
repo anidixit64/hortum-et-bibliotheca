@@ -121,7 +121,8 @@ oldest first. For each:
 the year
 Skip anything the source doesn't date.
 
-Source (Wikipedia, CC BY-SA):
+Opening of the Wikipedia article (CC BY-SA). Copy each source_sentence from this text \
+word for word:
 {source}"""
 
 TIMELINE_SCHEMA: dict[str, Any] = {
@@ -154,7 +155,8 @@ Write "{title}": {instructions}
 - "title": a short, specific title for the piece
 - "body": {low}-{high} words, paragraphs separated by blank lines, no headings{diagram}
 
-Source (Wikipedia, CC BY-SA):
+Wikipedia lead (CC BY-SA), the article's summary. Write from it and from widely \
+established facts:
 {source}"""
 
 DIAGRAM = """

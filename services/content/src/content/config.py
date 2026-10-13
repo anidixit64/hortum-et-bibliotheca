@@ -154,8 +154,8 @@ class Settings(ServiceSettings):
     # has its own daily/minute caps, so the chains walk through several: when one is out
     # the next takes over.
     #
-    # Groq free tier: 8K TPM, 200K TPD — too tight for writing (our prompts send the full
-    # Wikipedia article, 20-80K tokens). Good only for the light chain (theme, cleanup).
+    # Groq free tier: 8K tokens per minute. Diocletian's full article was about 16,300
+    # tokens and came back 413, so prompts send the lead or a short excerpt instead.
     # Models: gpt-oss-20b (1000 t/s), gpt-oss-120b (500 t/s), qwen3.8-27b.
     #
     # Cerebras: $5 free credit, needs a payment method. qwen-3.8-27b is very generous
