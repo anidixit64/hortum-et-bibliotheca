@@ -64,6 +64,11 @@ def build(spec: str, settings: Settings) -> list[Backend]:
     return backends
 
 
+def _task_offset(task: str, n: int) -> int:
+    """Deterministic offset so parallel tasks start at different backends."""
+    return sum(ord(c) for c in task) % n
+
+
 def run(
     backends: list[Backend],
     request: Request,
@@ -71,10 +76,19 @@ def run(
 ) -> Reply:
     """The first backend's reply that passes ``check`` (which returns an error message or
     None). A failed check is retried once with the error attached. Quota errors move on;
-    when every backend is out, the earliest reset is raised so the job can wait."""
+    when every backend is out, the earliest reset is raised so the job can wait.
+
+    Backends are rotated by a hash of the task name so that concurrent tasks for different
+    generation kinds naturally hit different providers first, spreading the load.
+    """
+    if len(backends) > 1:
+        off = _task_offset(request.task, len(backends))
+        ordered = backends[off:] + backends[:off]
+    else:
+        ordered = backends
     resets: list[datetime] = []
     last: Exception | None = None
-    for backend in backends:
+    for backend in ordered:
         attempt = request
         for _ in range(2):
             try:

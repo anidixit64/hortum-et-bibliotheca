@@ -1,11 +1,20 @@
-"""The content worker: takes jobs from content.db and fetches enrichments, one at a time."""
+"""The content worker: takes jobs from content.db and fetches enrichments.
+
+With ``worker_threads > 1`` (the default), independent jobs run in parallel so that
+fetches (wiki, images, books, videos) overlap, and generation tasks that depend on
+different inputs (theme ← images, facts ← wiki, etc.) don't wait for each other.
+Each thread gets its own DB connection and HTTP clients; the chain rotates backends
+by task name so concurrent LLM calls spread across providers.
+"""
 
 import functools
 import json
 import logging
 import sqlite3
+import threading
 import time
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from typing import Any, NoReturn
 
@@ -82,13 +91,15 @@ def is_empty(payload: dict[str, Any]) -> bool:
 
 
 _NER: dict[str, cleanup.Ner] = {}
+_ner_lock = threading.Lock()
 
 
-def ner_for(settings: Settings) -> cleanup.Ner:
-    """One NER process per worker, kept between topics."""
-    if settings.ner_python not in _NER:
-        _NER[settings.ner_python] = cleanup.Ner(settings.ner_python)
-    return _NER[settings.ner_python]
+def ner_entities(settings: Settings, sentences: list[str]) -> list[list[list[str]]]:
+    """Thread-safe NER: the subprocess communicates over pipes."""
+    with _ner_lock:
+        if settings.ner_python not in _NER:
+            _NER[settings.ner_python] = cleanup.Ner(settings.ner_python)
+        return _NER[settings.ner_python].entities(sentences)
 
 
 def clean_clues(
@@ -105,7 +116,7 @@ def clean_clues(
     if not found["candidates"]:
         return {"clues": [], "edits": [], "rejected": []}, found["fingerprint"], None
     sentences = [s for c in found["candidates"] for s in c["sentences"]]
-    ents = ner_for(settings).entities(sentences)
+    ents = ner_entities(settings, sentences)
     hints: dict[int, str] = {}
     if ents:
         at = 0
@@ -587,19 +598,20 @@ def run_generation(
         jobs.fail(conn, job, f"{type(exc).__name__}: {exc}", settings.job_max_attempts)
 
 
-def run_once(
-    conn: sqlite3.Connection, settings: Settings, http: PoliteClient, catalog: httpx.Client
-) -> jobs.Job | None:
-    """Does one job, if any is ready. Each kind succeeds or fails on its own."""
-    job = jobs.claim(conn)
-    if job is None:
-        return None
+def process_job(
+    conn: sqlite3.Connection,
+    settings: Settings,
+    http: PoliteClient,
+    catalog: httpx.Client,
+    job: jobs.Job,
+) -> None:
+    """Process a single claimed job.  Each kind succeeds or fails on its own."""
     if job.kind in jobs.GENERATED:
         run_generation(conn, settings, catalog, job)
-        return job
-    if job.kind not in fetchers(settings):  # a newer worker's kind: put it back, don't crash
+        return
+    if job.kind not in fetchers(settings):
         jobs.defer(conn, job, jobs.now() + timedelta(minutes=1), f"unknown kind {job.kind!r}")
-        return job
+        return
     version, fetch = fetchers(settings)[job.kind]
     try:
         topic = load_topic(catalog, job.topic_id)
@@ -617,13 +629,68 @@ def run_once(
     except (FetchError, httpx.HTTPError, KeyError, ValueError) as exc:
         log.warning("%s for %s failed (attempt %d): %s", job.kind, job.topic_id, job.attempts, exc)
         jobs.fail(conn, job, f"{type(exc).__name__}: {exc}", settings.job_max_attempts)
+
+
+def run_once(
+    conn: sqlite3.Connection, settings: Settings, http: PoliteClient, catalog: httpx.Client
+) -> jobs.Job | None:
+    """Does one job, if any is ready."""
+    job = jobs.claim(conn)
+    if job is None:
+        return None
+    process_job(conn, settings, http, catalog, job)
     return job
 
 
 def run_forever(conn: sqlite3.Connection, settings: Settings) -> None:
     jobs.recover(conn)
-    http = make_http(conn, settings)
-    with httpx.Client(base_url=settings.catalog_url, timeout=30) as catalog:
+    n = max(1, settings.worker_threads)
+
+    if n == 1:
+        http = make_http(conn, settings)
+        with httpx.Client(base_url=settings.catalog_url, timeout=30) as catalog:
+            while True:
+                if run_once(conn, settings, http, catalog) is None:
+                    time.sleep(settings.worker_poll_seconds)
+        return  # pragma: no cover
+
+    # --- Parallel mode: independent jobs run in separate threads ---
+    log.info("worker: %d threads", n)
+    db_path: str = conn.execute("PRAGMA database_list").fetchone()[2]
+
+    _local = threading.local()
+
+    def _resources() -> tuple[sqlite3.Connection, PoliteClient, httpx.Client]:
+        if not hasattr(_local, "conn"):
+            _local.conn = sqlite3.connect(db_path, check_same_thread=False, timeout=30)
+            _local.conn.execute("PRAGMA journal_mode=WAL")
+            _local.conn.execute("PRAGMA busy_timeout=5000")
+            _local.http = make_http(_local.conn, settings)
+            _local.catalog = httpx.Client(base_url=settings.catalog_url, timeout=30)
+        return _local.conn, _local.http, _local.catalog
+
+    slots = threading.BoundedSemaphore(n)
+
+    def _do(job: jobs.Job) -> None:
+        try:
+            tc, th, tcat = _resources()
+            process_job(tc, settings, th, tcat, job)
+        except Exception:
+            log.exception("unhandled error: %s/%s", job.kind, job.topic_id)
+            try:
+                tc, _, _ = _resources()
+                jobs.fail(tc, job, "unhandled worker error", max_attempts=job.attempts)
+            except Exception:
+                pass
+        finally:
+            slots.release()
+
+    with ThreadPoolExecutor(max_workers=n, thread_name_prefix="w") as pool:
         while True:
-            if run_once(conn, settings, http, catalog) is None:
+            slots.acquire()
+            job = jobs.claim(conn)
+            if job is None:
+                slots.release()
                 time.sleep(settings.worker_poll_seconds)
+                continue
+            pool.submit(_do, job)

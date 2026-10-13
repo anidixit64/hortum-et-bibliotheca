@@ -23,17 +23,13 @@ test('the topic page renders a real record', async () => {
   )
   expect(await screen.findByRole('heading', { level: 1, name: 'Invisible Man' })).toBeInTheDocument()
   const clues = screen.getByRole('heading', { name: /The clue hall/ }).parentElement!
-  // the floor plan links to each numbered room
-  const plan = screen.getByRole('navigation', { name: 'Rooms' })
-  expect(within(plan).getByRole('link', { name: /The clue hall/ })).toHaveAttribute('href', '#room-clues')
   expect(within(clues).getByText('1. Ras the Exhorter')).toBeInTheDocument()
   expect(screen.getByRole('img', { name: 'Where each clue appears in questions' })).toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'The Invisible Man' })).toBeInTheDocument()
   expect(await screen.findByText('50%')).toBeInTheDocument() // your accuracy
   for (const follow of screen.getAllByRole('button', { name: 'Follow' })) expect(follow).toBeEnabled() // entrance and exit
-  // fetched content, with attribution and licenses
-  expect(screen.getByText('Invisible Man is a novel by Ralph Ellison, published in 1952.')).toBeInTheDocument()
-  expect(screen.getByRole('link', { name: 'CC BY-SA 4.0' })).toHaveAttribute('href', 'https://creativecommons.org/licenses/by-sa/4.0/')
+  // AI summary replaces the wiki lead when available
+  expect(screen.getByText('Invisible Man is a novel by Ralph Ellison.')).toBeInTheDocument()
   expect(screen.getByRole('img', { name: 'First edition cover' })).toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Public domain' })).toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Ralph Ellison: A Biography' })).toBeInTheDocument()
@@ -53,6 +49,9 @@ function content(status: 'ready' | 'partial') {
         lead: 'Invisible Man is a novel by Ralph Ellison, published in 1952.', sections: [],
         license: 'CC BY-SA 4.0', license_url: 'https://creativecommons.org/licenses/by-sa/4.0/',
         attribution: 'Text from the Wikipedia article “Invisible Man”, by its contributors.' } },
+      summary: { status: 'ok', fetched_at: '2026-10-10', payload: {
+        summary: 'Invisible Man is a novel by Ralph Ellison.', hook: 'A nameless narrator searches for identity.',
+        marked: [], source: null } },
       images: status === 'partial' ? pending : { status: 'ok', fetched_at: '2026-10-10', payload: { images: [{
         file: 'File:Invisible Man.jpg', url: 'https://upload.wikimedia.org/x.jpg', width: 400, height: 600,
         page: 'https://commons.wikimedia.org/wiki/File:Invisible_Man.jpg', caption: 'First edition cover',

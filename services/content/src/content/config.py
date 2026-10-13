@@ -130,7 +130,7 @@ class Settings(ServiceSettings):
     video_channels: list[str] = Field(default_factory=lambda: list(DEFAULT_VIDEO_CHANNELS))
 
     # Generation (Phase 6). Chains are tried in order; see content/generate.
-    use_claude_code: bool = True  # false: Gemini only, and the worker can run in Docker
+    use_claude_code: bool = False  # false: Gemini only, and the worker can run in Docker
     claude_code_path: str = ""  # default: `claude` on the PATH or the VS Code extension's copy
     gemini_api_key: str = ""  # free key from Google AI Studio
     groq_api_key: str = ""  # free key from console.groq.com (8K TPM — small prompts only)
@@ -171,6 +171,7 @@ class Settings(ServiceSettings):
     # NER at first open: a Python with spaCy and en_core_web_trf (make ner-env); empty = off.
     ner_python: str = ""
 
+    worker_threads: int = 4
     worker_poll_seconds: float = 2.0
     job_max_attempts: int = 5
     request_timeout_seconds: float = 30.0

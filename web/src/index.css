@@ -127,7 +127,7 @@ input[type='text'] {
 }
 
 main {
-  max-width: 1040px;
+  max-width: 1300px;
   margin: 0 auto;
   padding: 1.5rem 1rem 4rem;
 }
@@ -665,3 +665,275 @@ body {
 .job-kind { font-weight: 600; min-width: 8rem; }
 
 .admin-refresh { margin: 1.5rem 0; }
+
+/* --- Loading screen ---------------------------------------------------------------------- */
+
+.loading-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: 2rem 1rem;
+  gap: 1.5rem;
+}
+
+.loading-topic {
+  font-family: var(--font-body);
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin: 0;
+  text-align: center;
+}
+
+.loading-orbit {
+  width: 140px;
+  height: 140px;
+  animation: orbit 6s linear infinite;
+}
+@keyframes orbit {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading-orbit { animation: none; }
+}
+
+.loading-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  user-select: none;
+  pointer-events: none;
+}
+
+.loading-bar-track {
+  width: min(280px, 70vw);
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.loading-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.6s ease;
+}
+
+.loading-hint {
+  margin: 0;
+  text-align: center;
+}
+
+.loading-play {
+  margin-top: 0.5rem;
+  font-size: 0.95rem;
+  border: 1px dashed var(--accent);
+  color: var(--accent);
+  background: transparent;
+  padding: 0.5rem 1.2rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.loading-play:hover {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.loading-back {
+  align-self: flex-start;
+  font-size: 0.85rem;
+  border: none;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0.3rem 0;
+}
+.loading-back:hover { text-decoration: underline; }
+
+/* --- Mini practice (loading screen game) ------------------------------------------------- */
+
+.mini-practice {
+  width: 100%;
+  max-width: 600px;
+  text-align: left;
+}
+
+.mini-meta {
+  margin: 0 0 0.5rem;
+}
+
+.mini-reader {
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  line-height: 1.7;
+  min-height: 5rem;
+  margin-bottom: 0.75rem;
+}
+
+.mini-buzz {
+  display: block;
+  margin: 0 auto;
+}
+
+.mini-answer {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.mini-answer input {
+  flex: 1;
+  min-width: 140px;
+}
+
+.mini-result {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.mini-answer-text {
+  font-family: var(--font-body);
+}
+
+/* --- Museum layout ----------------------------------------------------------------------- */
+
+.museum-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr 240px;
+  gap: 1.5rem;
+  margin-top: 1.25rem;
+}
+
+.museum-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.sidebar-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 0.9rem 1rem;
+}
+
+.sidebar-title {
+  margin: 0 0 0.6rem;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+}
+
+.sidebar-gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.sidebar-img {
+  margin: 0;
+}
+.sidebar-img img {
+  width: 100%;
+  height: auto;
+  border-radius: 6px;
+  object-fit: cover;
+}
+.sidebar-img figcaption {
+  margin-top: 0.2rem;
+  font-size: 0.78rem;
+}
+
+.museum-center {
+  min-width: 0;
+}
+
+.exhibit-main {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.exhibit-feature {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.exhibit-clues {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.25rem;
+}
+.exhibit-clues h2 {
+  margin: 0 0 0.75rem;
+  font-family: var(--font-body);
+  font-size: 1.25rem;
+}
+
+.exhibit-connections {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.25rem;
+}
+.exhibit-connections h2 {
+  margin: 0 0 0.75rem;
+  font-family: var(--font-body);
+  font-size: 1.25rem;
+}
+
+/* Sidebar cards: squeeze content in narrow columns */
+.museum-sidebar .map { height: 200px; }
+.museum-sidebar .videos { grid-template-columns: 1fr; }
+.museum-sidebar .books { grid-template-columns: 1fr; }
+.museum-sidebar .gallery { grid-template-columns: 1fr; }
+.museum-sidebar .gallery img { height: 120px; }
+
+/* --- Museum responsive: tablet collapses sidebars below center --------------------------- */
+
+@media (max-width: 1100px) {
+  .museum-layout {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "center center"
+      "left right";
+  }
+  .museum-center { grid-area: center; }
+  .museum-left { grid-area: left; }
+  .museum-right { grid-area: right; }
+}
+
+@media (max-width: 700px) {
+  .museum-layout {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "center"
+      "left"
+      "right";
+  }
+  .museum-sidebar .map { height: 260px; }
+  .museum-sidebar .videos { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+}

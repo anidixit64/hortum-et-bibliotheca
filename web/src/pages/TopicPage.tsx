@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api/client'
@@ -11,6 +11,7 @@ import { ConfusionList } from '../components/Related'
 import { Timeline } from '../components/Timeline'
 import { ExhibitTimeline, Feature } from '../components/Special'
 import { TopicMap } from '../components/TopicMap'
+import { LoadingScreen } from '../components/LoadingScreen'
 import { applyCleanup, CLEANED_FROM } from '../lib/cleanClues'
 import { extractProperNouns } from '../lib/marks'
 import { percent } from '../lib/format'
@@ -21,15 +22,21 @@ import { useTopicContent } from '../lib/useTopicContent'
 const PAGE = 10 // clues shown at first
 const MORE = 5 // added by each "show more"
 
+function SidebarCard({ title, children }: { title?: string; children: ReactNode }) {
+  return (
+    <aside className="sidebar-card">
+      {title && <h3 className="sidebar-title">{title}</h3>}
+      {children}
+    </aside>
+  )
+}
+
 export function TopicPage() {
   const { key = '' } = useParams()
-  // Tagged with the key it was loaded for, so a stale record shows as loading.
   const [loaded, setLoaded] = useState<{ key: string; record: TopicRecord } | null>(null)
   const [stats, setStats] = useState<TopicStats | null>(null)
   const [error, setError] = useState<{ key: string; message: string } | null>(null)
   const [busy, setBusy] = useState(false)
-  // Raw clue records past the first page, and how many clues to show; both tagged with
-  // the topic they belong to.
   const [more, setMore] = useState<{ key: string; clues: Clue[] }>({ key: '', clues: [] })
   const [visible, setVisible] = useState<{ key: string; n: number }>({ key: '', n: PAGE })
   const [loadingMore, setLoadingMore] = useState(false)
@@ -57,12 +64,17 @@ export function TopicPage() {
       ? (cleanedSection.payload as SectionPayloads['clues']).clues
       : null
 
+  const imagesSection = content?.sections.images
+  const images =
+    imagesSection?.status === 'ok'
+      ? (imagesSection.payload as SectionPayloads['images']).images
+      : []
+
   // Topic links: proper nouns in the summary + clue labels that are themselves topics.
   const [topicLinks, setTopicLinks] = useState<Record<string, TopicLink>>({})
   const topicId = current?.topic.id
   useEffect(() => {
     if (!topicId) return
-    // Collect names to look up: clue labels + proper nouns from the summary text.
     const names: string[] = []
     if (cleaned) names.push(...cleaned.map((c) => c.label))
     if (written) names.push(...extractProperNouns(written.summary))
@@ -74,7 +86,6 @@ export function TopicPage() {
       .catch(() => setTopicLinks({}))
   }, [topicId, written?.summary, cleaned?.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // The cleanup was made from the top 25 raw clues: load the ones past the first page.
   const needRaw = cleaned !== null && current !== null && more.key !== key
   useEffect(() => {
     if (!needRaw || !current) return
@@ -85,7 +96,7 @@ export function TopicPage() {
   }, [needRaw, current, key])
 
   const loadStats = useCallback((id: string) => {
-    api.topicStats(id).then(setStats).catch(() => setStats(null)) // study may be offline
+    api.topicStats(id).then(setStats).catch(() => setStats(null))
   }, [])
 
   useEffect(() => {
@@ -101,13 +112,33 @@ export function TopicPage() {
 
   if (error?.key === key) return <p className="error">{error.message}</p>
   const record = current
-  if (!record) return <p className="muted">Loading…</p>
+
+  // --- Loading screen: show while record or summary aren't ready yet ---
+  if (!record || (!written && content?.status === 'partial')) {
+    const sectionKeys = content ? Object.keys(content.sections) : []
+    const done = content
+      ? sectionKeys.filter((k) => {
+          const s = content.sections[k as keyof typeof content.sections]
+          return s.status === 'ok' || s.status === 'empty' || s.status === 'unavailable'
+        }).length
+      : 0
+    const total = sectionKeys.length || 10
+    const progress = record ? done / total : 0
+
+    return (
+      <LoadingScreen
+        topicId={record?.topic.id}
+        progress={progress}
+        topicName={record?.topic.name}
+      />
+    )
+  }
+
   const { topic } = record
 
   const extra = more.key === key ? more.clues : []
   const raw = [...record.clues, ...extra]
   const rawTotal = record.n_clues ?? record.clues.length
-  // With a cleanup: its clues, then raw ones it didn't look at (ranked past CLEANED_FROM).
   const list = cleaned
     ? [...applyCleanup(raw, cleaned), ...raw.filter((c) => c.rank > CLEANED_FROM)]
     : raw
@@ -125,13 +156,12 @@ export function TopicPage() {
       }
     }
     setVisible({ key, n: n + MORE })
-    // Newly shown cleaned clues get their explanations written (only the missing ones).
     const through = Math.min(n + MORE, cleaned?.length ?? 0)
     if (cleaned && through > explanations.length) {
       api
         .explainMore(topic.id, through)
         .then(refreshContent)
-        .catch(() => {}) // content service offline: the clues still show
+        .catch(() => {})
     }
   }
 
@@ -146,7 +176,6 @@ export function TopicPage() {
     }
   }
 
-  // AI sections still being written (the page polls until they arrive).
   const WRITING: [keyof SectionPayloads, string][] = [
     ['summary', 'summary'], ['theme', 'colors'], ['explanations', 'clue explanations'],
     ['facts', 'fun facts'], ['special', 'special sections'],
@@ -157,78 +186,17 @@ export function TopicPage() {
   }
   const writing = WRITING.filter(([kind]) => isWriting(kind)).map(([, name]) => name)
 
-  // The exhibit's rooms, numbered in walking order; a room shows only when it has something.
-  const rooms: { id: string; title: string; body: ReactNode }[] = []
-  const room = (id: string, title: string, body: ReactNode) => rooms.push({ id, title, body })
-  if (content) {
-    room('introduction', 'Introduction', written
-      ? <Summary summary={written} explanations={explanations} topicLinks={topicLinks} />
-      : (
-        <>
-          {isWriting('summary') && (
-            <p className="muted small writing-note">
-              The AI summary is being written. Meanwhile, the opening of the Wikipedia article:
-            </p>
-          )}
-          <WikiSummary section={content.sections.wiki} />
-        </>
-      ))
-    room('gallery', 'Gallery', <Gallery section={content.sections.images} />)
-  }
-  if (special) room('feature', special.feature.form, <Feature special={special} />)
-  // The Wikipedia-grounded timeline when it has a few events; else Wikidata's dates, when
-  // there are enough of them to be a timeline.
-  if (special && special.timeline.events.length >= 3) {
-    room('timeline', special.timeline.kind === 'discoveries' ? 'Timeline of discoveries' : 'Timeline',
-      <ExhibitTimeline timeline={special.timeline} />)
-  } else if (record.timeline.length >= 3) {
-    room('timeline', 'Timeline', <Timeline events={record.timeline} />)
-  }
-  room('clues', 'The clue hall', (
-    <>
-      {cleaned && (
-        <p className="muted small" title="An AI pass merged duplicate spellings, dropped generic terms and fixed labels; counts are recomputed from the questions.">
-          Tidied by AI{cleanedSection?.stale ? ' (updating…)' : ''}
-        </p>
-      )}
-      <ClueList clues={shown} explanations={cleaned ? explanations : undefined}
-                writing={isWriting('explanations') || isWriting('clues')}
-                topicLinks={topicLinks} />
-      {shown.length < total && (
-        <button onClick={showMore} disabled={loadingMore}>
-          {loadingMore ? 'Loading…' : `Show ${Math.min(MORE, total - shown.length)} more`}
-        </button>
-      )}
-      {shown.length > 0 && (
-        <>
-          <h3>Where the clues come up</h3>
-          <Heatmap clues={shown} buzzed={stats?.buzzed_clusters ?? {}} />
-        </>
-      )}
-    </>
-  ))
-  room('connections', 'Connections', (
-    <>
-      {/* Related topics are left out for now: the summary links the topics it names. */}
-      <h3>Don't confuse with</h3>
-      <ConfusionList confusions={record.confusions} />
-      {record.map.length > 0 && (
-        <>
-          <h3>Map</h3>
-          <TopicMap points={record.map} />
-        </>
-      )}
-    </>
-  ))
-  if (content) {
-    room('screening', 'Screening room', <Videos section={content.sections.videos} />)
-    room('library', 'Library', <Reading section={content.sections.books} />)
-  }
-  const plaquesAfter = rooms.findIndex((r) => r.id === 'gallery')
+  const sideImages = images.filter((img) => !img.is_main).slice(0, 4)
+
+  // Has a timeline?
+  const hasExhibitTimeline = special && special.timeline.events.length >= 3
+  const hasWikidataTimeline = !hasExhibitTimeline && record.timeline.length >= 3
 
   return (
     <>
       {topicTheme?.header && <HeaderImage image={topicTheme.header} />}
+
+      {/* --- Entrance: topic header --- */}
       <header className="card entrance">
         <div className="topic-head">
           <div>
@@ -237,8 +205,7 @@ export function TopicPage() {
             {written && <Hook summary={written} />}
             {writing.length > 0 && (
               <p className="writing-banner" role="status">
-                <span className="spinner" aria-hidden /> Writing this exhibit: {writing.join(', ')}. The
-                page fills in as each part is ready (a few minutes the first time anyone opens a topic).
+                <span className="spinner" aria-hidden /> Writing: {writing.join(', ')}.
               </p>
             )}
             {topic.description && <p className="muted">{topic.description}</p>}
@@ -249,7 +216,7 @@ export function TopicPage() {
               <button>Practice</button>
             </Link>
             <button className="primary" onClick={toggleFollow} disabled={busy || stats === null}>
-              {stats?.followed ? 'Following ✓' : 'Follow'}
+              {stats?.followed ? 'Following' : 'Follow'}
             </button>
           </div>
         </div>
@@ -257,7 +224,7 @@ export function TopicPage() {
           <div><strong>{topic.stats.n_tossups}</strong><span className="muted small">questions</span></div>
           <div><strong>{topic.stats.n_sets}</strong><span className="muted small">sets</span></div>
           <div>
-            <strong>{topic.stats.years[0] ?? '?'}–{topic.stats.years[1] ?? '?'}</strong>
+            <strong>{topic.stats.years[0] ?? '?'}-{topic.stats.years[1] ?? '?'}</strong>
             <span className="muted small">years asked</span>
           </div>
           {stats && stats.buzzing.buzzes > 0 && (
@@ -270,34 +237,128 @@ export function TopicPage() {
         {topic.aliases.length > 0 && (
           <p className="muted small">Also: {topic.aliases.join(' · ')}</p>
         )}
-        <nav className="floor-plan" aria-label="Rooms">
-          {rooms.map((r, i) => (
-            <a key={r.id} href={`#room-${r.id}`}>
-              <span className="room-number">{i + 1}</span>
-              {r.title}
-            </a>
-          ))}
-        </nav>
       </header>
 
-      {rooms.map((r, i) => (
-        <Fragment key={r.id}>
-          <section className="card room" id={`room-${r.id}`}>
-            <h2>
-              <span className="room-number">{i + 1}</span>
-              {r.title}
-            </h2>
-            {r.body}
+      {/* --- Museum layout: main + sidebars --- */}
+      <div className="museum-layout">
+
+        {/* Left sidebar: gallery images + map */}
+        <aside className="museum-sidebar museum-left">
+          {sideImages.length > 0 && (
+            <SidebarCard title="Gallery">
+              <div className="sidebar-gallery">
+                {sideImages.map((img, i) => (
+                  <figure key={i} className="sidebar-img">
+                    <img src={img.url} alt={img.caption ?? ''} loading="lazy" />
+                    {img.caption && <figcaption className="muted small">{img.caption}</figcaption>}
+                  </figure>
+                ))}
+              </div>
+            </SidebarCard>
+          )}
+          {record.map.length > 0 && (
+            <SidebarCard title="Map">
+              <TopicMap points={record.map} />
+            </SidebarCard>
+          )}
+          {content && (
+            <SidebarCard title="Screening room">
+              <Videos section={content.sections.videos} />
+            </SidebarCard>
+          )}
+        </aside>
+
+        {/* Center: the main exhibit */}
+        <div className="museum-center">
+          {/* Summary — the centerpiece */}
+          <section className="exhibit-main" id="room-introduction">
+            {written ? (
+              <Summary summary={written} explanations={explanations} topicLinks={topicLinks} />
+            ) : (
+              <>
+                {isWriting('summary') && (
+                  <p className="muted small writing-note">
+                    The AI summary is being written. Meanwhile, the opening of the Wikipedia article:
+                  </p>
+                )}
+                {content && <WikiSummary section={content.sections.wiki} />}
+              </>
+            )}
           </section>
-          {i === plaquesAfter && facts && facts.facts.length > 0 && (
+
+          {/* Fun facts — museum plaques scattered in the main flow */}
+          {facts && facts.facts.length > 0 && (
             <aside className="plaque-row" aria-label="Did you know?">
               <h2>Did you know?</h2>
               <FunFacts facts={facts.facts} source={facts.source} />
             </aside>
           )}
-        </Fragment>
-      ))}
 
+          {/* Feature piece */}
+          {special && (
+            <section className="exhibit-feature" id="room-feature">
+              <Feature special={special} />
+            </section>
+          )}
+
+          {/* Clue hall */}
+          <section className="exhibit-clues" id="room-clues">
+            <h2><span className="room-number">C</span> The clue hall</h2>
+            {cleaned && (
+              <p className="muted small" title="An AI pass merged duplicate spellings, dropped generic terms and fixed labels; counts are recomputed from the questions.">
+                Tidied by AI{cleanedSection?.stale ? ' (updating...)' : ''}
+              </p>
+            )}
+            <ClueList clues={shown} explanations={cleaned ? explanations : undefined}
+                      writing={isWriting('explanations') || isWriting('clues')}
+                      topicLinks={topicLinks} />
+            {shown.length < total && (
+              <button onClick={showMore} disabled={loadingMore}>
+                {loadingMore ? 'Loading...' : `Show ${Math.min(MORE, total - shown.length)} more`}
+              </button>
+            )}
+            {shown.length > 0 && (
+              <>
+                <h3>Where the clues come up</h3>
+                <Heatmap clues={shown} buzzed={stats?.buzzed_clusters ?? {}} />
+              </>
+            )}
+          </section>
+
+          {/* Connections */}
+          <section className="exhibit-connections" id="room-connections">
+            <h2><span className="room-number">~</span> Connections</h2>
+            <h3>Don't confuse with</h3>
+            <ConfusionList confusions={record.confusions} />
+          </section>
+        </div>
+
+        {/* Right sidebar: timeline, fun facts overflow, reading */}
+        <aside className="museum-sidebar museum-right">
+          {hasExhibitTimeline && special && (
+            <SidebarCard title={special.timeline.kind === 'discoveries' ? 'Discoveries' : 'Timeline'}>
+              <ExhibitTimeline timeline={special.timeline} />
+            </SidebarCard>
+          )}
+          {hasWikidataTimeline && (
+            <SidebarCard title="Timeline">
+              <Timeline events={record.timeline} />
+            </SidebarCard>
+          )}
+          {content && (
+            <SidebarCard title="Library">
+              <Reading section={content.sections.books} />
+            </SidebarCard>
+          )}
+          {content && (
+            <SidebarCard>
+              <Gallery section={content.sections.images} />
+            </SidebarCard>
+          )}
+        </aside>
+      </div>
+
+      {/* Exit */}
       <section className="card exit">
         <h2>Test yourself</h2>
         <p className="muted">
@@ -308,7 +369,7 @@ export function TopicPage() {
             <button className="primary">Practice</button>
           </Link>
           <button onClick={toggleFollow} disabled={busy || stats === null}>
-            {stats?.followed ? 'Following ✓' : 'Follow'}
+            {stats?.followed ? 'Following' : 'Follow'}
           </button>
         </div>
       </section>
