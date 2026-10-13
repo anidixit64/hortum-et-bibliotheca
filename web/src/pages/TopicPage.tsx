@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import type { Clue, SectionPayloads, TopicLink, TopicRecord, TopicStats } from '../api/types'
 import { ClueList } from '../components/ClueList'
-import { Gallery, Reading, Videos, WikiSummary } from '../components/Enrichment'
+import { FloatImage, ImageGrid, Reading, Videos, WikiSummary } from '../components/Enrichment'
 import { FunFacts, Hook, Summary } from '../components/Written'
 import { Heatmap } from '../components/Heatmap'
 import { ConfusionList } from '../components/Related'
@@ -177,7 +177,12 @@ export function TopicPage() {
     }
   }
 
-  const sideImages = images.filter((img) => !img.is_main).slice(0, 4)
+  // Distribute images across the page like a museum exhibit / DK Eyewitness
+  const hasHeader = !!topicTheme?.header
+  const scatterPool = hasHeader ? images.filter((img) => !img.is_main) : images
+  const summaryFloat = scatterPool[0] ?? null
+  const featureFloat = special ? (scatterPool[1] ?? null) : null
+  const galleryImages = scatterPool.slice(featureFloat ? 2 : 1)
 
   // Has a timeline?
   const hasExhibitTimeline = special && special.timeline.events.length >= 3
@@ -228,20 +233,8 @@ export function TopicPage() {
       {/* --- Museum layout: main + sidebars --- */}
       <div className="museum-layout">
 
-        {/* Left sidebar: gallery images + map */}
+        {/* Left sidebar: map + videos */}
         <aside className="museum-sidebar museum-left">
-          {sideImages.length > 0 && (
-            <SidebarCard title="Gallery">
-              <div className="sidebar-gallery">
-                {sideImages.map((img, i) => (
-                  <figure key={i} className="sidebar-img">
-                    <img src={img.url} alt={img.caption ?? ''} loading="lazy" />
-                    {img.caption && <figcaption className="muted small">{img.caption}</figcaption>}
-                  </figure>
-                ))}
-              </div>
-            </SidebarCard>
-          )}
           {record.map.length > 0 && (
             <SidebarCard title="Map">
               <TopicMap points={record.map} />
@@ -256,8 +249,9 @@ export function TopicPage() {
 
         {/* Center: the main exhibit */}
         <div className="museum-center">
-          {/* Summary — the centerpiece */}
+          {/* Summary — the centerpiece, with key image floated alongside */}
           <section className="exhibit-main" id="room-introduction">
+            {summaryFloat && <FloatImage image={summaryFloat} side="right" />}
             {written ? (
               <Summary summary={written} explanations={explanations} topicLinks={topicLinks} />
             ) : (
@@ -273,9 +267,10 @@ export function TopicPage() {
             </aside>
           )}
 
-          {/* Feature piece */}
+          {/* Feature piece, with second image floated alongside */}
           {special && (
             <section className="exhibit-feature" id="room-feature">
+              {featureFloat && <FloatImage image={featureFloat} side="left" />}
               <Feature special={special} />
             </section>
           )}
@@ -307,7 +302,7 @@ export function TopicPage() {
           </section>
         </div>
 
-        {/* Right sidebar: timeline, fun facts overflow, reading */}
+        {/* Right sidebar: timeline, reading */}
         <aside className="museum-sidebar museum-right">
           {hasExhibitTimeline && special && (
             <SidebarCard title={special.timeline.kind === 'discoveries' ? 'Discoveries' : 'Timeline'}>
@@ -324,13 +319,16 @@ export function TopicPage() {
               <Reading section={content.sections.books} />
             </SidebarCard>
           )}
-          {content && (
-            <SidebarCard>
-              <Gallery section={content.sections.images} />
-            </SidebarCard>
-          )}
         </aside>
       </div>
+
+      {/* Gallery: remaining images in a full-width grid */}
+      {galleryImages.length > 0 && (
+        <section className="exhibit-gallery">
+          <h2><span className="room-number">G</span> Gallery</h2>
+          <ImageGrid images={galleryImages} />
+        </section>
+      )}
 
       {/* Exit */}
       <section className="card exit">

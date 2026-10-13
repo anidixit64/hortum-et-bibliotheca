@@ -540,6 +540,25 @@ details h3 {
   padding-top: 0.5rem;
 }
 
+/* Float images: Wikipedia-style inline images alongside text */
+.float-image {
+  margin: 0;
+  max-width: 240px;
+}
+.float-image.float-right {
+  float: right;
+  margin: 0.15rem 0 1rem 1.25rem;
+}
+.float-image.float-left {
+  float: left;
+  margin: 0.15rem 1.25rem 1rem 0;
+}
+.float-image img {
+  width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+
 .gallery {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -682,8 +701,13 @@ details h3 {
   margin: 0;
   padding: 1rem 1rem 0.8rem 2.6rem;
   background: var(--accent-soft);
+  border-left: 3px solid var(--accent);
   border-radius: var(--radius);
   font-family: var(--font-body);
+}
+.plaque:nth-child(even) {
+  background: color-mix(in oklab, var(--accent-2) 15%, var(--bg));
+  border-left-color: var(--accent-2);
 }
 .plaque p {
   margin: 0 0 0.5rem;
@@ -696,6 +720,9 @@ details h3 {
   font-weight: 800;
   font-size: 1.3rem;
   color: var(--accent);
+}
+.plaque:nth-child(even) .plaque-mark {
+  color: var(--accent-2);
 }
 
 /* --- Topic colors (theme job): the page's tokens come from the topic ---------------------- */
@@ -1045,6 +1072,7 @@ body {
 }
 
 .exhibit-main {
+  display: flow-root;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -1054,6 +1082,7 @@ body {
 }
 
 .exhibit-feature {
+  display: flow-root;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -1090,12 +1119,31 @@ body {
   font-size: 1.25rem;
 }
 
+/* Full-width gallery section below the museum layout */
+.exhibit-gallery {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.25rem 1.5rem;
+  margin-top: 1.25rem;
+}
+.exhibit-gallery h2 {
+  margin: 0 0 0.75rem;
+  font-family: var(--font-body);
+  font-size: 1.25rem;
+}
+.exhibit-gallery .gallery {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+.exhibit-gallery .gallery img {
+  height: 200px;
+}
+
 /* Sidebar cards: squeeze content in narrow columns */
 .museum-sidebar .map { height: 200px; }
 .museum-sidebar .videos { grid-template-columns: 1fr; }
 .museum-sidebar .books { grid-template-columns: 1fr; }
-.museum-sidebar .gallery { grid-template-columns: 1fr; }
-.museum-sidebar .gallery img { height: 120px; }
 
 /* --- Museum responsive: tablet collapses sidebars below center --------------------------- */
 
@@ -1121,4 +1169,9 @@ body {
   }
   .museum-sidebar .map { height: 260px; }
   .museum-sidebar .videos { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+  .float-image {
+    float: none;
+    max-width: 100%;
+    margin: 0 0 1rem;
+  }
 }

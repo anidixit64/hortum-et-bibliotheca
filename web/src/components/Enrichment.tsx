@@ -60,34 +60,66 @@ function labelTitle(img: WikiImage) {
   return words.length > 16 ? `${words.slice(0, 14).join(' ')}…` : text // full caption on hover
 }
 
+export function FloatImage({ image, side }: { image: WikiImage; side: 'left' | 'right' }) {
+  return (
+    <figure className={`float-image float-${side}`}>
+      <a href={image.page ?? image.url} target="_blank" rel="noreferrer">
+        <img src={image.url} alt={image.caption ?? image.file} loading="lazy" />
+      </a>
+      <figcaption className="museum-label small">
+        <strong title={image.caption ?? undefined}>{labelTitle(image)}</strong>
+        <span>
+          {image.artist && <>{image.artist} · </>}
+          {image.license_url ? (
+            <a href={image.license_url} target="_blank" rel="noreferrer">
+              {image.license}
+            </a>
+          ) : (
+            image.license
+          )}
+        </span>
+      </figcaption>
+    </figure>
+  )
+}
+
+function ImageFigure({ img }: { img: WikiImage }) {
+  return (
+    <figure key={img.file}>
+      <a href={img.page ?? img.url} target="_blank" rel="noreferrer">
+        <img src={img.url} alt={img.caption ?? img.file} loading="lazy" />
+      </a>
+      <figcaption className="museum-label small">
+        <strong title={img.caption ?? undefined}>{labelTitle(img)}</strong>
+        <span>
+          {img.artist && <>{img.artist} · </>}
+          {img.license_url ? (
+            <a href={img.license_url} target="_blank" rel="noreferrer">
+              {img.license}
+            </a>
+          ) : (
+            img.license
+          )}
+        </span>
+      </figcaption>
+    </figure>
+  )
+}
+
+export function ImageGrid({ images }: { images: WikiImage[] }) {
+  if (!images.length) return null
+  return (
+    <div className="gallery">
+      {images.map((img) => <ImageFigure key={img.file} img={img} />)}
+    </div>
+  )
+}
+
 export function Gallery({ section }: { section: Section<'images'> }) {
   const data = payload(section)
   if (!data) return <Status section={section} what="images" />
   if (data.images.length === 0) return <p className="muted">No images found.</p>
-  return (
-    <div className="gallery">
-      {data.images.map((img) => (
-        <figure key={img.file}>
-          <a href={img.page ?? img.url} target="_blank" rel="noreferrer">
-            <img src={img.url} alt={img.caption ?? img.file} loading="lazy" />
-          </a>
-          <figcaption className="museum-label small">
-            <strong title={img.caption ?? undefined}>{labelTitle(img)}</strong>
-            <span>
-              {img.artist && <>{img.artist} · </>}
-              {img.license_url ? (
-                <a href={img.license_url} target="_blank" rel="noreferrer">
-                  {img.license}
-                </a>
-              ) : (
-                img.license
-              )}
-            </span>
-          </figcaption>
-        </figure>
-      ))}
-    </div>
-  )
+  return <ImageGrid images={data.images} />
 }
 
 export function Reading({ section }: { section: Section<'books'> }) {
