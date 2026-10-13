@@ -61,6 +61,34 @@ def _add_cards(conn: sqlite3.Connection, new: list[cards.NewCard]) -> int:
     return created
 
 
+# --- Clue flashcards ------------------------------------------------------------------
+
+
+class ClueCardsBody(BaseModel):
+    lines: list[str] = Field(max_length=50)
+    answer: str
+    clue_label: str
+
+
+@router.post("/topics/{topic_id}/clue-cards", status_code=201, tags=["topics"])
+def create_clue_cards(topic_id: str, body: ClueCardsBody, db: Db) -> dict[str, int]:
+    """Create a flashcard for each question line of a clue."""
+    new = [
+        cards.NewCard(
+            cards.card_id(topic_id, "clue", line),
+            topic_id,
+            "clue",
+            line,
+            f"{body.answer}\n{body.clue_label}",
+            {"clue_label": body.clue_label},
+        )
+        for line in body.lines[:50]
+    ]
+    with db:
+        created = _add_cards(db, new)
+    return {"created": created, "total": len(new)}
+
+
 # --- Following topics ------------------------------------------------------------------
 
 

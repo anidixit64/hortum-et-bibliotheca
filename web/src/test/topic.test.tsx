@@ -22,8 +22,7 @@ test('the topic page renders a real record', async () => {
     </MemoryRouter>,
   )
   expect(await screen.findByRole('heading', { level: 1, name: 'Invisible Man' })).toBeInTheDocument()
-  const clues = screen.getByRole('heading', { name: /The clue hall/ }).parentElement!
-  expect(within(clues).getByText('1. Ras the Exhorter')).toBeInTheDocument()
+  expect(screen.getByRole('heading', { level: 3, name: 'Ras the Exhorter' })).toBeInTheDocument()
   expect(screen.getByRole('img', { name: 'Where each clue appears in questions' })).toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'The Invisible Man' })).toBeInTheDocument()
   expect(await screen.findByText('50%')).toBeInTheDocument() // your accuracy
@@ -117,7 +116,8 @@ test('show more loads the next five clues', async () => {
     </MemoryRouter>,
   )
   fireEvent.click(await screen.findByRole('button', { name: 'Show 2 more' }))
-  expect(await screen.findByText(`${record.clues.length + 2}. Extra clue 1`)).toBeInTheDocument()
+  const nav = screen.getByLabelText('Clue navigation')
+  expect(await within(nav).findByText(`1 of ${record.clues.length + 2}`)).toBeInTheDocument()
   expect(calls.some((u) => u.endsWith(`/clues?offset=${record.clues.length}&limit=5`))).toBe(true)
   expect(screen.queryByRole('button', { name: /more$/ })).not.toBeInTheDocument()
   vi.unstubAllGlobals()

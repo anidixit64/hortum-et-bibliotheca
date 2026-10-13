@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import type { Clue, SectionPayloads, TopicLink, TopicRecord, TopicStats } from '../api/types'
-import { ClueList } from '../components/ClueList'
+import { ClueCarousel } from '../components/ClueList'
 import { FloatImage, ImageGrid, Reading, Videos, WikiSummary } from '../components/Enrichment'
 import { FunFacts, Hook, Summary } from '../components/Written'
 import { Heatmap } from '../components/Heatmap'
@@ -275,12 +275,18 @@ export function TopicPage() {
             </section>
           )}
 
-          {/* Clue hall */}
+          {/* Clue hall — slideshow carousel */}
           <section className="exhibit-clues" id="room-clues">
             <h2><span className="room-number">C</span> The clue hall</h2>
-            <ClueList clues={shown} explanations={cleaned ? explanations : undefined}
-                      writing={false}
-                      topicLinks={topicLinks} />
+            <ClueCarousel
+              clues={shown}
+              explanations={cleaned ? explanations : undefined}
+              writing={false}
+              topicLinks={topicLinks}
+              topicName={topic.name}
+              topicId={topic.id}
+              images={images}
+            />
             {shown.length < total && (
               <button onClick={showMore} disabled={loadingMore}>
                 {loadingMore ? 'Loading...' : `Show ${Math.min(MORE, total - shown.length)} more`}

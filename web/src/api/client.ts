@@ -89,6 +89,12 @@ export const api = {
       body: JSON.stringify({ names, exclude: exclude ?? null }),
     }),
 
+  createClueCards: (topicId: string, lines: string[], answer: string, clueLabel: string) =>
+    request<{ created: number; total: number }>(
+      study(`/topics/${encodeURIComponent(topicId)}/clue-cards`),
+      { method: 'POST', body: JSON.stringify({ lines, answer, clue_label: clueLabel }) },
+    ),
+
   follow: (topicId: string) =>
     request<{ cards_created: number; cards_total: number }>(
       study(`/topics/${encodeURIComponent(topicId)}/follow`),
