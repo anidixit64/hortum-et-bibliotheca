@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../api/client'
-import type { BuzzOut, Tossup } from '../api/types'
+import type { BuzzOut, ClueSpan, Tossup } from '../api/types'
 import { msPerWord, pastPower, words as split } from '../lib/reveal'
 
 type Phase = 'loading' | 'reading' | 'countdown' | 'answering' | 'result' | 'empty'
@@ -367,9 +367,6 @@ export function PracticePage() {
                       <span className="practice-points-earned">+{lastPoints} pts</span>
                     )}
                     {result.judged_by === 'self' && <span className="muted small"> · your call</span>}
-                    {result.missed_cards > 0 && (
-                      <span className="muted small"> · {result.missed_cards} new flashcard{result.missed_cards > 1 ? 's' : ''}</span>
-                    )}
                   </div>
                   <p className="practice-answer-reveal"><strong>Answer:</strong> {tossup.answer}</p>
                   <div className="controls practice-result-controls">
@@ -380,6 +377,14 @@ export function PracticePage() {
                         : <button onClick={() => override('correct')}>I was right</button>
                     )}
                   </div>
+                  {tossup.topic_id && (
+                    <AddCardPanel
+                      tossup={tossup}
+                      words={words}
+                      buzzAt={buzzAt}
+                      wasIncorrect={result.result === 'incorrect' || result.result === 'no_buzz'}
+                    />
+                  )}
                   {tossup.topic_id && (
                     <div className="practice-topic-link-wrapper">
                       <TopicLinkButton topicId={tossup.topic_id} />
@@ -422,6 +427,106 @@ export function PracticePage() {
           </div>
         </aside>
       </div>
+    </div>
+  )
+}
+
+function clueSpanText(question: string, clue: ClueSpan): string {
+  const w = question.split(/\s+/).filter(Boolean)
+  return w.slice(clue.word_start, clue.word_end).join(' ')
+}
+
+function AddCardPanel({
+  tossup, buzzAt, wasIncorrect,
+}: {
+  tossup: Tossup
+  words: string[]
+  buzzAt: number | null
+  wasIncorrect: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const [selected, setSelected] = useState<Set<number>>(() => {
+    if (!wasIncorrect || buzzAt === null) return new Set()
+    const buzzedClue = tossup.clues.find(
+      c => c.kind === 'clue' && c.word_start <= buzzAt && buzzAt < c.word_end,
+    )
+    return buzzedClue ? new Set([buzzedClue.ordinal]) : new Set()
+  })
+  const [adding, setAdding] = useState(false)
+  const [added, setAdded] = useState(false)
+
+  const clueLines = tossup.clues.filter(c => c.kind === 'clue')
+  if (clueLines.length === 0) return null
+
+  const toggle = (ordinal: number) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(ordinal)) next.delete(ordinal); else next.add(ordinal)
+      return next
+    })
+  }
+
+  const addCards = async () => {
+    if (!tossup.topic_id || selected.size === 0) return
+    setAdding(true)
+    const lines = clueLines
+      .filter(c => selected.has(c.ordinal))
+      .map(c => clueSpanText(tossup.question, c))
+    try {
+      await api.createClueCards(tossup.topic_id, lines, tossup.answer, 'from practice')
+      setAdded(true)
+    } catch {}
+    setAdding(false)
+  }
+
+  if (added) {
+    return (
+      <div className="add-card-panel">
+        <span className="add-card-done">Added {selected.size} flashcard{selected.size > 1 ? 's' : ''}</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="add-card-panel">
+      {!open ? (
+        <button className="add-card-toggle" onClick={() => setOpen(true)}>
+          + Add flashcard{clueLines.length > 1 ? 's' : ''}
+        </button>
+      ) : (
+        <>
+          <p className="add-card-hint muted small">Select lines to make into flashcards:</p>
+          <ul className="add-card-lines">
+            {clueLines.map(c => {
+              const text = clueSpanText(tossup.question, c)
+              return (
+                <li key={c.ordinal}>
+                  <label className="add-card-line-label">
+                    <input
+                      type="checkbox"
+                      checked={selected.has(c.ordinal)}
+                      onChange={() => toggle(c.ordinal)}
+                    />
+                    <span className={c.in_power ? 'add-card-power' : undefined}>
+                      {text}
+                    </span>
+                  </label>
+                </li>
+              )
+            })}
+          </ul>
+          <div className="add-card-actions">
+            <button
+              className="primary"
+              disabled={selected.size === 0 || adding}
+              onClick={addCards}
+            >
+              {adding ? 'Adding…' : `Add ${selected.size} card${selected.size !== 1 ? 's' : ''}`}
+            </button>
+            <button onClick={() => setOpen(false)}>Cancel</button>
+          </div>
+        </>
+      )}
     </div>
   )
 }

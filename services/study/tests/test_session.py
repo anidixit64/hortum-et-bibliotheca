@@ -115,12 +115,11 @@ def test_scripted_session(client: TestClient) -> None:
         client.post("/reviews", json={"card_id": due[0]["card_id"], "rating": 5}).status_code == 422
     )
 
-    # A rejected answer at word 10 (third clue, after power): wrong, and the two top clues
-    # already read become "missed" cards.
+    # A rejected answer at word 10 (third clue, after power): wrong, no auto-created cards.
     wrong = post(client, "/buzzes", tossup_id="q1", word_index=10, answer_given="The Invisible Man")
     assert wrong["result"] == "incorrect" and wrong["clue_ordinal"] == 2
-    assert not wrong["in_power"] and wrong["missed_cards"] == 2
-    assert {c["kind"] for c in client.get("/reviews/due").json()} == {"missed"}
+    assert not wrong["in_power"] and wrong["missed_cards"] == 0
+    assert client.get("/reviews/due").json() == []
 
     # A prompt isn't recorded; a self-judged override is.
     assert (
@@ -138,7 +137,7 @@ def test_scripted_session(client: TestClient) -> None:
     assert fixed.json() == {"buzz_id": wrong["buzz_id"], "result": "correct", "judged_by": "self"}
     assert client.patch("/buzzes/999", json={"result": "correct"}).status_code == 404
     silent = post(client, "/buzzes", tossup_id="q1")
-    assert silent["result"] == "no_buzz" and silent["missed_cards"] == 0  # cards exist already
+    assert silent["result"] == "no_buzz" and silent["missed_cards"] == 0
 
     stats = client.get("/stats").json()
     assert stats["followed_topics"] == 1 and stats["reviews_today"] == 4

@@ -273,7 +273,6 @@ async def buzz(body: BuzzIn, db: Db, catalog: CatalogDep) -> BuzzOut:
         )
 
     topic_id = tossup.get("topic_id")
-    missed = 0
     with db:
         cursor = db.execute(
             "INSERT INTO buzzes (tossup_id, topic_id, word_index, position, clue_ordinal, "
@@ -283,8 +282,6 @@ async def buzz(body: BuzzIn, db: Db, catalog: CatalogDep) -> BuzzOut:
              reading and reading["cluster_id"], result, int(in_power), body.answer_given,
              judged_by, _now().isoformat()),
         )  # fmt: skip
-        if topic_id:
-            missed = await _missed_cards(db, catalog, tossup, topic_id, answer, wi, result, reading)
     return BuzzOut(
         buzz_id=cursor.lastrowid,
         result=result,
@@ -294,7 +291,7 @@ async def buzz(body: BuzzIn, db: Db, catalog: CatalogDep) -> BuzzOut:
         clue_ordinal=reading and reading["ordinal"],
         in_power=in_power,
         answer=answer,
-        missed_cards=missed,
+        missed_cards=0,
     )
 
 

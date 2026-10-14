@@ -951,6 +951,293 @@ main {
 
 /* --- Review ---------------------------------------------------------------------------- */
 
+.review-page {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.review-title {
+  font-family: var(--font-body);
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+  text-align: center;
+  color: var(--accent);
+  letter-spacing: 0.06em;
+  margin: 0 0 1.5rem;
+}
+.review-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+@media (max-width: 760px) {
+  .review-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.review-sidebar .sidebar-card {
+  position: sticky;
+  top: 4rem;
+}
+.review-center {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.review-meta { margin: 0; }
+.review-empty {
+  text-align: center;
+  padding: 4rem 1rem;
+  font-family: var(--font-body);
+}
+
+/* Flip card */
+.flip-card {
+  perspective: 1200px;
+  min-height: clamp(280px, 45vh, 460px);
+  cursor: pointer;
+}
+.flip-card.flipped { cursor: default; }
+.flip-card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+  transition: transform 0.6s ease;
+  transform-style: preserve-3d;
+}
+.flip-card.flipped .flip-card-inner {
+  transform: rotateY(180deg);
+}
+.flip-card-front,
+.flip-card-back {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.flip-card-back {
+  transform: rotateY(180deg);
+}
+.flip-card-content {
+  padding: 2.5rem 2rem;
+  text-align: center;
+  max-width: 100%;
+}
+.flip-card-text {
+  font-family: var(--font-body);
+  font-size: clamp(1.1rem, 2.5vw, 1.5rem);
+  line-height: 1.6;
+  margin: 0;
+}
+.flip-card-answer {
+  font-weight: 650;
+  white-space: pre-line;
+}
+.flip-card-hint {
+  margin: 1.5rem 0 0;
+  font-family: var(--font-ui);
+  font-style: italic;
+}
+
+/* Rating buttons */
+.review-actions {
+  display: flex;
+  justify-content: center;
+  padding: 0.75rem 0;
+}
+.review-ratings {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.rating-btn {
+  padding: 0.55rem 1.4rem;
+  border: 2px solid var(--rating-color, var(--border));
+  border-radius: 8px;
+  background: transparent;
+  color: var(--rating-color, var(--text));
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.rating-btn:hover {
+  background: var(--rating-color, var(--accent));
+  color: var(--bg);
+}
+.review-show-btn {
+  font-size: 1.05rem;
+  padding: 0.6rem 2rem;
+}
+
+/* Collection assign from card */
+.review-coll-assign {
+  text-align: center;
+  margin-top: 0.25rem;
+}
+.review-coll-toggle {
+  font-size: 0.82rem;
+  border: none;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0.2rem 0;
+}
+.review-coll-toggle:hover { text-decoration: underline; }
+.review-coll-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 0.4rem;
+}
+.review-coll-check {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.review-coll-check input { accent-color: var(--accent); }
+
+/* Collections sidebar */
+.coll-filter-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.88rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.coll-filter-btn:hover { background: var(--accent-soft); }
+.coll-filter-btn.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.coll-count {
+  font-size: 0.75rem;
+  color: var(--muted);
+  background: var(--bg);
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+}
+.coll-row {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+.coll-row .coll-filter-btn { flex: 1; }
+.coll-delete {
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 1rem;
+  cursor: pointer;
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+}
+.coll-delete:hover { background: color-mix(in srgb, var(--bad), transparent 85%); color: var(--bad); }
+.coll-create {
+  display: flex;
+  gap: 0.3rem;
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--border);
+}
+.coll-input {
+  flex: 1;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  font-size: 0.82rem;
+}
+.coll-add-btn {
+  width: 2rem;
+  padding: 0;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.coll-add-btn:hover { background: var(--accent); color: var(--bg); }
+.coll-add-btn:disabled { opacity: 0.4; cursor: default; }
+
+/* Add-card panel (practice results) */
+.add-card-panel {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+.add-card-toggle {
+  border: none;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.88rem;
+  padding: 0;
+}
+.add-card-toggle:hover { text-decoration: underline; }
+.add-card-hint { margin: 0 0 0.5rem; }
+.add-card-lines {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.add-card-line-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  line-height: 1.5;
+  cursor: pointer;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+.add-card-line-label:hover { background: var(--accent-soft); }
+.add-card-line-label input { margin-top: 0.3rem; accent-color: var(--accent); }
+.add-card-power { color: var(--accent-2); }
+.add-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+.add-card-done {
+  color: var(--good);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+/* Legacy compat */
 .flashcard {
   min-height: 12rem;
   display: flex;
