@@ -24,6 +24,10 @@ test('the topic page renders a real record', async () => {
   expect(await screen.findByRole('heading', { level: 1, name: 'Invisible Man' })).toBeInTheDocument()
   expect(screen.getByRole('heading', { level: 3, name: 'Ras the Exhorter' })).toBeInTheDocument()
   expect(screen.getByRole('img', { name: 'Where each clue appears in questions' })).toBeInTheDocument()
+  const hall = document.getElementById('room-clues')
+  expect(hall?.closest('.museum-layout')).toBeNull()
+  expect(hall?.querySelector('h2')?.textContent).toContain('The clue hall')
+  expect(document.querySelector('.exhibit-where h2')?.textContent).toBe('Where the clues come up')
   expect(screen.getByRole('link', { name: 'The Invisible Man' })).toBeInTheDocument()
   expect(await screen.findByText('50%')).toBeInTheDocument() // your accuracy
   for (const follow of screen.getAllByRole('button', { name: 'Follow' })) expect(follow).toBeEnabled() // entrance and exit
@@ -117,8 +121,70 @@ test('sort toggle switches between frequency and rarity ordering', async () => {
   fireEvent.click(rarity)
   expect(rarity.className).toContain('active')
   expect(freq.className).not.toContain('active')
-  // Category badge visible on the clue slide
-  expect(document.querySelector('.clue-category-badge')).toHaveTextContent('Literature')
+  vi.unstubAllGlobals()
+})
+
+test('rarity orders the cleaned list, and show more walks that order', async () => {
+  const base = record.clues[0]
+  const clues = Array.from({ length: 12 }, (_, i) => ({
+    ...base,
+    rank: i + 1,
+    cluster_id: 500 + i,
+    label: `Clue ${i + 1}`,
+    earliest_position: i === 11 ? 0.02 : 0.9,
+    median_position: 0.5,
+    n_questions: 30 - i,
+  }))
+  const cleaned = clues.map((c) => ({
+    rank: c.rank,
+    label: c.label,
+    n_questions: c.n_questions,
+    clue_ids: [c.cluster_id],
+    spellings: [c.label],
+  }))
+  const ready = content('ready')
+  ready.sections = {
+    ...ready.sections,
+    clues: {
+      status: 'ok',
+      fetched_at: '2026-10-10',
+      payload: { clues: cleaned },
+    },
+    explanations: {
+      status: 'ok',
+      fetched_at: '2026-10-10',
+      payload: {
+        clues: cleaned.map((c) => ({
+          rank: c.rank,
+          label: c.label,
+          one_line: `${c.label} line`,
+          explanation: `${c.label} explained.`,
+        })),
+      },
+    },
+  }
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    let body: unknown = {
+      topic_id: 'Q1784288', followed: false, cards: 0, due: 0, buzzed_clusters: {},
+      buzzing: { buzzes: 0, correct: 0, accuracy: null, median_correct_position: null, power_rate: null },
+    }
+    if (url.includes('/clues?')) body = []
+    else if (url.includes('/lookup')) body = {}
+    else if (url.startsWith('/api/catalog/topics/')) body = { ...record, clues, n_clues: 12 }
+    else if (url.startsWith('/api/content/')) body = ready
+    return new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } })
+  }))
+  render(
+    <MemoryRouter initialEntries={['/topic/invisible-man']}>
+      <Routes><Route path="/topic/:key" element={<TopicPage />} /></Routes>
+    </MemoryRouter>,
+  )
+  expect(await screen.findByRole('heading', { level: 3, name: 'Clue 1' })).toBeInTheDocument()
+  expect(within(screen.getByLabelText('Clue navigation')).getByText('1 of 10')).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Rarity' }))
+  expect(screen.getByRole('heading', { level: 3, name: 'Clue 12' })).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Show 2 more' }))
+  expect(within(screen.getByLabelText('Clue navigation')).getByText('1 of 12')).toBeInTheDocument()
   vi.unstubAllGlobals()
 })
 

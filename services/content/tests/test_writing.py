@@ -37,8 +37,12 @@ def test_source_text_is_the_lead_then_sections_up_to_a_cap() -> None:
     }
     assert writing.source_text(short) == "Diocletian ruled. Reign: He abdicated in 305."
     assert writing.lead_text(short) == "Diocletian ruled."
+    assert writing.later_text(short) == "Reign: He abdicated in 305."
+    assert "Diocletian" not in writing.later_text(short)
+    assert writing.later_text({"lead": "Only a lead."}) == "Only a lead."
     assert "no Wikipedia" in writing.source_text(None)
     assert "no Wikipedia" in writing.lead_text(None)
+    assert "no Wikipedia" in writing.later_text(None)
     prompt = writing.FACTS.format(name="Diocletian", category="History", low=5, high=8, source=text)
     assert len(writing.FACTS_SYSTEM) + len(prompt) < chain.GROQ_CHAR_LIMIT
 

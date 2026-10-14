@@ -94,7 +94,7 @@ function matchClueImages(clues: Clue[], images: WikiImage[]): Map<number, WikiIm
   return matched
 }
 
-type SortMode = 'frequency' | 'rarity'
+export type SortMode = 'frequency' | 'rarity'
 
 export function dominantCategory(clue: Clue): string | null {
   const cats = clue.categories
@@ -147,7 +147,7 @@ function interleaveByCategory(clues: Clue[]): Clue[] {
   return out
 }
 
-function sortedClues(clues: Clue[], mode: SortMode, category: string | null): Clue[] {
+export function sortedClues(clues: Clue[], mode: SortMode, category: string | null): Clue[] {
   const list = category ? clues.filter((c) => dominantCategory(c) === category) : [...clues]
   if (mode === 'rarity') {
     return list.sort((a, b) => {
@@ -166,6 +166,8 @@ export function ClueCarousel({
   topicName,
   topicId,
   images = [],
+  sortMode: sortModeProp,
+  onSortMode,
 }: {
   clues: Clue[]
   explanations?: Explanation[]
@@ -174,10 +176,14 @@ export function ClueCarousel({
   topicName: string
   topicId: string
   images?: WikiImage[]
+  /** When set, `clues` are already in this order and the buttons report changes upward. */
+  sortMode?: SortMode
+  onSortMode?: (mode: SortMode) => void
 }) {
   const [index, setIndex] = useState(0)
   const [flashMsg, setFlashMsg] = useState<string | null>(null)
-  const [sortMode, setSortMode] = useState<SortMode>('frequency')
+  const [ownSort, setOwnSort] = useState<SortMode>('frequency')
+  const sortMode = sortModeProp ?? ownSort
   const [category, setCategory] = useState<string | null>(null)
 
   const byRank = new Map((explanations ?? []).map((e) => [e.rank, e]))
@@ -185,7 +191,11 @@ export function ClueCarousel({
   const names = clues.map((c) => ({ rank: c.rank, names: [c.label, ...(c.variants ?? [])] }))
   const categories = useMemo(() => categoryList(clues), [clues])
 
-  const sorted = useMemo(() => sortedClues(clues, sortMode, category), [clues, sortMode, category])
+  const sorted = useMemo(() => {
+    const ordered = onSortMode ? clues : sortedClues(clues, sortMode, category)
+    if (onSortMode && category) return ordered.filter((c) => dominantCategory(c) === category)
+    return ordered
+  }, [clues, sortMode, category, onSortMode])
   const clueImages = useMemo(() => matchClueImages(clues, images), [clues, images])
 
   if (!clues.length) return <p className="muted">Not asked often enough to rank clues yet.</p>
@@ -203,7 +213,8 @@ export function ClueCarousel({
   }
 
   const changeSort = (mode: SortMode) => {
-    setSortMode(mode)
+    if (onSortMode) onSortMode(mode)
+    else setOwnSort(mode)
     setIndex(0)
     setFlashMsg(null)
   }

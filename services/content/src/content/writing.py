@@ -10,17 +10,19 @@ the clue's one-line summary on hover and a "See more" link to its explanation.
 import re
 from typing import Any
 
-EXPLANATIONS_VERSION = 4
-SUMMARY_VERSION = 2
+EXPLANATIONS_VERSION = 5
+SUMMARY_VERSION = 3
 BATCH = 5  # clues per explanation request
-FIRST_PAGE = 10  # clues explained when the topic is first opened
+FIRST_PAGE = 10  # clues the hall shows before "show more"
 EXPLANATION_WORDS = (100, 160)
 SUMMARY_WORDS = (500, 750)
 # What a prompt may carry from the stored article. The full page is what Groq rejected
-# for Diocletian (about 16,300 tokens against an 8,000 token free-tier cap). Facts and
-# the timeline quote this excerpt. Essays and clue notes get the lead only.
+# for Diocletian (about 16,300 tokens against an 8,000 token free-tier cap).
+# Facts quote later sections. The timeline quotes the lead plus the next sections.
+# The summary, on the writing models, may see a longer excerpt.
 SOURCE_WORDS = 1_500
 LEAD_WORDS = 800
+SUMMARY_SOURCE_WORDS = 3_000
 
 EXPLAIN_SYSTEM = """You write study notes for quiz bowl players. A clue is a term that \
 quiz bowl questions about an answer mention; players learn clues to recognize the answer \
@@ -85,30 +87,29 @@ like the first room of a museum exhibit. Your tone is narrative and conversation
 a knowledgeable friend walking someone through a topic they're curious about, not a \
 textbook. Use vivid language, tell the story, make connections, and let your enthusiasm \
 show. Name specialist terms correctly but explain them in passing, the way a good podcast \
-host would. Accuracy comes first: use only facts from the source text or widely established \
-knowledge; never invent quotations, dates or numbers."""
+host would. Go beyond a restatement of the Wikipedia excerpt: add descriptions and \
+details you can verify. Accuracy comes first: never invent quotations, dates or numbers."""
 
 SUMMARY = """Answer: {name} (category: {category})
 
 Write:
 - "hook": two or three punchy sentences that pull a reader in — a striking image, a \
 surprising fact, an irresistible tension. Not a dry summary. No questions to the reader.
-- "summary": {low}-{high} words telling the story of {name}. Write it as a narrative essay: \
-paragraphs that flow from one to the next, building understanding the way a great \
-explainer would. Be conversational without being sloppy — you can use "you" or "imagine", \
-and short sentences for punch, alongside longer ones that develop ideas. Every paragraph \
-should leave the reader wanting to read the next one.
+- "summary": {low}-{high} words telling the story of {name}. Make it gripping and \
+explanatory: a narrative the reader feels, with concrete detail they can learn from. \
+Add verifiable descriptions beyond the Wikipedia excerpt when you are sure of them. \
+Do not retell the excerpt sentence by sentence, and do not pad.
 
-Weave in as many of the clues below as fit naturally (aim for most of them). Mark each \
+Mark a clue only when it fits this story seamlessly. Leave the others out. Mark each \
 mention exactly as [[RANK|the words you write]], e.g. [[3|the Battle Royal]]: RANK is the \
 clue's number below, and the words are what the reader sees in bold. Mark a clue only \
-where the text is really about it, and only once.
+once, and only where the text is really about it.
 
-Clues (rank: label — what it is):
+Clues (rank: label — what it is). Use only the ones that belong:
 {clues}
 
-Wikipedia lead (CC BY-SA), the article's summary. Use it for names, dates and numbers, \
-and add only facts you are sure of:
+Wikipedia excerpt (CC BY-SA). Use it for names, dates and numbers, then add verifiable \
+detail you are sure of:
 {source}"""
 
 SUMMARY_SCHEMA: dict[str, Any] = {
@@ -238,14 +239,36 @@ def source_text(wiki: dict[str, Any] | None, words: int = SOURCE_WORDS) -> str:
     return " ".join(kept) if kept else _NO_SOURCE
 
 
+def later_text(wiki: dict[str, Any] | None, words: int = SOURCE_WORDS) -> str:
+    """Sections after the lead, so fun facts are not the opening the summary already told.
+    A lead-only article falls back to the lead, which is the only text there is."""
+    if not wiki:
+        return _NO_SOURCE
+    kept: list[str] = []
+    used = 0
+    for section in wiki.get("sections", []):
+        if used >= words:
+            break
+        heading = str(section.get("heading", "")).strip()
+        piece = ([f"{heading}:"] if heading else []) + _words(section.get("text", ""))
+        if not piece:
+            continue
+        take = piece[: words - used]
+        kept.append(" ".join(take))
+        used += len(take)
+    if kept:
+        return " ".join(kept)
+    return lead_text(wiki, words)
+
+
 # --- fun facts ---------------------------------------------------------------------------
 
-FACTS_VERSION = 1
+FACTS_VERSION = 2
 FACT_COUNT = (5, 8)
 
-FACTS_SYSTEM = """You pick fun facts for a study page: surprising, memorable facts that \
-teach something real about the topic and show why it matters. Every fact must rest on a \
-sentence of the source text, which you quote exactly."""
+FACTS_SYSTEM = """You pick fun facts for a study page: surprising details a reader would \
+not already have from the opening story. Every fact must rest on a sentence of the source \
+text, which you quote exactly. Skip anything that only restates the lead."""
 
 FACTS = """Topic: {name} (category: {category})
 
@@ -253,11 +276,12 @@ Give {low}-{high} facts. For each:
 - "fact": one or two sentences (at most 40 words), vivid and accurate, in your own words.
 - "source_sentence": the sentence of the source text below that the fact rests on, copied \
 exactly (word for word).
-Prefer facts that surprise, connect to something familiar, or explain why {name} matters; \
-avoid dry dates and lists.
+The source is later in the Wikipedia article, past the lead. Pick details that would not \
+make the main summary: odd turns, objects, places, consequences. Skip the famous outline \
+and dry dates that only mark it.
 
-Opening of the Wikipedia article (CC BY-SA). Copy each source_sentence from this text \
-word for word:
+Later sections of the Wikipedia article (CC BY-SA). Copy each source_sentence from this \
+text word for word:
 {source}"""
 
 FACTS_SCHEMA: dict[str, Any] = {

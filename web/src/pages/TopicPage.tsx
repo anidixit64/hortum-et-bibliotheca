@@ -3,7 +3,8 @@ import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import type { Clue, SectionPayloads, TopicLink, TopicRecord, TopicStats } from '../api/types'
-import { ClueCarousel } from '../components/ClueList'
+import { ClueCarousel, sortedClues } from '../components/ClueList'
+import type { SortMode } from '../components/ClueList'
 import { FloatImage, ImageGrid, Reading, Videos, WikiSummary } from '../components/Enrichment'
 import { FunFacts, Hook, Summary } from '../components/Written'
 import { Heatmap } from '../components/Heatmap'
@@ -39,6 +40,7 @@ export function TopicPage() {
   const [busy, setBusy] = useState(false)
   const [more, setMore] = useState<{ key: string; clues: Clue[] }>({ key: '', clues: [] })
   const [visible, setVisible] = useState<{ key: string; n: number }>({ key: '', n: PAGE })
+  const [sortMode, setSortMode] = useState<SortMode>('frequency')
   const [loadingMore, setLoadingMore] = useState(false)
   const current = loaded?.key === key ? loaded.record : null
   const [content, refreshContent] = useTopicContent(current?.topic.id ?? '')
@@ -141,27 +143,27 @@ export function TopicPage() {
   const extra = more.key === key ? more.clues : []
   const raw = [...record.clues, ...extra]
   const rawTotal = record.n_clues ?? record.clues.length
-  const list = cleaned
-    ? [...applyCleanup(raw, cleaned), ...raw.filter((c) => c.rank > CLEANED_FROM)]
-    : raw
-  const total = cleaned ? cleaned.length + Math.max(0, rawTotal - CLEANED_FROM) : rawTotal
+  // After cleanup the hall is the valid clues only. Show more walks that list in the
+  // active order, so rarity is the rarest of all of them, not the rarest of the first 10.
+  const pool = cleaned ? applyCleanup(raw, cleaned) : raw
+  const ordered = sortedClues(pool, sortMode, null)
+  const total = cleaned ? ordered.length : rawTotal
   const n = visible.key === key ? visible.n : PAGE
-  const shown = list.slice(0, n)
+  const shown = ordered.slice(0, n)
   const showMore = async () => {
-    if (n + MORE > list.length && raw.length < rawTotal) {
+    if (!cleaned && n + MORE > pool.length && raw.length < rawTotal) {
       setLoadingMore(true)
       try {
-        const next = await api.moreClues(topic.id, raw.length, n + MORE - list.length)
+        const next = await api.moreClues(topic.id, raw.length, n + MORE - pool.length)
         setMore({ key, clues: [...extra, ...next] })
       } finally {
         setLoadingMore(false)
       }
     }
     setVisible({ key, n: n + MORE })
-    const through = Math.min(n + MORE, cleaned?.length ?? 0)
-    if (cleaned && through > explanations.length) {
+    if (cleaned && explanations.length < cleaned.length) {
       api
-        .explainMore(topic.id, through)
+        .explainMore(topic.id, cleaned.length)
         .then(refreshContent)
         .catch(() => {})
     }
@@ -276,37 +278,6 @@ export function TopicPage() {
             </section>
           )}
 
-          {/* Clue hall — slideshow carousel */}
-          <section className="exhibit-clues" id="room-clues">
-            <h2><span className="room-number">C</span> The clue hall</h2>
-            <ClueCarousel
-              clues={shown}
-              explanations={cleaned ? explanations : undefined}
-              writing={false}
-              topicLinks={topicLinks}
-              topicName={topic.name}
-              topicId={topic.id}
-              images={images}
-            />
-            {shown.length < total && (
-              <button onClick={showMore} disabled={loadingMore}>
-                {loadingMore ? 'Loading...' : `Show ${Math.min(MORE, total - shown.length)} more`}
-              </button>
-            )}
-            {shown.length > 0 && (
-              <>
-                <h3>Where the clues come up</h3>
-                <Heatmap clues={shown} buzzed={stats?.buzzed_clusters ?? {}} />
-              </>
-            )}
-          </section>
-
-          {/* Connections */}
-          <section className="exhibit-connections" id="room-connections">
-            <h2><span className="room-number">~</span> Connections</h2>
-            <h3>Don't confuse with</h3>
-            <ConfusionList confusions={record.confusions} />
-          </section>
         </div>
 
         {/* Right sidebar: timeline, reading */}
@@ -328,6 +299,39 @@ export function TopicPage() {
           )}
         </aside>
       </div>
+
+      <section className="exhibit-clues" id="room-clues">
+        <h2><span className="room-number">C</span> The clue hall</h2>
+        <ClueCarousel
+          clues={shown}
+          explanations={cleaned ? explanations : undefined}
+          writing={false}
+          topicLinks={topicLinks}
+          topicName={topic.name}
+          topicId={topic.id}
+          images={images}
+          sortMode={sortMode}
+          onSortMode={setSortMode}
+        />
+        {shown.length < total && (
+          <button onClick={showMore} disabled={loadingMore}>
+            {loadingMore ? 'Loading...' : `Show ${Math.min(MORE, total - shown.length)} more`}
+          </button>
+        )}
+      </section>
+
+      {shown.length > 0 && (
+        <section className="exhibit-where" aria-label="Where the clues come up">
+          <h2>Where the clues come up</h2>
+          <Heatmap clues={shown} buzzed={stats?.buzzed_clusters ?? {}} />
+        </section>
+      )}
+
+      <section className="exhibit-connections" id="room-connections">
+        <h2><span className="room-number">~</span> Connections</h2>
+        <h3>Don't confuse with</h3>
+        <ConfusionList confusions={record.confusions} />
+      </section>
 
       {/* Gallery: remaining images in a full-width grid */}
       {galleryImages.length > 0 && (

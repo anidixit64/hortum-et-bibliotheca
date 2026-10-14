@@ -14,7 +14,7 @@ from typing import Any
 
 from content.writing import _squash
 
-SPECIAL_VERSION = 2
+SPECIAL_VERSION = 3
 TIMELINE_EVENTS = (4, 12)
 FEATURE_WORDS = (600, 900)
 # History and science pieces read better short: one vivid scene, one concept.
@@ -30,17 +30,20 @@ FORMS: dict[str, tuple[str, str, str]] = {
     # category: (title, what to write, timeline kind)
     "History": (
         "Be there",
-        "Choose one pivotal moment of {name} and put the reader there: "
-        "what people saw, heard, smelled and feared, told through someone present. "
-        "Every event, person and place must be real; only sensory atmosphere is "
-        "imagined.",
+        "Choose one pivotal moment of {name} and put the reader on the ground for that "
+        "moment only. Do not retell the life, the career, or the overview. "
+        "Give the sights and a few sounds — what someone present saw and heard — "
+        "in a poetic, concrete way. Every event, person and place must be real; "
+        "only the sensory atmosphere is imagined. Stay inside that one scene.",
         "events",
     ),
     "Current Events": (
         "Be there",
-        "Choose one pivotal moment of {name} and put the reader "
-        "there through someone present. Every event, person and place must "
-        "be real; only sensory atmosphere is imagined.",
+        "Choose one pivotal moment of {name} and put the reader on the ground for that "
+        "moment only. Do not retell the overview. Give the sights and a few sounds — "
+        "what someone present saw and heard — in a poetic, concrete way. "
+        "Every event, person and place must be real; only the sensory atmosphere is "
+        "imagined. Stay inside that one scene.",
         "events",
     ),
     "Science": (

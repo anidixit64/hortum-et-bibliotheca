@@ -25,6 +25,8 @@ def test_timeline_keeps_events_whose_quote_names_their_year() -> None:
 
 def test_forms_and_feature_checks() -> None:
     assert special.form("History")[0] == "Be there"
+    assert "one scene" in special.form("History")[1]
+    assert "Do not retell" in special.form("History")[1]
     assert special.form("Science")[2] == "discoveries"
     assert special.form("Pop Culture") == special.DEFAULT_FORM
     good = {

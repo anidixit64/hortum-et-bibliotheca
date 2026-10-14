@@ -34,7 +34,8 @@ def fake_web(request: httpx.Request) -> Any:
                     {
                         "title": "Invisible Man",
                         "extract": "A novel about a man who "
-                        "lives underground and steals power.\n\n== Plot ==\nX",
+                        "lives underground and steals power.\n\n== Plot ==\n"
+                        "He lives underground and steals power from the building.",
                     }
                 ]
             }
@@ -118,7 +119,7 @@ def fake_reply(backends: Any, request: Any, check: Any = None) -> Reply:
             "font": "classical-serif",
         }  # fmt: skip
     elif request.task == "fun_facts":
-        quote = "A novel about a man who lives underground and steals power."
+        quote = "He lives underground and steals power from the building."
         data = {"facts": [{"fact": f"Fact {i}.", "source_sentence": quote} for i in range(5)]}
     elif request.task == "summary":
         body = "[[1|The battle royal]] opens the novel. " + " ".join(["word"] * 600)
@@ -212,7 +213,7 @@ def test_unknown_topic_fails_without_retrying(tmp_path: Path, web: Any) -> None:
     assert conn.execute("SELECT status FROM jobs").fetchone()[0] == "failed"
 
 
-def test_show_more_explains_only_the_new_clues(
+def test_explanations_cover_every_cleaned_clue(
     tmp_path: Path, web: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     asked: list[list[int]] = []
@@ -228,7 +229,6 @@ def test_show_more_explains_only_the_new_clues(
         return fake_reply(backends, request, check)
 
     monkeypatch.setattr(worker.chain, "run", fake)
-    monkeypatch.setattr(worker.writing, "FIRST_PAGE", 1)
     monkeypatch.setattr(routes, "clue_fingerprint", lambda request, topic_id, stored: stored)
     settings = Settings(_env_file=None, db_path=tmp_path / "content.db")  # type: ignore[call-arg]
     app = build_app(settings)
@@ -238,13 +238,7 @@ def test_show_more_explains_only_the_new_clues(
         jobs.enqueue(conn, "Q1784288", kind)
     while worker.run_once(conn, settings, http, cat):
         pass
-    assert asked == [[1]]
-    assert api.post("/topics/Q1784288/explain-more", params={"through": 2}).json()["queued"]
-    content = api.get("/topics/Q1784288/content", params={"enqueue": False}).json()
-    assert content["sections"]["explanations"]["stale"] and content["status"] == "partial"
-    while worker.run_once(conn, settings, http, cat):
-        pass
-    assert asked == [[1], [2]]  # rank 1 kept, only rank 2 written
+    assert asked == [[1, 2]]
     explained = api.get("/topics/Q1784288/content", params={"enqueue": False}).json()
     assert [c["rank"] for c in explained["sections"]["explanations"]["payload"]["clues"]] == [1, 2]
 

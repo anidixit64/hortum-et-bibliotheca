@@ -255,14 +255,10 @@ def add(total: Reply | None, reply: Reply) -> Reply:
 def write_explanations(
     conn: sqlite3.Connection, settings: Settings, catalog: httpx.Client, topic_id: str
 ) -> tuple[dict[str, Any], str, Reply | None]:
-    """One-line summaries and explanations for the cleaned clues: the first page, and as
-    many more as a reader has asked for ("show more"). Ones already written for the same
-    cleanup are kept, so asking for more writes only the new ones."""
+    """One-line summaries and explanations for every cleaned clue. The hall can then sort
+    the whole list. Ones already written for the same cleanup are kept."""
     clean, identity = cleaned(conn, topic_id)
-    asked = conn.execute(
-        "SELECT through FROM explain_depth WHERE topic_id = ?", (topic_id,)
-    ).fetchone()
-    clues = clean["clues"][: max(writing.FIRST_PAGE, asked[0] if asked else 0)]
+    clues = clean["clues"]
     have = conn.execute(
         "SELECT fingerprint, payload FROM generations WHERE topic_id = ? AND kind = 'explanations'",
         (topic_id,),
@@ -326,7 +322,7 @@ def write_summary(
 ) -> tuple[dict[str, Any], str, Reply | None]:
     """The hook and summary, with the cleaned clues marked."""
     clean, identity = cleaned(conn, topic_id)
-    clues = clean["clues"][: writing.FIRST_PAGE]
+    clues = clean["clues"]
     wiki_row = conn.execute(
         "SELECT status, payload FROM enrichments WHERE topic_id = ? AND kind = 'wiki'",
         (topic_id,),
@@ -353,7 +349,7 @@ def write_summary(
         low=writing.SUMMARY_WORDS[0],
         high=writing.SUMMARY_WORDS[1],
         clues=listing,
-        source=writing.lead_text(wiki),
+        source=writing.source_text(wiki, writing.SUMMARY_SOURCE_WORDS),
     )
     reply = chain.run(
         chain.build(settings.writing_chain, settings),
@@ -388,7 +384,7 @@ def write_facts(
     if row[0] != "ok":
         return {"facts": []}, identity, None  # nothing to ground facts in
     wiki = json.loads(row[1])
-    source = writing.source_text(wiki)
+    source = writing.later_text(wiki)
     topic = catalog.get(f"/topics/{topic_id}/clue-candidates", params={"limit": 1}).json()
     prompt = writing.FACTS.format(
         name=topic["name"],
