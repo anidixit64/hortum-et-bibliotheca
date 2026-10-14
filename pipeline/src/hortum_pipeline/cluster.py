@@ -226,7 +226,6 @@ def run(
         if len(members) > 50_000:
             _flush(conn, clusters, members)
     _flush(conn, clusters, members)
-    conn.commit()
 
     sizes = dict(conn.execute(
         "SELECT CASE WHEN n_tossups >= 3 THEN '3+' WHEN n_tossups = 2 THEN '2' ELSE '1' END, "
@@ -243,7 +242,16 @@ def run(
 def _flush(
     conn: sqlite3.Connection, clusters: list[tuple[object, ...]], members: list[tuple[int, int]]
 ) -> None:
+    """Commit one batch and fold it into corpus.db.
+
+    The connection is in WAL mode. Leaving every cluster in one transaction makes the
+    WAL as large as the whole write, which fills the disk partway through.
+    """
+    if not clusters and not members:
+        return
     conn.executemany("INSERT INTO clue_clusters VALUES (?, ?, ?, ?, ?, ?, ?, ?)", clusters)
     conn.executemany("INSERT INTO clue_cluster_members VALUES (?, ?)", members)
+    conn.commit()
+    conn.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchall()
     clusters.clear()
     members.clear()
