@@ -183,34 +183,58 @@ def _dominant_category(clue: dict[str, Any]) -> str | None:
 
 
 def _balanced_page(clues: list[dict[str, Any]], n: int) -> list[dict[str, Any]]:
-    """Pick page clues ensuring each category with enough data is represented."""
+    """Pick the first page by round-robin across categories so History doesn't crowd out Politics."""
     if len(clues) <= n:
-        return clues
-
-    selected = list(clues[:n])
-    selected_cats = {_dominant_category(c) for c in selected}
+        return list(clues)
 
     by_cat: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for c in clues:
-        dom = _dominant_category(c)
+    none: list[dict[str, Any]] = []
+    for clue in clues:
+        dom = _dominant_category(clue)
         if dom:
-            by_cat[dom].append(c)
+            by_cat[dom].append(clue)
+        else:
+            none.append(clue)
+    if len(by_cat) <= 1:
+        return list(clues[:n])
 
-    missing = [cat for cat, items in by_cat.items()
-               if cat not in selected_cats and len(items) >= 2]
-    if not missing:
-        return selected
-
-    for cat in missing:
-        best = by_cat[cat][0]
-        for i in range(len(selected) - 1, -1, -1):
-            dom_i = _dominant_category(selected[i])
-            if sum(1 for s in selected if _dominant_category(s) == dom_i) > 1:
-                selected[i] = best
-                break
-
-    selected.sort(key=lambda c: c["rank"])
+    selected: list[dict[str, Any]] = []
+    used: set[int] = set()
+    cats = list(by_cat)
+    i = 0
+    while len(selected) < n:
+        progressed = False
+        for cat in cats:
+            bucket = by_cat[cat]
+            if i < len(bucket):
+                clue = bucket[i]
+                selected.append(clue)
+                used.add(clue["cluster_id"])
+                progressed = True
+                if len(selected) >= n:
+                    return selected
+        if i < len(none) and len(selected) < n:
+            clue = none[i]
+            selected.append(clue)
+            used.add(clue["cluster_id"])
+            progressed = True
+        if not progressed:
+            for clue in clues:
+                if clue["cluster_id"] not in used:
+                    selected.append(clue)
+                    used.add(clue["cluster_id"])
+                    if len(selected) >= n:
+                        return selected
+            break
+        i += 1
     return selected
+
+
+def arrange_clues(clues: list[dict[str, Any]], n: int) -> list[dict[str, Any]]:
+    """Page clues first (category-balanced), then the rest in rank order, no duplicates."""
+    page = _balanced_page(clues, n)
+    seen = {clue["cluster_id"] for clue in page}
+    return page + [clue for clue in clues if clue["cluster_id"] not in seen]
 
 
 def build_snapshot(
@@ -225,7 +249,7 @@ def build_snapshot(
     return {
         "schema_version": SCHEMA_VERSION,
         "topic": topic,
-        "clues": _balanced_page(clues, PAGE_CLUES),
+        "clues": clues[:PAGE_CLUES],
         "n_clues": len(clues),
         "related": related,
         "confusions": confusions,
@@ -284,7 +308,7 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
         if name.lower() in alias.lower() and alias.lower() != name.lower():
             continue  # "Invisible Man (novel)", "the narrator of Invisible Man"
         listed.append(alias)
-    clues = _load_clues(conn)
+    clues = {tid: arrange_clues(cs, PAGE_CLUES) for tid, cs in _load_clues(conn).items()}
     reporter.stat("Topics with ranked clues", f"{len(clues):,}")
 
     clue_text = {}
@@ -397,9 +421,9 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
     conn.executemany(
         "INSERT INTO topic_clue_records VALUES (?, ?, ?)",
         (
-            (tid, clue["rank"], json.dumps(clue, ensure_ascii=False))
+            (tid, seq, json.dumps(clue, ensure_ascii=False))
             for tid, topic_clues in clues.items()
-            for clue in topic_clues
+            for seq, clue in enumerate(topic_clues, start=1)
         ),
     )
     conn.execute(
