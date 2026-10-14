@@ -17,9 +17,9 @@ The tuned weights (see config.py) lean on frequency: a clue in 38 sets at mid-qu
 Picking puts how many questions a clue appears in first: clues seen in more questions
 always come before clues seen in fewer, and impact only orders clues seen equally often.
 So a topic's picks start with its 3+ question clues, and two-question (or, for small
-topics, one-question) clues fill in only when there aren't 10 of those. A giveaway is
-clustered when it states a fact ("author of The Raven"); the last-line bonus is still
-the clue just before "for 10 points", not the ask itself.
+topics, one-question) clues fill in only when there aren't 10 of those. The last-line
+bonus is the clue just before "for 10 points", not the giveaway ask. Giveaway facts
+reach the hall from the terms stage, not from these clusters.
 
 Clusters seen in fewer than ``min_sets`` sets (one set for small topics) or made only of
 the topic's own names are left out. A candidate is skipped when it nearly duplicates an

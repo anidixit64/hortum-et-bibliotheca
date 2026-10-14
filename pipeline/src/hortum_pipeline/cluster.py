@@ -1,11 +1,12 @@
 """Stage 6: group clues that state the same fact in different words.
 
-Every clue in a topic is embedded with the MiniLM sentence model, giveaways included
-when they state a fact ("author of The Raven", not the "for 10 points" frame). Clues
-within a topic are merged by average-linkage clustering on cosine distance, with a
-bonus for each key term two clues share ("Brockway", "Liberty Paints"). Chosen against
-the hand-labeled clues: MiniLM + a 0.2 shared-term bonus at threshold 0.6 scored pairwise
-F1 0.76, against 0.60 for the best TF-IDF setting.
+Every clue sentence in a topic is embedded with the MiniLM sentence model. Giveaway
+lines stay out of this grouping: folding their short asks into the same clusters moves
+the hand-labeled same-fact pairs below the F1 gate. Those facts still reach the clue
+hall from the terms stage. Clues within a topic are merged by average-linkage clustering
+on cosine distance, with a bonus for each key term two clues share ("Brockway", "Liberty
+Paints"). Chosen against the hand-labeled clues: MiniLM + a 0.2 shared-term bonus at
+threshold 0.6 scored pairwise F1 0.76, against 0.60 for the best TF-IDF setting.
 
 Embeddings are cached per clue text in data/cache/embeddings, so re-runs are fast.
 """
@@ -23,7 +24,6 @@ from sklearn.cluster import AgglomerativeClustering
 
 from hortum_common.text import normalize
 from hortum_pipeline import db
-from hortum_pipeline.clues import giveaway_facts
 from hortum_pipeline.config import PipelineSettings
 from hortum_pipeline.progress import Reporter
 
@@ -146,21 +146,6 @@ def summarize(
     return medoid, label, common
 
 
-def cluster_text(kind: str, text: str, terms: str) -> str | None:
-    """Text to embed, or nothing when a giveaway is only the stock ask."""
-    if kind == "clue":
-        return text
-    if kind != "giveaway":
-        return None
-    facts = giveaway_facts(text)
-    if facts:
-        return facts
-    named = json.loads(terms)
-    if named:
-        return " ".join(named)
-    return None
-
-
 def run(
     settings: PipelineSettings,
     reporter: Reporter,
@@ -170,16 +155,11 @@ def run(
     db.require_table(conn, "clues", "clues")
     db.recreate(conn, SCHEMA)
 
-    rows = []
-    for clue_id, topic_id, text, terms, tossup_id, set_id, kind in conn.execute(
-        "SELECT c.id, c.topic_id, c.text, c.key_terms, c.tossup_id, t.set_id, c.kind "
+    rows = conn.execute(
+        "SELECT c.id, c.topic_id, c.text, c.key_terms, c.tossup_id, t.set_id "
         "FROM clues c JOIN tossups t ON t.id = c.tossup_id "
-        "WHERE c.kind IN ('clue', 'giveaway') AND c.topic_id IS NOT NULL "
-        "ORDER BY c.topic_id, c.id"
-    ):
-        mined = cluster_text(kind, text, terms)
-        if mined:
-            rows.append((clue_id, topic_id, mined, terms, tossup_id, set_id))
+        "WHERE c.kind = 'clue' AND c.topic_id IS NOT NULL ORDER BY c.topic_id, c.id"
+    ).fetchall()
     keys = [text_key(r[2]) for r in rows]
 
     # 1. Embed whatever isn't cached yet (the slow part, done once).
