@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import type { Clue, Explanation, TopicLink, WikiImage } from '../api/types'
+import type { WikiNote } from '../lib/wikiNote'
 import { ExplanationText } from './Written'
 import { percent } from '../lib/format'
 
@@ -168,6 +169,8 @@ export function ClueCarousel({
   images = [],
   sortMode: sortModeProp,
   onSortMode,
+  articleNotes,
+  wikiLoaded = false,
 }: {
   clues: Clue[]
   explanations?: Explanation[]
@@ -179,6 +182,8 @@ export function ClueCarousel({
   /** When set, `clues` are already in this order and the buttons report changes upward. */
   sortMode?: SortMode
   onSortMode?: (mode: SortMode) => void
+  articleNotes?: Record<number, WikiNote | null>
+  wikiLoaded?: boolean
 }) {
   const [index, setIndex] = useState(0)
   const [flashMsg, setFlashMsg] = useState<string | null>(null)
@@ -289,6 +294,19 @@ export function ClueCarousel({
           <>
             <p className="one-line">{explanation.one_line}</p>
             <ExplanationText explanation={explanation} names={names} lines={lines} />
+          </>
+        ) : articleNotes?.[clue.rank] ? (
+          <>
+            <p className="one-line">{articleNotes[clue.rank]!.sentence}</p>
+            <p className="muted small">
+              From Wikipedia{articleNotes[clue.rank]!.heading ? `: ${articleNotes[clue.rank]!.heading}` : ''}
+            </p>
+            <p className="clue-text muted small">As asked: {clue.text}</p>
+          </>
+        ) : wikiLoaded ? (
+          <>
+            <p className="muted">The article excerpt does not cover this clue.</p>
+            <p className="clue-text muted small">As asked: {clue.text}</p>
           </>
         ) : (
           <>

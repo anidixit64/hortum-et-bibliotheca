@@ -7,7 +7,10 @@ const MAX_POLLS = 100 // five minutes (first-open writing takes 2-3): past that 
 
 /** The topic's fetched and written content, polling while the worker is still filling it
  *  in; ``refresh`` starts polling again (after asking for more, say). */
-export function useTopicContent(topicId: string): [TopicContent | null, () => void] {
+export function useTopicContent(
+  topicId: string,
+  generate: boolean,
+): [TopicContent | null, () => void] {
   const [loaded, setLoaded] = useState<TopicContent | null>(null)
   const [round, setRound] = useState(0)
 
@@ -17,7 +20,7 @@ export function useTopicContent(topicId: string): [TopicContent | null, () => vo
     let timer: ReturnType<typeof setTimeout> | undefined
     const load = (polls: number) => {
       api
-        .content(topicId)
+        .content(topicId, generate)
         .then((c) => {
           if (cancelled) return
           setLoaded(c)
@@ -34,7 +37,7 @@ export function useTopicContent(topicId: string): [TopicContent | null, () => vo
       cancelled = true
       clearTimeout(timer)
     }
-  }, [topicId, round])
+  }, [topicId, generate, round])
 
   const refresh = useCallback(() => setRound((r) => r + 1), [])
   return [topicId && loaded?.topic_id === topicId ? loaded : null, refresh]

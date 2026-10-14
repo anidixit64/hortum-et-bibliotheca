@@ -263,17 +263,18 @@ def later_text(wiki: dict[str, Any] | None, words: int = SOURCE_WORDS) -> str:
 
 # --- fun facts ---------------------------------------------------------------------------
 
-FACTS_VERSION = 2
-FACT_COUNT = (5, 8)
+FACTS_VERSION = 3
+FACT_COUNT = 4
 
-FACTS_SYSTEM = """You pick fun facts for a study page: surprising details a reader would \
-not already have from the opening story. Every fact must rest on a sentence of the source \
-text, which you quote exactly. Skip anything that only restates the lead."""
+FACTS_SYSTEM = """You pick fun facts for a study page: details a person could bring up in \
+conversation and enjoy telling. Every fact must rest on a sentence of the source text, \
+which you quote exactly. Skip anything that only restates the lead."""
 
 FACTS = """Topic: {name} (category: {category})
 
-Give {low}-{high} facts. For each:
-- "fact": one or two sentences (at most 40 words), vivid and accurate, in your own words.
+Give exactly 4 facts. For each:
+- "fact": one or two sentences (at most 40 words) someone could say out loud. Vivid, \
+accurate, and entertaining.
 - "source_sentence": the sentence of the source text below that the fact rests on, copied \
 exactly (word for word).
 The source is later in the Wikipedia article, past the lead. Pick details that would not \
@@ -321,7 +322,7 @@ def grounded(facts: list[dict[str, Any]], source: str) -> list[dict[str, str]]:
 def facts_problem(data: dict[str, Any], source: str) -> str | None:
     """Too few facts survive the grounding check: ask again once."""
     kept = grounded(data.get("facts", []), source)
-    if len(kept) < FACT_COUNT[0] - 1:
+    if len(kept) < FACT_COUNT:
         return (
             f"only {len(kept)} facts quote a sentence that is actually in the source; copy each "
             "source_sentence exactly from the source text"

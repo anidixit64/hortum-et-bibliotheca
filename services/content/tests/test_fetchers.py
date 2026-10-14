@@ -128,14 +128,24 @@ def test_images_skip_chrome_and_keep_credit(conn: sqlite3.Connection, web: Any) 
 
 WIKITEXT = """
 {{cite book|title=Ralph Ellison and the Politics of the Novel|author=Herbert William Rice
-|date=2003|isbn=9780739106549}}
-x {{cite book|title=Ralph Ellison and the Politics of the Novel|author=Herbert William Rice}}
-{{cite book|title=Obscure Pamphlet|last=Nobody}}
+|date=2003|isbn=9780739106549|publisher=Oxford University Press}}
+x {{cite book|title=Ralph Ellison and the Politics of the Novel|author=Herbert William Rice
+|publisher=Oxford University Press}}
+{{cite book|title=Obscure Pamphlet|last=Nobody|publisher=Tiny House}}
+{{cite book|title=Proceedings of the Ellison Conference|author=Nobody
+|publisher=Cambridge University Press|date=2001}}
+== Further reading ==
+* Arnold Rampersad. ''Ralph Ellison: A Biography''. Alfred A. Knopf, 2007.
+== References ==
+* not a book
 """
 
 
 def test_books_rank_cited_then_popular(conn: sqlite3.Connection, web: Any) -> None:
-    assert [b["cited"] for b in books.cited_books(WIKITEXT)] == [2, 1]
+    cited = {b["title"]: b["cited"] for b in books.cited_books(WIKITEXT)}
+    assert cited["Ralph Ellison and the Politics of the Novel"] == 2
+    assert books.noted_publisher("OUP") == "Oxford University Press"
+    assert books.noted_publisher("Tiny House") is None
 
     def handler(request: httpx.Request) -> Any:
         q = request.url.params
@@ -150,6 +160,7 @@ def test_books_rank_cited_then_popular(conn: sqlite3.Connection, web: Any) -> No
                         "author_name": ["Herbert William Rice"],
                         "edition_count": 1,
                         "cover_i": 4304650,
+                        "publisher": ["Oxford University Press"],
                     }
                 ]
             }
@@ -162,12 +173,14 @@ def test_books_rank_cited_then_popular(conn: sqlite3.Connection, web: Any) -> No
                         "author_name": ["Ralph Ellison"],
                         "edition_count": 120,
                         "ratings_count": 300,
+                        "publisher": ["Random House"],
                     },
                     {
                         "key": "/works/OL2W",
                         "title": "The Invisible Man",
                         "author_name": ["H. G. Wells"],
                         "edition_count": 900,
+                        "publisher": ["Penguin"],
                     },
                 ]
             }
@@ -178,6 +191,7 @@ def test_books_rank_cited_then_popular(conn: sqlite3.Connection, web: Any) -> No
                         "key": "/works/OL9W",
                         "title": "A casebook on Invisible man",
                         "edition_count": 1,
+                        "publisher": ["A small society"],
                     },
                     {"key": "/works/OL8W", "title": "Feel the fear", "edition_count": 40},
                 ]
@@ -186,14 +200,23 @@ def test_books_rank_cited_then_popular(conn: sqlite3.Connection, web: Any) -> No
 
     out = books.fetch(INVISIBLE_MAN, web(conn, handler))
     titles = [b["title"] for b in out["books"]]
-    # Ellison's novel (120 editions, 300 ratings) outranks a book cited twice; Wells's novel,
-    # whose title only looks alike, isn't the work itself.
+    # Ellison's novel (120 editions, 300 ratings) outranks a book cited twice. Wells's novel,
+    # whose title only looks alike, isn't the work itself. Conference proceedings, a pamphlet
+    # from an unlisted press, and a casebook without a noted publisher stay off the shelf.
     assert titles[:2] == ["Invisible man", "Ralph Ellison and the Politics of the Novel"]
-    assert "The Invisible Man" not in titles and "Obscure Pamphlet" in titles
-    assert "A casebook on Invisible man" in titles and "Feel the fear" not in titles
-    rice = out["books"][1]
+    assert "Ralph Ellison: A Biography" in titles
+    assert "The Invisible Man" not in titles
+    assert "Obscure Pamphlet" not in titles
+    assert "Proceedings of the Ellison Conference" not in titles
+    assert "A casebook on Invisible man" not in titles
+    assert "Feel the fear" not in titles
+    rice = next(b for b in out["books"] if b["title"].startswith("Ralph Ellison and"))
     assert rice["cover"] == "https://covers.openlibrary.org/b/id/4304650-M.jpg"
     assert rice["cited"] == 2 and rice["source"] == "cited"
+    assert rice["publisher"] == "Oxford University Press"
+    bio = next(b for b in out["books"] if b["title"] == "Ralph Ellison: A Biography")
+    assert bio["source"] == "reading" and bio["publisher"] == "Alfred A. Knopf"
+    assert bio["author"] == "Arnold Rampersad"
     assert out["references"][0]["name"] == "Encyclopaedia Britannica"
 
 

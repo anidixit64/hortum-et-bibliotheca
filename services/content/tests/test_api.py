@@ -180,6 +180,7 @@ def test_page_view_queues_then_the_worker_fills_in(
         "facts": "ok",
         "theme": "ok",
         "special": "ok",
+        "blurbs": "pending",
     }
     explained = second["sections"]["explanations"]["payload"]["clues"]
     assert [c["one_line"] for c in explained] == ["Clue 1 in one line.", "Clue 2 in one line."]
@@ -339,3 +340,18 @@ def test_failed_writing_stays_partial_until_it_is_stored(tmp_path: Path) -> None
     assert content["status"] == "partial"
     assert content["sections"]["clues"]["status"] == "pending"
     assert jobs.open_kinds(conn, "Q1")["clues"] == "queued"
+
+
+def test_non_ai_view_fetches_sources_and_skips_generation(tmp_path: Path) -> None:
+    settings = Settings(_env_file=None, db_path=tmp_path / "content.db")  # type: ignore[call-arg]
+    app = build_app(settings)
+    client = TestClient(app)
+    body = client.get("/topics/Q1/content", params={"generate": False}).json()
+    assert body["status"] == "partial"
+    conn = app.state.db
+    assert set(jobs.open_kinds(conn, "Q1")) == set(jobs.FETCHED)
+    for kind in jobs.GENERATED:
+        assert body["sections"][kind]["status"] == "unavailable"
+    started = client.get("/topics/Q1/content", params={"generate": True}).json()
+    assert set(jobs.open_kinds(conn, "Q1")) == set(jobs.KINDS)
+    assert started["sections"]["summary"]["status"] == "pending"

@@ -43,7 +43,9 @@ def test_source_text_is_the_lead_then_sections_up_to_a_cap() -> None:
     assert "no Wikipedia" in writing.source_text(None)
     assert "no Wikipedia" in writing.lead_text(None)
     assert "no Wikipedia" in writing.later_text(None)
-    prompt = writing.FACTS.format(name="Diocletian", category="History", low=5, high=8, source=text)
+    prompt = writing.FACTS.format(name="Diocletian", category="History", source=text)
+    assert "exactly 4" in prompt
+    assert "conversation" in writing.FACTS_SYSTEM
     assert len(writing.FACTS_SYSTEM) + len(prompt) < chain.GROQ_CHAR_LIMIT
 
 
@@ -63,6 +65,24 @@ def test_facts_must_quote_the_source() -> None:
         "It won the National Book Award.",
     ]
     assert "only 2 facts" in str(writing.facts_problem({"facts": facts}, source))
+
+
+def test_blurbs_keep_only_titles_from_the_shelf() -> None:
+    from content import blurbs
+
+    titles = ["Invisible Man", "Ralph Ellison: A Biography", "Other"]
+    data = {
+        "picks": [
+            {"title": "invisible man", "blurb": "Read this novel slowly."},
+            {"title": "Not a book", "blurb": "Nope."},
+            {"title": "Ralph Ellison: A Biography", "blurb": "The life behind the novel."},
+        ]
+    }
+    assert blurbs.problem(data, titles) is None
+    assert [b["title"] for b in blurbs.kept(data, titles)] == [
+        "Invisible Man",
+        "Ralph Ellison: A Biography",
+    ]
 
 
 def test_meta_talk_about_the_quiz_is_caught_but_subject_prose_is_not() -> None:

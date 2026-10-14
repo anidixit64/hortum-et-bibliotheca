@@ -8,13 +8,16 @@ import { BrowsePage } from './pages/BrowsePage'
 import { SettingsPage } from './pages/SettingsPage'
 import { StudyingPage } from './pages/StudyingPage'
 import { TopicPage } from './pages/TopicPage'
+import { AiModeProvider, useAiMode, useSetAiMode } from './lib/aiMode'
 
-export function App() {
+function Shell() {
   const [due, setDue] = useState<number | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
   const isHome = location.pathname === '/'
+  const ai = useAiMode()
+  const setAi = useSetAiMode()
 
   const refreshDue = useCallback(() => {
     api.stats().then((s) => setDue(s.due)).catch(() => setDue(null))
@@ -65,6 +68,20 @@ export function App() {
               </Link>
               <Link to="/studying">Studying</Link>
               <Link to="/settings">Settings</Link>
+              <div className="nav-mode">
+                <span className={ai ? 'nav-mode-on' : undefined}>AI</span>
+                <button
+                  type="button"
+                  className={`nav-switch${ai ? ' on' : ''}`}
+                  role="switch"
+                  aria-checked={ai}
+                  aria-label="AI writing"
+                  onClick={() => setAi(!ai)}
+                >
+                  <span />
+                </button>
+                <span className={!ai ? 'nav-mode-on' : undefined}>Non-AI</span>
+              </div>
             </nav>
           )}
         </div>
@@ -82,5 +99,13 @@ export function App() {
         </Routes>
       </main>
     </>
+  )
+}
+
+export function App() {
+  return (
+    <AiModeProvider>
+      <Shell />
+    </AiModeProvider>
   )
 }

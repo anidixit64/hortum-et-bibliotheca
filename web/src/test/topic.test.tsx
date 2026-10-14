@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
 import { TopicPage } from '../pages/TopicPage'
+import { App } from '../App'
 import record from './fixtures/invisible-man.json'
 
 // A real record from the pipeline (Invisible Man, October 2026): the contract between
@@ -40,7 +41,11 @@ test('the topic page renders a real record', async () => {
   vi.unstubAllGlobals()
 })
 
-function content(status: 'ready' | 'partial') {
+function content(status: 'ready' | 'partial'): {
+  topic_id: string
+  status: 'ready' | 'partial'
+  sections: Record<string, { status: string; fetched_at: string | null; payload: unknown }>
+} {
   const pending = { status: 'pending', payload: null, fetched_at: null }
   return {
     topic_id: 'Q1784288',
@@ -48,7 +53,8 @@ function content(status: 'ready' | 'partial') {
     sections: {
       wiki: { status: 'ok', fetched_at: '2026-10-10', payload: {
         title: 'Invisible Man', url: 'https://en.wikipedia.org/wiki/Invisible_Man',
-        lead: 'Invisible Man is a novel by Ralph Ellison, published in 1952.', sections: [],
+        lead: 'Invisible Man is a novel by Ralph Ellison, published in 1952.',
+        sections: [{ heading: 'Plot', text: 'The narrator lives underground and tells his story from a basement full of light bulbs.' }],
         license: 'CC BY-SA 4.0', license_url: 'https://creativecommons.org/licenses/by-sa/4.0/',
         attribution: 'Text from the Wikipedia article “Invisible Man”, by its contributors.' } },
       summary: { status: 'ok', fetched_at: '2026-10-10', payload: {
@@ -215,5 +221,49 @@ test('show more loads the next five clues', async () => {
   expect(await within(nav).findByText(`1 of ${record.clues.length + 2}`)).toBeInTheDocument()
   expect(calls.some((u) => u.endsWith(`/clues?offset=${record.clues.length}&limit=5`))).toBe(true)
   expect(screen.queryByRole('button', { name: /more$/ })).not.toBeInTheDocument()
+  vi.unstubAllGlobals()
+})
+
+test('non-AI opens the article without generation, and AI starts in place', async () => {
+  localStorage.setItem('museo-ai', 'off')
+  const urls: string[] = []
+  const study = {
+    topic_id: 'Q1784288', followed: false, cards: 0, due: 0, buzzed_clusters: {},
+    buzzing: { buzzes: 0, correct: 0, accuracy: null, median_correct_position: null, power_rate: null },
+  }
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    urls.push(url)
+    let body: unknown = study
+    if (url.startsWith('/api/catalog/topics/')) body = record
+    else if (url.includes('generate=false')) body = content('ready')
+    else if (url.startsWith('/api/content/')) {
+      const partial = content('partial')
+      partial.sections.summary = { status: 'pending', payload: null, fetched_at: null }
+      partial.sections.facts = { status: 'pending', payload: null, fetched_at: null }
+      body = partial
+    }
+    return new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } })
+  }))
+  render(
+    <MemoryRouter initialEntries={['/topic/invisible-man']}>
+      <App />
+    </MemoryRouter>,
+  )
+  expect(await screen.findByText(/published in 1952/)).toBeInTheDocument()
+  expect(screen.getByText('Plot')).toBeInTheDocument()
+  expect(screen.queryByText('exhibit generating...')).not.toBeInTheDocument()
+  expect(screen.queryByText('Invisible Man is a novel by Ralph Ellison.')).not.toBeInTheDocument()
+  const reading = document.getElementById('room-reading')
+  expect(reading?.querySelector('a')?.textContent).toBe('Ralph Ellison: A Biography')
+  expect(reading?.closest('.museum-layout')).toBeNull()
+  expect(urls.some((u) => u.includes('generate=false'))).toBe(true)
+  expect(urls.some((u) => u.includes('generate=true'))).toBe(false)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Menu' }))
+  fireEvent.click(screen.getByRole('switch', { name: 'AI writing' }))
+  expect(await screen.findAllByText('exhibit generating...')).not.toHaveLength(0)
+  expect(screen.getByRole('heading', { level: 1, name: 'Invisible Man' })).toBeInTheDocument()
+  expect(urls.some((u) => u.includes('generate=true'))).toBe(true)
+  localStorage.removeItem('museo-ai')
   vi.unstubAllGlobals()
 })

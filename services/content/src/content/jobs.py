@@ -12,6 +12,7 @@ GENERATED = (
     "facts",
     "theme",
     "special",
+    "blurbs",
 )  # Phase 6: written or edited by a model
 KINDS = FETCHED + GENERATED
 BACKOFF_BASE_SECONDS = 60  # 1, 2, 4, 8... minutes after each failure
@@ -25,6 +26,7 @@ DEPENDENCIES: dict[str, tuple[str, str]] = {
     "facts": ("enrichments", "wiki"),
     "theme": ("enrichments", "images"),
     "special": ("enrichments", "wiki"),
+    "blurbs": ("enrichments", "books"),
 }
 
 

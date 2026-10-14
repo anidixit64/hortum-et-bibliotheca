@@ -1,4 +1,4 @@
-import type { ContentKind, Section, SectionPayloads, WikiImage } from '../api/types'
+import type { BookBlurb, ContentKind, Section, SectionPayloads, WikiImage } from '../api/types'
 
 function payload<K extends ContentKind>(section: Section<K>): SectionPayloads[K] | null {
   return section.status === 'ok' ? (section.payload as SectionPayloads[K]) : null
@@ -17,6 +17,30 @@ function Status({ section, what }: { section: Section; what: string }) {
     default:
       return null
   }
+}
+
+export function WikiArticle({ section }: { section: Section<'wiki'> | undefined }) {
+  if (!section) return <p className="muted">Fetching the Wikipedia article…</p>
+  const wiki = payload(section)
+  if (!wiki) return <Status section={section} what="the Wikipedia article" />
+  return (
+    <div className="wiki-article">
+      {wiki.lead.split('\n').filter(Boolean).map((p, i) => (
+        <p key={i} className="prose">{p}</p>
+      ))}
+      {wiki.sections.map((s) => (
+        <details key={s.heading} className="wiki-section">
+          <summary>{s.heading}</summary>
+          {s.text.split('\n').filter(Boolean).map((p, i) => (
+            <p key={i} className="prose">{p}</p>
+          ))}
+        </details>
+      ))}
+      <p className="muted small">
+        <a href={wiki.url} target="_blank" rel="noreferrer">Read on Wikipedia</a>
+      </p>
+    </div>
+  )
 }
 
 export function WikiSummary({ section }: { section: Section<'wiki'> }) {
@@ -122,33 +146,51 @@ export function Gallery({ section }: { section: Section<'images'> }) {
   return <ImageGrid images={data.images} />
 }
 
-export function Reading({ section }: { section: Section<'books'> }) {
+function foldTitle(title: string) {
+  return title.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+}
+
+export function Reading({
+  section,
+  blurbs = [],
+}: {
+  section: Section<'books'> | undefined
+  blurbs?: BookBlurb[]
+}) {
+  if (!section) return <p className="muted">Fetching books…</p>
   const data = payload(section)
   if (!data) return <Status section={section} what="books" />
   const books = data.books.filter((b) => b.title)
+  const blurbFor = new Map(blurbs.map((b) => [foldTitle(b.title), b.blurb]))
   return (
     <>
       {books.length === 0 ? (
-        <p className="muted">No books found.</p>
+        <p className="muted">No books found for a general reader.</p>
       ) : (
         <ul className="books">
-          {books.map((b) => (
-            <li key={b.open_library ?? b.title}>
-              {b.cover ? (
-                <img src={b.cover} alt="" loading="lazy" />
-              ) : (
-                <div className="no-cover" aria-hidden />
-              )}
-              <div>
-                <a href={b.open_library ?? '#'} target="_blank" rel="noreferrer">
-                  {b.title}
-                </a>
-                <div className="muted small">
-                  {[b.author, b.year].filter(Boolean).join(', ')}
+          {books.map((b) => {
+            const blurb = b.title ? blurbFor.get(foldTitle(b.title)) : undefined
+            return (
+              <li key={b.open_library ?? b.title}>
+                {b.cover ? (
+                  <img src={b.cover} alt="" loading="lazy" />
+                ) : (
+                  <div className="no-cover" aria-hidden />
+                )}
+                <div>
+                  {b.open_library ? (
+                    <a href={b.open_library} target="_blank" rel="noreferrer">{b.title}</a>
+                  ) : (
+                    <strong>{b.title}</strong>
+                  )}
+                  <div className="muted small">
+                    {[b.author, b.year, b.publisher].filter(Boolean).join(', ')}
+                  </div>
+                  {blurb && <p className="book-blurb">{blurb}</p>}
                 </div>
-              </div>
-            </li>
-          ))}
+              </li>
+            )
+          })}
         </ul>
       )}
       {data.references.length > 0 && (
@@ -157,9 +199,7 @@ export function Reading({ section }: { section: Section<'books'> }) {
           {data.references.map((r, i) => (
             <span key={r.url}>
               {i > 0 && ' · '}
-              <a href={r.url} target="_blank" rel="noreferrer">
-                {r.name}
-              </a>
+              <a href={r.url} target="_blank" rel="noreferrer">{r.name}</a>
             </span>
           ))}
         </p>

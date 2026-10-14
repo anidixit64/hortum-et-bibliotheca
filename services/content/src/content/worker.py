@@ -20,7 +20,7 @@ from typing import Any, NoReturn
 
 import httpx
 
-from content import cleanup, jobs, special, theme, writing
+from content import blurbs, cleanup, jobs, special, theme, writing
 from content.config import Settings, _env_file
 from content.fetchers import Topic, Unavailable, books, images, videos, wiki
 from content.generate import GenerationError, QuotaExceeded, Reply, Request, chain
@@ -389,8 +389,6 @@ def write_facts(
     prompt = writing.FACTS.format(
         name=topic["name"],
         category=topic.get("category") or "unknown",
-        low=writing.FACT_COUNT[0],
-        high=writing.FACT_COUNT[1],
         source=source,
     )
     reply = chain.run(
@@ -398,7 +396,7 @@ def write_facts(
         Request("fun_facts", writing.FACTS_SYSTEM, prompt, writing.FACTS_SCHEMA),
         functools.partial(writing.facts_problem, source=source),
     )
-    facts = writing.grounded(reply.data.get("facts", []), source)[: writing.FACT_COUNT[1]]
+    facts = writing.grounded(reply.data.get("facts", []), source)[: writing.FACT_COUNT]
     return {"facts": facts, "source": {"title": wiki["title"], "url": wiki["url"]}}, identity, reply
 
 
@@ -580,6 +578,52 @@ def write_special(
     return payload, f"wiki:{row[2]}", total
 
 
+def write_blurbs(
+    conn: sqlite3.Connection, settings: Settings, catalog: httpx.Client, topic_id: str
+) -> tuple[dict[str, Any], str, Reply | None]:
+    """Two or three short recommendations, chosen from the public bibliography."""
+    row = conn.execute(
+        "SELECT status, payload, fetched_at FROM enrichments WHERE topic_id = ? AND kind = 'books'",
+        (topic_id,),
+    ).fetchone()
+    if row is None:
+        wait_for(conn, topic_id, "books", "books")
+    identity = f"books:{row[2]}"
+    if row[0] != "ok":
+        return {"blurbs": []}, identity, None
+    shelf = [b for b in json.loads(row[1]).get("books", []) if b.get("title")]
+    if not shelf:
+        return {"blurbs": []}, identity, None
+    topic = catalog.get(f"/topics/{topic_id}/clue-candidates", params={"limit": 1}).json()
+    low, high = blurbs.how_many(len(shelf))
+    listing = "\n".join(
+        "- {title} | {author} | {year} | {publisher}".format(
+            title=b["title"],
+            author=b.get("author") or "unknown",
+            year=b.get("year") or "n.d.",
+            publisher=b.get("publisher") or "unknown",
+        )
+        for b in shelf
+    )
+    reply = chain.run(
+        chain.build(settings.light_chain, settings),
+        Request(
+            "book_blurbs",
+            blurbs.SYSTEM,
+            blurbs.PROMPT.format(
+                name=topic["name"],
+                category=topic.get("category") or "unknown",
+                low=low,
+                high=high,
+                books=listing,
+            ),
+            blurbs.SCHEMA,
+        ),
+        functools.partial(blurbs.problem, titles=[str(b["title"]) for b in shelf]),
+    )
+    return {"blurbs": blurbs.kept(reply.data, [str(b["title"]) for b in shelf])}, identity, reply
+
+
 def write_cleanup(
     conn: sqlite3.Connection, settings: Settings, catalog: httpx.Client, topic_id: str
 ) -> tuple[dict[str, Any], str, Reply | None]:
@@ -593,6 +637,7 @@ GENERATORS: dict[str, tuple[Generator, int]] = {
     "facts": (write_facts, writing.FACTS_VERSION),
     "theme": (write_theme, theme.THEME_VERSION),
     "special": (write_special, special.SPECIAL_VERSION),
+    "blurbs": (write_blurbs, blurbs.VERSION),
 }  # fmt: skip
 
 

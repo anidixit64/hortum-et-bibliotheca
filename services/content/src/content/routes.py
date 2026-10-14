@@ -9,7 +9,7 @@ import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from pydantic import BaseModel
 
-from content import cleanup, jobs, special, theme, writing
+from content import blurbs, cleanup, jobs, special, theme, writing
 from content.fetchers import books, images, videos, wiki
 
 router = APIRouter()
@@ -18,7 +18,7 @@ PAGE_VIEW_PRIORITY = 10
 # Within a page view, what a reader sees first is written first: the quick fetches and the
 # clue cleanup the written sections need, then the summary and colors, then the rest.
 VIEW_ORDER = {"wiki": 6, "images": 6, "books": 6, "videos": 6, "clues": 5, "summary": 4,
-              "theme": 3, "explanations": 2}  # fmt: skip
+              "theme": 3, "explanations": 2, "blurbs": 1}  # fmt: skip
 
 
 def view_priority(kind: str) -> int:
@@ -39,9 +39,10 @@ PROMPT_VERSIONS = {
     "facts": writing.FACTS_VERSION,
     "theme": theme.THEME_VERSION,
     "special": special.SPECIAL_VERSION,
+    "blurbs": blurbs.VERSION,
 }
 # Generated sections written from a fetched one: current while that one is the same.
-FROM_FETCHED = {"facts": "wiki", "theme": "images", "special": "wiki"}
+FROM_FETCHED = {"facts": "wiki", "theme": "images", "special": "wiki", "blurbs": "books"}
 DERIVED = ("explanations", "summary")  # written from the clue cleanup
 
 
@@ -96,10 +97,18 @@ class TopicContent(BaseModel):
 
 @router.get("/topics/{topic_id}/content", tags=["content"])
 def topic_content(
-    topic_id: str, db: Db, request: Request, enqueue: Annotated[bool, Query()] = True
+    topic_id: str,
+    db: Db,
+    request: Request,
+    enqueue: Annotated[bool, Query()] = True,
+    generate: Annotated[bool, Query()] = True,
 ) -> TopicContent:
     """What's been fetched for a topic. Anything missing is queued (unless ``enqueue=false``)
-    and shows as "pending": the page can poll until the status is "ready"."""
+    and shows as "pending": the page can poll until the status is "ready".
+
+    ``generate=false`` still fetches Wikipedia, images, books, and videos, and leaves model
+    sections unqueued. A Non-AI page uses that. Turning AI on calls again with the default.
+    """
     rows = db.execute(
         "SELECT kind, status, payload, fetched_at, source_version FROM enrichments "
         "WHERE topic_id = ?",
@@ -136,13 +145,15 @@ def topic_content(
         have[kind] = Section(
             status="ok", payload=json.loads(payload), fetched_at=created, stale=not current
         )
-        if not current and enqueue:
+        if not current and enqueue and generate:
             jobs.enqueue(db, topic_id, kind, view_priority(kind))
     open_jobs = jobs.open_kinds(db, topic_id)
     sections: dict[str, Section] = {}
     for kind in jobs.KINDS:
         if kind in have:
             sections[kind] = have[kind]
+        elif kind in jobs.GENERATED and not generate:
+            sections[kind] = Section(status="unavailable")
         elif open_jobs.get(kind) == "failed":
             sections[kind] = Section(status="failed")
         else:
@@ -152,21 +163,27 @@ def topic_content(
     for kind in jobs.GENERATED:  # stored, but more is being written ("show more")
         if kind in sections and sections[kind].status == "ok" and kind in open_jobs:
             sections[kind].stale = True
-    if enqueue:
+    if enqueue and generate:
         for kind in jobs.GENERATED:
             if sections[kind].status != "failed":
                 continue
             if jobs.requeue_failed(db, topic_id, kind, view_priority(kind)):
                 sections[kind] = Section(status="pending")
-    # The exhibit waits until every model-written section is stored. A failed section stays
-    # partial (and is queued again above) so the page does not open on Wikipedia alone.
-    generated_done = all(
-        sections[kind].status == "ok" and not sections[kind].stale for kind in jobs.GENERATED
-    )
-    waiting = any(section.status == "pending" or section.stale for section in sections.values())
+    if generate:
+        # The exhibit waits until every model-written section is stored. A failed section stays
+        # partial (and is queued again above) so the page does not open on Wikipedia alone.
+        generated_done = all(
+            sections[kind].status == "ok" and not sections[kind].stale for kind in jobs.GENERATED
+        )
+        waiting = any(section.status == "pending" or section.stale for section in sections.values())
+        ready = generated_done and not waiting
+    else:
+        ready = not any(
+            sections[kind].status == "pending" or sections[kind].stale for kind in jobs.FETCHED
+        )
     return TopicContent(
         topic_id=topic_id,
-        status="ready" if generated_done and not waiting else "partial",
+        status="ready" if ready else "partial",
         sections=sections,
     )
 

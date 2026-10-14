@@ -69,8 +69,10 @@ export const api = {
     return request<Tossup>(catalog(`/practice/next?${params}`))
   },
 
-  content: (topicId: string) =>
-    request<TopicContent>(content(`/topics/${encodeURIComponent(topicId)}/content`)),
+  content: (topicId: string, generate = true) =>
+    request<TopicContent>(
+      content(`/topics/${encodeURIComponent(topicId)}/content?generate=${generate ? 'true' : 'false'}`),
+    ),
   explainMore: (topicId: string, through: number) =>
     request<{ queued: boolean }>(
       content(`/topics/${encodeURIComponent(topicId)}/explain-more?through=${through}`),

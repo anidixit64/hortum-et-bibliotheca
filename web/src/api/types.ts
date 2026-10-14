@@ -234,10 +234,16 @@ export interface Book {
   author: string | null
   year: number | null
   isbn: string | null
+  publisher?: string | null
   cover: string | null
   open_library: string | null
   cited: number
-  source: 'cited' | 'subject' | 'work'
+  source: 'cited' | 'subject' | 'work' | 'reading'
+}
+
+export interface BookBlurb {
+  title: string
+  blurb: string
 }
 
 export interface Reference {
@@ -274,6 +280,7 @@ export interface SectionPayloads {
   facts: { facts: FunFact[]; source?: { title: string; url: string } }
   theme: Theme
   special: SpecialPayload
+  blurbs: { blurbs: BookBlurb[] }
 }
 
 export interface FeatureStep {

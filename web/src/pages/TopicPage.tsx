@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api/client'
-import type { Clue, SectionPayloads, TopicLink, TopicRecord, TopicStats } from '../api/types'
+import type { Clue, SectionPayloads, TopicLink, TopicRecord, TopicStats, WikiPayload } from '../api/types'
 import { ClueCarousel, sortedClues } from '../components/ClueList'
 import type { SortMode } from '../components/ClueList'
-import { FloatImage, ImageGrid, Reading, Videos, WikiSummary } from '../components/Enrichment'
+import { FloatImage, ImageGrid, Reading, Videos, WikiArticle } from '../components/Enrichment'
 import { FunFacts, Hook, Summary } from '../components/Written'
 import { Heatmap } from '../components/Heatmap'
 import { ConfusionList } from '../components/Related'
@@ -19,9 +19,19 @@ import { percent } from '../lib/format'
 import { useTopicTheme } from '../lib/theme'
 import { HeaderImage } from '../components/HeaderImage'
 import { useTopicContent } from '../lib/useTopicContent'
+import { useAiMode } from '../lib/aiMode'
+import { wikiNote } from '../lib/wikiNote'
 
 const PAGE = 10 // clues shown at first
 const MORE = 5 // added by each "show more"
+
+function ExhibitGenerating() {
+  return <p className="exhibit-generating">exhibit generating...</p>
+}
+
+function isPending(section: { status: string; stale?: boolean } | undefined) {
+  return section?.status === 'pending' || section?.stale === true
+}
 
 function SidebarCard({ title, children }: { title?: string; children: ReactNode }) {
   return (
@@ -34,6 +44,14 @@ function SidebarCard({ title, children }: { title?: string; children: ReactNode 
 
 export function TopicPage() {
   const { key = '' } = useParams()
+  const ai = useAiMode()
+  const released = useRef(false)
+  const topicKey = useRef(key)
+  if (topicKey.current !== key) {
+    topicKey.current = key
+    released.current = !ai
+  }
+  if (!ai) released.current = true
   const [loaded, setLoaded] = useState<{ key: string; record: TopicRecord } | null>(null)
   const [stats, setStats] = useState<TopicStats | null>(null)
   const [error, setError] = useState<{ key: string; message: string } | null>(null)
@@ -43,7 +61,7 @@ export function TopicPage() {
   const [sortMode, setSortMode] = useState<SortMode>('frequency')
   const [loadingMore, setLoadingMore] = useState(false)
   const current = loaded?.key === key ? loaded.record : null
-  const [content, refreshContent] = useTopicContent(current?.topic.id ?? '')
+  const [content, refreshContent] = useTopicContent(current?.topic.id ?? '', ai)
   const summarySection = content?.sections.summary
   const written =
     summarySection?.status === 'ok' ? (summarySection.payload as SectionPayloads['summary']) : null
@@ -59,12 +77,21 @@ export function TopicPage() {
   const facts = factsSection?.status === 'ok' ? (factsSection.payload as SectionPayloads['facts']) : null
   const themeSection = content?.sections.theme
   const topicTheme = themeSection?.status === 'ok' ? (themeSection.payload as SectionPayloads['theme']) : null
-  useTopicTheme(topicTheme)
+  useTopicTheme(ai ? topicTheme : null)
   const cleanedSection = content?.sections.clues
   const cleaned =
     cleanedSection?.status === 'ok'
       ? (cleanedSection.payload as SectionPayloads['clues']).clues
       : null
+
+  const blurbsSection = content?.sections.blurbs
+  const blurbs =
+    ai && blurbsSection?.status === 'ok'
+      ? (blurbsSection.payload as SectionPayloads['blurbs']).blurbs
+      : []
+  const wikiSection = content?.sections.wiki
+  const wiki =
+    wikiSection?.status === 'ok' ? (wikiSection.payload as WikiPayload) : null
 
   const imagesSection = content?.sections.images
   const images =
@@ -115,10 +142,11 @@ export function TopicPage() {
   if (error?.key === key) return <p className="error">{error.message}</p>
   const record = current
 
-  // Generated sections (summary, clues, explanations, facts, theme, special) have to be
-  // stored before the exhibit opens. Fetched Wikipedia text is not a stand-in for them.
+  // AI mode waits on the loader until every generated section is stored. Non-AI opens on
+  // the catalog and Wikipedia. Turning AI on from that page keeps it up and fills the
+  // sections in place.
   const contentReady = content?.status === 'ready'
-  if (!record || !contentReady) {
+  if (!record || (ai && !released.current && !contentReady)) {
     const sectionKeys = content ? Object.keys(content.sections) : []
     const done = content
       ? sectionKeys.filter((k) => {
@@ -150,6 +178,10 @@ export function TopicPage() {
   const total = cleaned ? ordered.length : rawTotal
   const n = visible.key === key ? visible.n : PAGE
   const shown = ordered.slice(0, n)
+  const articleNotes: Record<number, ReturnType<typeof wikiNote>> = {}
+  for (const clue of shown) {
+    articleNotes[clue.rank] = wiki ? wikiNote(clue.label, clue.variants ?? [], wiki) : null
+  }
   const showMore = async () => {
     if (!cleaned && n + MORE > pool.length && raw.length < rawTotal) {
       setLoadingMore(true)
@@ -161,7 +193,7 @@ export function TopicPage() {
       }
     }
     setVisible({ key, n: n + MORE })
-    if (cleaned && explanations.length < cleaned.length) {
+    if (ai && cleaned && explanations.length < cleaned.length) {
       api
         .explainMore(topic.id, cleaned.length)
         .then(refreshContent)
@@ -201,7 +233,7 @@ export function TopicPage() {
           <div>
             <p className="exhibit-kicker">{topic.category ?? 'Exhibit'}</p>
             <h1 className="exhibit-sign">{topic.name}</h1>
-            {written && <Hook summary={written} />}
+            {written && ai && <Hook summary={written} />}
             {topic.description && <p className="muted">{topic.description}</p>}
             {topic.thin && <span className="pill">rarely asked</span>}
           </div>
@@ -255,26 +287,39 @@ export function TopicPage() {
           {/* Summary — the centerpiece, with key image floated alongside */}
           <section className="exhibit-main" id="room-introduction">
             {summaryFloat && <FloatImage image={summaryFloat} side="right" />}
-            {written ? (
+            {ai && written ? (
               <Summary summary={written} explanations={explanations} topicLinks={topicLinks} />
             ) : (
-              <WikiSummary section={content.sections.wiki} />
+              <>
+                {ai && isPending(summarySection) && <ExhibitGenerating />}
+                <WikiArticle section={wikiSection} />
+              </>
             )}
           </section>
 
           {/* Fun facts — museum plaques scattered in the main flow */}
-          {facts && facts.facts.length > 0 && (
+          {ai && facts && facts.facts.length > 0 && (
             <aside className="plaque-row" aria-label="Did you know?">
               <h2>Did you know?</h2>
               <FunFacts facts={facts.facts} />
             </aside>
           )}
+          {ai && !facts && isPending(factsSection) && (
+            <aside className="plaque-row" aria-label="Did you know?">
+              <h2>Did you know?</h2>
+              <ExhibitGenerating />
+            </aside>
+          )}
 
-          {/* Feature piece, with second image floated alongside */}
-          {special && (
+          {ai && special && (
             <section className="exhibit-feature" id="room-feature">
               {featureFloat && <FloatImage image={featureFloat} side="left" />}
               <Feature special={special} />
+            </section>
+          )}
+          {ai && !special && isPending(specialSection) && (
+            <section className="exhibit-feature" id="room-feature">
+              <ExhibitGenerating />
             </section>
           )}
 
@@ -282,19 +327,14 @@ export function TopicPage() {
 
         {/* Right sidebar: timeline, reading */}
         <aside className="museum-sidebar museum-right">
-          {hasExhibitTimeline && special && (
-            <SidebarCard title={special.timeline.kind === 'discoveries' ? 'Discoveries' : 'Timeline'}>
-              <ExhibitTimeline timeline={special.timeline} />
-            </SidebarCard>
-          )}
-          {hasWikidataTimeline && (
-            <SidebarCard title="Timeline">
-              <Timeline events={record.timeline} />
-            </SidebarCard>
-          )}
-          {content && (
-            <SidebarCard title="Library">
-              <Reading section={content.sections.books} />
+          {(hasExhibitTimeline || hasWikidataTimeline || (ai && isPending(specialSection))) && (
+            <SidebarCard title={special?.timeline.kind === 'discoveries' ? 'Discoveries' : 'Timeline'}>
+              {ai && isPending(specialSection) && <ExhibitGenerating />}
+              {ai && hasExhibitTimeline && special ? (
+                <ExhibitTimeline timeline={special.timeline} />
+              ) : (
+                hasWikidataTimeline && <Timeline events={record.timeline} />
+              )}
             </SidebarCard>
           )}
         </aside>
@@ -302,9 +342,10 @@ export function TopicPage() {
 
       <section className="exhibit-clues" id="room-clues">
         <h2><span className="room-number">C</span> The clue hall</h2>
+        {ai && isPending(explainedSection) && <ExhibitGenerating />}
         <ClueCarousel
           clues={shown}
-          explanations={cleaned ? explanations : undefined}
+          explanations={ai && cleaned ? explanations : undefined}
           writing={false}
           topicLinks={topicLinks}
           topicName={topic.name}
@@ -312,6 +353,8 @@ export function TopicPage() {
           images={images}
           sortMode={sortMode}
           onSortMode={setSortMode}
+          articleNotes={articleNotes}
+          wikiLoaded={wiki !== null}
         />
         {shown.length < total && (
           <button onClick={showMore} disabled={loadingMore}>
@@ -327,6 +370,11 @@ export function TopicPage() {
         </section>
       )}
 
+      <section className="exhibit-reading" id="room-reading">
+        <h2><span className="room-number">B</span> Bibliography</h2>
+        {ai && isPending(blurbsSection) && <ExhibitGenerating />}
+        <Reading section={content?.sections.books} blurbs={blurbs} />
+      </section>
       <section className="exhibit-connections" id="room-connections">
         <h2><span className="room-number">~</span> Connections</h2>
         <h3>Don't confuse with</h3>
@@ -359,7 +407,9 @@ export function TopicPage() {
 
       <footer className="page-disclaimer">
         <p>
-          Summaries, fun facts, and explanations are AI-generated from Wikipedia and may contain errors.
+          {ai
+            ? 'Summaries, fun facts, explanations, and book notes are AI-generated from Wikipedia and may contain errors. '
+            : 'The article text is from Wikipedia. Clues come from the question set. '}
           Images and text are sourced from Wikipedia and Wikimedia Commons under CC BY-SA 4.0.
           Book data from Open Library.
         </p>
