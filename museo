@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$(dirname "$(readlink -f "$0" 2>/dev/null || realpath "$0")")" && pwd)"
 cd "$ROOT"
 
 # ── colours ──────────────────────────────────────────────────────────
@@ -42,7 +42,7 @@ PIDS=()
 cleanup() {
     echo ""
     echo -e "${DIM}Stopping all services...${RESET}"
-    for pid in "${PIDS[@]}"; do
+    for pid in "${PIDS[@]+"${PIDS[@]}"}"; do
         kill "$pid" 2>/dev/null || true
     done
     wait 2>/dev/null
@@ -75,23 +75,38 @@ cmd_run() {
     trap cleanup EXIT INT TERM
 
     echo -e "${BOLD}Starting backend services...${RESET}"
-    local -A svc_ports=([gateway]=8000 [catalog]=8001 [content]=8002 [study]=8003)
-    for svc in gateway catalog content study; do
-        local port=${svc_ports[$svc]}
+    local svc port
+    for svc_port in gateway:8000 catalog:8001 content:8002 study:8003; do
+        svc="${svc_port%%:*}"
+        port="${svc_port##*:}"
         echo -e "  ${CYAN}$svc${RESET} → :$port"
         uv run uvicorn "$svc.main:app" --reload --port "$port" > /dev/null 2>&1 &
         PIDS+=($!)
     done
 
+    echo -e "${BOLD}Starting content worker...${RESET}"
+    echo -e "  ${CYAN}worker${RESET} → content enrichment"
+    uv run hortum-content worker > /dev/null 2>&1 &
+    PIDS+=($!)
+
     echo -e "${BOLD}Starting frontend dev server...${RESET}"
-    echo -e "  ${CYAN}web${RESET} → :5173"
-    (cd web && npm run dev -- --open=false) > /dev/null 2>&1 &
+    local vite_log
+    vite_log=$(mktemp)
+    (cd web && npm run dev 2>&1) > "$vite_log" &
     PIDS+=($!)
 
     wait_for "gateway" "http://localhost:8000/healthz" || true
 
+    # let vite start and read its actual URL
+    sleep 2
+    local vite_url
+    vite_url=$(grep -oE 'http://localhost:[0-9]+' "$vite_log" | head -1)
+    vite_url="${vite_url:-http://localhost:5173}"
+    rm -f "$vite_log"
+
+    echo -e "  ${CYAN}web${RESET} → ${vite_url}"
     echo -e "${GREEN}All services running.${RESET}"
-    open_browser "http://localhost:5173"
+    open_browser "$vite_url"
     echo -e "${DIM}Press Ctrl-C to stop.${RESET}"
     wait
 }
@@ -100,7 +115,7 @@ cmd_stop() {
     echo -e "${BOLD}Stopping services...${RESET}"
     # kill any uvicorn or vite dev processes started from this project
     pkill -f "uvicorn (gateway|catalog|content|study)\.main:app" 2>/dev/null || true
-    pkill -f "vite.*--open=false" 2>/dev/null || true
+    pkill -f "node.*vite" 2>/dev/null || true
     # also stop docker-compose if running
     docker compose down 2>/dev/null || true
     echo -e "${GREEN}Done.${RESET}"
@@ -147,6 +162,7 @@ cmd_status() {
 cmd_install() {
     echo -e "${BOLD}Installing all workspace packages...${RESET}"
     uv sync --all-packages
+    ln -sf "$ROOT/museo" .venv/bin/museo
     echo -e "${BOLD}Installing frontend dependencies...${RESET}"
     (cd web && npm ci)
     echo -e "${GREEN}Done.${RESET}"
