@@ -1,0 +1,218 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+cd "$ROOT"
+
+# ── colours ──────────────────────────────────────────────────────────
+BOLD='\033[1m' DIM='\033[2m' CYAN='\033[36m' GREEN='\033[32m'
+YELLOW='\033[33m' RED='\033[31m' RESET='\033[0m'
+
+usage() {
+    echo -e "${BOLD}museo${RESET} — developer CLI for hortum-et-bibliotheca"
+    echo ""
+    echo -e "${BOLD}Usage:${RESET} museo <command> [args...]"
+    echo ""
+    echo -e "${BOLD}Commands:${RESET}"
+    echo -e "  ${CYAN}run${RESET}                Start all services + frontend, open browser"
+    echo -e "  ${CYAN}stop${RESET}               Stop any backgrounded museo/docker services"
+    echo -e "  ${CYAN}logs${RESET}               Tail logs from all docker-compose services"
+    echo ""
+    echo -e "  ${CYAN}pipeline${RESET} [STAGE]   Run the data pipeline (default: all stages)"
+    echo -e "  ${CYAN}review${RESET}             Open the answer-review GUI"
+    echo -e "  ${CYAN}inspect${RESET}            Open the clue inspector GUI"
+    echo ""
+    echo -e "  ${CYAN}worker${RESET}             Start the content worker (Wikipedia, images, books, videos)"
+    echo -e "  ${CYAN}enqueue${RESET} TOPIC ...  Queue content enrichment for topics"
+    echo -e "  ${CYAN}status${RESET}             Show content job counts by kind and status"
+    echo ""
+    echo -e "  ${CYAN}install${RESET}            Install all workspace packages (uv sync)"
+    echo -e "  ${CYAN}check${RESET}              Run lint + typecheck + tests (Python & frontend)"
+    echo -e "  ${CYAN}fmt${RESET}                Auto-format and fix lint issues"
+    echo -e "  ${CYAN}test${RESET}               Run all tests"
+    echo -e "  ${CYAN}build${RESET}              Build all docker images"
+    echo -e "  ${CYAN}ner-env${RESET}            Set up the spaCy NER virtual environment"
+    echo ""
+    echo -e "  ${CYAN}help${RESET}               Show this message"
+}
+
+# ── helpers ──────────────────────────────────────────────────────────
+PIDS=()
+
+cleanup() {
+    echo ""
+    echo -e "${DIM}Stopping all services...${RESET}"
+    for pid in "${PIDS[@]}"; do
+        kill "$pid" 2>/dev/null || true
+    done
+    wait 2>/dev/null
+    echo -e "${GREEN}Done.${RESET}"
+}
+
+open_browser() {
+    local url=$1
+    open "$url" 2>/dev/null \
+        || xdg-open "$url" 2>/dev/null \
+        || echo -e "  ${DIM}(open your browser to $url)${RESET}"
+}
+
+wait_for() {
+    local label=$1 url=$2 max=${3:-30}
+    echo -e "${DIM}Waiting for $label...${RESET}"
+    for _ in $(seq 1 "$max"); do
+        if curl -sf "$url" > /dev/null 2>&1; then
+            return 0
+        fi
+        sleep 1
+    done
+    echo -e "${YELLOW}Warning: $label did not respond within ${max}s${RESET}"
+    return 1
+}
+
+# ── commands ─────────────────────────────────────────────────────────
+
+cmd_run() {
+    trap cleanup EXIT INT TERM
+
+    echo -e "${BOLD}Starting backend services...${RESET}"
+    local -A svc_ports=([gateway]=8000 [catalog]=8001 [content]=8002 [study]=8003)
+    for svc in gateway catalog content study; do
+        local port=${svc_ports[$svc]}
+        echo -e "  ${CYAN}$svc${RESET} → :$port"
+        uv run uvicorn "$svc.main:app" --reload --port "$port" > /dev/null 2>&1 &
+        PIDS+=($!)
+    done
+
+    echo -e "${BOLD}Starting frontend dev server...${RESET}"
+    echo -e "  ${CYAN}web${RESET} → :5173"
+    (cd web && npm run dev -- --open=false) > /dev/null 2>&1 &
+    PIDS+=($!)
+
+    wait_for "gateway" "http://localhost:8000/healthz" || true
+
+    echo -e "${GREEN}All services running.${RESET}"
+    open_browser "http://localhost:5173"
+    echo -e "${DIM}Press Ctrl-C to stop.${RESET}"
+    wait
+}
+
+cmd_stop() {
+    echo -e "${BOLD}Stopping services...${RESET}"
+    # kill any uvicorn or vite dev processes started from this project
+    pkill -f "uvicorn (gateway|catalog|content|study)\.main:app" 2>/dev/null || true
+    pkill -f "vite.*--open=false" 2>/dev/null || true
+    # also stop docker-compose if running
+    docker compose down 2>/dev/null || true
+    echo -e "${GREEN}Done.${RESET}"
+}
+
+cmd_logs() {
+    docker compose logs -f "$@"
+}
+
+cmd_pipeline() {
+    local stage="${1:-all}"
+    shift 2>/dev/null || true
+    echo -e "${BOLD}Running pipeline: ${CYAN}$stage${RESET}"
+    uv run hortum-pipeline "$stage" "$@"
+}
+
+cmd_review() {
+    echo -e "${BOLD}Opening answer-review GUI...${RESET}"
+    uv run hortum-pipeline review-answers
+}
+
+cmd_inspect() {
+    echo -e "${BOLD}Opening clue inspector GUI...${RESET}"
+    uv run hortum-pipeline inspect-clues
+}
+
+cmd_worker() {
+    echo -e "${BOLD}Starting content worker...${RESET}"
+    uv run hortum-content worker
+}
+
+cmd_enqueue() {
+    if [[ $# -eq 0 ]]; then
+        echo -e "${RED}Usage: museo enqueue TOPIC [TOPIC...] [--kinds wiki images ...]${RESET}"
+        exit 1
+    fi
+    uv run hortum-content enqueue "$@"
+}
+
+cmd_status() {
+    uv run hortum-content status
+}
+
+cmd_install() {
+    echo -e "${BOLD}Installing all workspace packages...${RESET}"
+    uv sync --all-packages
+    echo -e "${BOLD}Installing frontend dependencies...${RESET}"
+    (cd web && npm ci)
+    echo -e "${GREEN}Done.${RESET}"
+}
+
+cmd_check() {
+    echo -e "${BOLD}Python: lint + typecheck + test${RESET}"
+    uv run ruff check .
+    uv run ruff format --check .
+    uv run mypy libs/common/src pipeline/src services/*/src
+    uv run pytest
+    echo ""
+    echo -e "${BOLD}Frontend: typecheck + lint + test${RESET}"
+    (cd web && npm run typecheck && npm run lint && npm test)
+    echo -e "${GREEN}All checks passed.${RESET}"
+}
+
+cmd_fmt() {
+    uv run ruff format .
+    uv run ruff check --fix .
+}
+
+cmd_test() {
+    uv run pytest "$@"
+}
+
+cmd_build() {
+    docker compose build "$@"
+}
+
+cmd_ner_env() {
+    uv venv -q --python 3.12 .venv-ner
+    VIRTUAL_ENV=.venv-ner uv pip install \
+        "spacy>=3.8,<3.9" "spacy-transformers>=1.3" \
+        "torch==2.2.2; sys_platform == 'darwin' and platform_machine == 'x86_64'" \
+        "torch; sys_platform != 'darwin' or platform_machine != 'x86_64'" \
+        "numpy<2" \
+        "en-core-web-trf @ https://github.com/explosion/spacy-models/releases/download/en_core_web_trf-3.8.0/en_core_web_trf-3.8.0-py3-none-any.whl"
+    echo -e "${GREEN}Done.${RESET} Set ${CYAN}CONTENT_NER_PYTHON=.venv-ner/bin/python${RESET} in .env to use it."
+}
+
+# ── dispatch ─────────────────────────────────────────────────────────
+CMD="${1:-help}"
+shift 2>/dev/null || true
+
+case "$CMD" in
+    run)        cmd_run "$@" ;;
+    stop)       cmd_stop ;;
+    logs)       cmd_logs "$@" ;;
+    pipeline)   cmd_pipeline "$@" ;;
+    review)     cmd_review ;;
+    inspect)    cmd_inspect ;;
+    worker)     cmd_worker ;;
+    enqueue)    cmd_enqueue "$@" ;;
+    status)     cmd_status ;;
+    install)    cmd_install ;;
+    check)      cmd_check ;;
+    fmt)        cmd_fmt ;;
+    test)       cmd_test "$@" ;;
+    build)      cmd_build "$@" ;;
+    ner-env)    cmd_ner_env ;;
+    help|-h|--help) usage ;;
+    *)
+        echo -e "${RED}Unknown command: $CMD${RESET}"
+        echo ""
+        usage
+        exit 1
+        ;;
+esac
