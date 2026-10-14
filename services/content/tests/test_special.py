@@ -27,6 +27,11 @@ def test_forms_and_feature_checks() -> None:
     assert special.form("History")[0] == "Be there"
     assert "one scene" in special.form("History")[1]
     assert "Do not retell" in special.form("History")[1]
+    assert special.form("Literature")[0] == "Close reading"
+    assert "Do not retell" in special.form("Literature")[1]
+    assert "single work" in special.form("Literature")[1]
+    assert special.form("Mythology")[0] == "One telling"
+    assert "Do not retell" in special.form("Mythology")[1]
     assert special.form("Science")[2] == "discoveries"
     assert special.form("Pop Culture") == special.DEFAULT_FORM
     good = {
@@ -43,6 +48,8 @@ def test_forms_and_feature_checks() -> None:
 def test_history_and_science_features_are_short() -> None:
     assert special.feature_words("History") == special.SHORT_FEATURE_WORDS
     assert special.feature_words("Science") == special.SHORT_FEATURE_WORDS
-    assert special.feature_words("Literature") == special.FEATURE_WORDS
+    assert special.feature_words("Literature") == special.SHORT_FEATURE_WORDS
+    assert special.feature_words("Mythology") == special.SHORT_FEATURE_WORDS
+    assert special.feature_words("Fine Arts") == special.FEATURE_WORDS
     short = {"title": "T", "body": " ".join(["w"] * 700)}
     assert "words" in str(special.feature_problem(short, special.SHORT_FEATURE_WORDS))

@@ -7,7 +7,9 @@ clue records its exact span in the question (characters and words), where it fal
 * ``clue``: something a player could buzz on;
 * ``giveaway``: the whole sentence holding "For 10 points, name this..." and anything after
   it. A question with no giveaway phrase gives its last sentence away. Only a one-sentence
-  question keeps the part before the phrase as a clue, so it still has one;
+  question keeps the part before the phrase as its own clue, so it still has one. The
+  giveaway still keeps key terms: "author of 'The Raven'" is a clue, and ``giveaway_facts``
+  is that factual part without the "for 10 points, name this" frame;
 * ``note``: moderator or player notes ("NOTE TO MODERATOR: ...").
 
 The splitter knows quiz bowl text: abbreviations ("Dr.", "St.", "No. 9") and initials
@@ -77,6 +79,17 @@ _STARTERS = {
     "members", "what", "which", "who", "if", "once", "later", "earlier", "two", "three",
 }  # fmt: skip
 _GIVEAWAY = re.compile(r"\b(?:for\s+(?:\d+|ten|fifteen|twenty|the)\s+(?:points?|pts)|ftp)\b", re.I)
+# The stock ask at the start of a giveaway's remainder: "name this", "identify the".
+_PROMPT_LEAD = re.compile(
+    r"^(?:[,;:\s]*)(?:please\s+)?(?:name|identify|give)\s+(?:(?:me|us)\s+)?"
+    r"(?:(?:this|these|that|those|him|her|it|them|the|a|an)\s+)?",
+    re.I,
+)
+# "what novel?" / "which poet?" / "who is it?" when that is the whole remainder.
+_BARE_ASK = re.compile(
+    r"^(?:what|which|who)(?:\s+(?:this|these|the|a|an))?\s+[a-z][\w-]*\s*\??$",
+    re.I,
+)
 _NOTE = re.compile(
     r"^(?:note\s+to\s+(?:the\s+)?(?:moderators?|players|readers?)|moderator(?:'s)?\s+note|"
     r"(?:descriptive\s+answers?|description)\s+acceptable|pronunciation\s+guide|"
@@ -236,6 +249,31 @@ def key_terms(text: str) -> list[str]:
     return out
 
 
+def giveaway_facts(text: str) -> str:
+    """The factual part of a giveaway, without "for 10 points, name this".
+
+    The part of the sentence before the phrase stays ("A 'Battle Royale' scene occurs
+    in"). A bare ask ("name this poet", "what novel?") contributes nothing, so the frame
+    cannot become a clue called "10 points".
+    """
+    hit = _GIVEAWAY.search(text)
+    if hit:
+        before = text[: hit.start()].strip(" ,;:-–—")
+        after = text[hit.end() :].strip()
+    else:
+        before, after = "", text.strip()
+    after = _PROMPT_LEAD.sub("", after, count=1).strip(" ,;:-–—")
+    if _BARE_ASK.match(after):
+        after = ""
+    after = after.rstrip(".")
+    parts: list[str] = []
+    if len(before.split()) >= 3:
+        parts.append(before)
+    if len(after.split()) >= 2:
+        parts.append(after.strip())
+    return " ".join(parts).strip()
+
+
 def split_question(question_text: str) -> Layout:
     clean, power_char = clean_question(question_text)
     sentences = [(s0, s1, bool(_NOTE.match(clean[s0:s1]))) for s0, s1 in _sentences(clean)]
@@ -279,7 +317,7 @@ def split_question(question_text: str) -> Layout:
                 position=round(a / length, 4),
                 in_power=power_char is not None and a < power_char,
                 kind=kind,
-                key_terms=key_terms(text) if kind == "clue" else [],
+                key_terms=key_terms(text) if kind != "note" else [],
             )
         )
     return Layout(clean, power_char, power_word, clues)

@@ -4,9 +4,10 @@ A. A timeline of dated events (discoveries, for science), from the Wikipedia tex
    event quotes the sentence it comes from; code keeps only events whose quote is in the
    article and contains the event's year, so dates can't be invented.
 B. A feature: the long, immersive piece, its form set by the category ("Be there" for
-   history, a deep dive into one core concept for science...). Facts come from the source
-   or are widely established; scenes are labeled dramatized. Science and math features may
-   include a step diagram, drawn by the page from a fixed template.
+   history, a close reading for literature, a deep dive into one core concept for
+   science...). Facts come from the source or are widely established; scenes are labeled
+   dramatized. Science and math features may include a step diagram, drawn by the page
+   from a fixed template.
 """
 
 import re
@@ -14,12 +15,19 @@ from typing import Any
 
 from content.writing import _squash
 
-SPECIAL_VERSION = 3
+SPECIAL_VERSION = 4
 TIMELINE_EVENTS = (4, 12)
 FEATURE_WORDS = (600, 900)
-# History and science pieces read better short: one vivid scene, one concept.
+# One scene, one concept, one craft choice: a short piece can't sprawl into the summary.
 SHORT_FEATURE_WORDS = (300, 450)
-SHORT_FEATURES = {"History", "Current Events", "Science", "Social Science"}
+SHORT_FEATURES = {
+    "History",
+    "Current Events",
+    "Science",
+    "Social Science",
+    "Literature",
+    "Mythology",
+}
 
 
 def feature_words(category: str | None) -> tuple[int, int]:
@@ -69,16 +77,21 @@ FORMS: dict[str, tuple[str, str, str]] = {
         "events",
     ),
     "Literature": (
-        "Walk through the work",
-        "Walk the reader through {name} as if through "
-        "the rooms of an exhibit: the key scenes, characters and turns in order, "
-        "and what each reveals. For an author, walk through their life's work.",
+        "Close reading",
+        "Write about how {name} is made, not about the life behind it. "
+        "Choose one formal choice — a narrator, a meter, a sentence, or a recurring "
+        "image — and stay inside that choice: how it is built and what it does. "
+        "For an author, stay inside a single work's technique. "
+        "Do not retell the life, the plot, the career, or the article's overview, "
+        "and do not walk through scenes, rooms, or works in order.",
         "events",
     ),
     "Mythology": (
-        "The story",
-        "Tell the central myth of {name} as a vivid story, keeping to "
-        "the versions in the sources and naming the figures a reader should know.",
+        "One telling",
+        "Choose one image, motif, or choice of telling in {name} and stay with it: "
+        "where it appears, what it does, and how a source handles it. "
+        "Do not retell the whole myth, the plot, or the overview, "
+        "and do not walk through the story in order.",
         "events",
     ),
     "Religion": (

@@ -6,8 +6,10 @@ import numpy as np
 import pytest
 
 from hortum_pipeline import answer_stage, clues, cluster, grouping, ingest
+from hortum_pipeline.clues import giveaway_facts
 from hortum_pipeline.config import PipelineSettings
 from hortum_pipeline.progress import NullReporter
+from hortum_pipeline.terms import load_sentences
 
 
 def fake_embedder() -> cluster.Embedder:
@@ -60,11 +62,29 @@ def test_stage_clusters_and_caches(settings: PipelineSettings) -> None:
     clues.run(settings, NullReporter())
     cluster.run(settings, NullReporter(), fake_embedder)
 
-    topical = conn.execute(
-        "SELECT COUNT(*) FROM clues WHERE kind = 'clue' AND topic_id IS NOT NULL"
-    ).fetchone()[0]
-    assigned = conn.execute("SELECT COUNT(*) FROM clue_cluster_members").fetchone()[0]
-    assert assigned == topical > 0
+    rows = conn.execute(
+        "SELECT id, kind, text, key_terms FROM clues WHERE topic_id IS NOT NULL"
+    ).fetchall()
+
+    def included(kind: str, text: str, terms: str) -> bool:
+        return cluster.cluster_text(kind, text, terms) is not None
+
+    expect = {row[0] for row in rows if included(row[1], row[2], row[3])}
+    assigned = {row[0] for row in conn.execute("SELECT clue_id FROM clue_cluster_members")}
+    assert assigned == expect
+    assert any(kind == "clue" for _, kind, _, _ in rows)
+    # "name this Russian author" states a fact; "name this sport" does not.
+    assert any(
+        kind == "giveaway" and giveaway_facts(text) and row_id in assigned
+        for row_id, kind, text, _ in rows
+    )
+    assert any(kind == "giveaway" and row_id not in assigned for row_id, kind, _, _ in rows)
+    mined = [(s, keys) for _, group in load_sentences(conn) for s, keys in group]
+    assert any(
+        s.parse_text and "Russian" in s.parse_text and "Russian" in keys for s, keys in mined
+    )
+    assert any(s.last_line and "War and Peace" in s.text for s, _ in mined)
+    assert not any("name this sport" in s.text for s, _ in mined)
     label, terms = conn.execute("SELECT label, key_terms FROM clue_clusters LIMIT 1").fetchone()
     assert label and isinstance(json.loads(terms), list)
 

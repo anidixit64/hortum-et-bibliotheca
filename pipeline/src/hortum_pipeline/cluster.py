@@ -1,7 +1,8 @@
 """Stage 6: group clues that state the same fact in different words.
 
-Every clue (kind "clue", in a topic) is embedded with the MiniLM sentence model, and
-clues within a topic are merged by average-linkage clustering on cosine distance, with a
+Every clue in a topic is embedded with the MiniLM sentence model, giveaways included
+when they state a fact ("author of The Raven", not the "for 10 points" frame). Clues
+within a topic are merged by average-linkage clustering on cosine distance, with a
 bonus for each key term two clues share ("Brockway", "Liberty Paints"). Chosen against
 the hand-labeled clues: MiniLM + a 0.2 shared-term bonus at threshold 0.6 scored pairwise
 F1 0.76, against 0.60 for the best TF-IDF setting.
@@ -22,6 +23,7 @@ from sklearn.cluster import AgglomerativeClustering
 
 from hortum_common.text import normalize
 from hortum_pipeline import db
+from hortum_pipeline.clues import giveaway_facts
 from hortum_pipeline.config import PipelineSettings
 from hortum_pipeline.progress import Reporter
 
@@ -144,6 +146,21 @@ def summarize(
     return medoid, label, common
 
 
+def cluster_text(kind: str, text: str, terms: str) -> str | None:
+    """Text to embed, or nothing when a giveaway is only the stock ask."""
+    if kind == "clue":
+        return text
+    if kind != "giveaway":
+        return None
+    facts = giveaway_facts(text)
+    if facts:
+        return facts
+    named = json.loads(terms)
+    if named:
+        return " ".join(named)
+    return None
+
+
 def run(
     settings: PipelineSettings,
     reporter: Reporter,
@@ -153,11 +170,16 @@ def run(
     db.require_table(conn, "clues", "clues")
     db.recreate(conn, SCHEMA)
 
-    rows = conn.execute(
-        "SELECT c.id, c.topic_id, c.text, c.key_terms, c.tossup_id, t.set_id "
+    rows = []
+    for clue_id, topic_id, text, terms, tossup_id, set_id, kind in conn.execute(
+        "SELECT c.id, c.topic_id, c.text, c.key_terms, c.tossup_id, t.set_id, c.kind "
         "FROM clues c JOIN tossups t ON t.id = c.tossup_id "
-        "WHERE c.kind = 'clue' AND c.topic_id IS NOT NULL ORDER BY c.topic_id, c.id"
-    ).fetchall()
+        "WHERE c.kind IN ('clue', 'giveaway') AND c.topic_id IS NOT NULL "
+        "ORDER BY c.topic_id, c.id"
+    ):
+        mined = cluster_text(kind, text, terms)
+        if mined:
+            rows.append((clue_id, topic_id, mined, terms, tossup_id, set_id))
     keys = [text_key(r[2]) for r in rows]
 
     # 1. Embed whatever isn't cached yet (the slow part, done once).

@@ -1,6 +1,6 @@
 import pytest
 
-from hortum_pipeline.clues import clean_question, key_terms, split_question
+from hortum_pipeline.clues import clean_question, giveaway_facts, key_terms, split_question
 
 
 def texts(question: str) -> list[str]:
@@ -91,6 +91,42 @@ def test_spans_word_indices_and_power_flags() -> None:
         assert " ".join(words) == clue.text
     assert layout.power_word == 5  # "clue" in "Second clue sits here."
     assert [c.in_power for c in layout.clues] == [True, True, False]
+
+
+def test_giveaway_keeps_the_facts_in_its_last_line() -> None:
+    layout = split_question(
+        'He married Virginia. For 10 points, name this author of "The Raven" '
+        'and "The Tell-Tale Heart".'
+    )
+    giveaway = layout.clues[-1]
+    assert giveaway.kind == "giveaway"
+    # Quoted titles that start with "The" are stored as the name after it.
+    assert "Raven" in giveaway.key_terms
+    assert "Tell-Tale Heart" in giveaway.key_terms
+    facts = giveaway_facts(giveaway.text)
+    assert "for 10 points" not in facts.lower()
+    assert "The Raven" in facts and "The Tell-Tale Heart" in facts
+
+
+def test_a_bare_giveaway_has_no_facts() -> None:
+    assert giveaway_facts("For 10 points, name this poet.") == ""
+    layout = split_question("He lived in Baltimore. For 10 points, name this poet.")
+    assert layout.clues[-1].kind == "giveaway"
+    assert layout.clues[-1].key_terms == []
+
+
+def test_facts_before_the_giveaway_phrase_are_kept() -> None:
+    text = 'A "Battle Royale" scene occurs in, for 10 points, what novel?'
+    facts = giveaway_facts(text)
+    assert "Battle Royale" in facts
+    assert "for 10 points" not in facts.lower()
+    assert "what novel" not in facts.lower()
+
+
+def test_a_giveaway_without_the_phrase_still_yields_its_facts() -> None:
+    facts = giveaway_facts("Name this Italian artist who painted the Mona Lisa.")
+    assert "Mona Lisa" in facts
+    assert not facts.lower().startswith("name")
 
 
 def test_key_terms() -> None:

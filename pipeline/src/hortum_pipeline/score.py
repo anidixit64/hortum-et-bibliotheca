@@ -17,8 +17,9 @@ The tuned weights (see config.py) lean on frequency: a clue in 38 sets at mid-qu
 Picking puts how many questions a clue appears in first: clues seen in more questions
 always come before clues seen in fewer, and impact only orders clues seen equally often.
 So a topic's picks start with its 3+ question clues, and two-question (or, for small
-topics, one-question) clues fill in only when there aren't 10 of those. Giveaway
-sentences are never clustered, so they don't count.
+topics, one-question) clues fill in only when there aren't 10 of those. A giveaway is
+clustered when it states a fact ("author of The Raven"); the last-line bonus is still
+the clue just before "for 10 points", not the ask itself.
 
 Clusters seen in fewer than ``min_sets`` sets (one set for small topics) or made only of
 the topic's own names are left out. A candidate is skipped when it nearly duplicates an
@@ -301,10 +302,11 @@ def load_stats(conn: sqlite3.Connection) -> dict[str, list[ClusterStats]]:
     ):
         clusters[cid] = ClusterStats(cid, topic_id, rep_text, json.loads(terms))
     for cid, *member in conn.execute(
-        "SELECT m.cluster_id, c.id, c.position, c.in_power, c.ordinal = l.last_ordinal, "
+        "SELECT m.cluster_id, c.id, c.position, c.in_power, "
+        "COALESCE(c.ordinal = l.last_ordinal, 0), "
         "t.difficulty, s.year, t.set_id, t.id "
         "FROM clue_cluster_members m JOIN clues c ON c.id = m.clue_id "
-        "JOIN (SELECT tossup_id, MAX(ordinal) AS last_ordinal FROM clues "
+        "LEFT JOIN (SELECT tossup_id, MAX(ordinal) AS last_ordinal FROM clues "
         "      WHERE kind = 'clue' GROUP BY tossup_id) l ON l.tossup_id = c.tossup_id "
         "JOIN tossups t ON t.id = c.tossup_id JOIN sets s ON s.id = t.set_id"
     ):

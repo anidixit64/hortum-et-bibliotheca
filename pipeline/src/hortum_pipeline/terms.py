@@ -2,9 +2,10 @@
 
 A clue here is a term a question names: a proper noun or title ("Nelson Miles", "The
 Mysterious Affair at Styles"), a quoted term, or a noun phrase ("circumambulation
-rituals"). For every clue sentence (never the giveaway), the terms are taken from the
-key terms found by the clues stage plus spaCy's noun phrases; spaCy runs once per
-sentence and its output is cached in data/cache/terms, so re-ranking is quick.
+rituals"). For every clue sentence, and for a giveaway that states a fact, the terms
+are taken from the key terms found by the clues stage plus spaCy's noun phrases. spaCy
+reads the giveaway without its "for 10 points, name this" frame, so that frame cannot
+become a clue. Parsing is cached in data/cache/terms, so re-ranking is quick.
 
 Within a topic, spellings of one clue are merged:
 - folded the same way: case, accents, plurals, possessives, a leading article
@@ -41,6 +42,7 @@ from typing import Any
 
 from hortum_common.text import normalize
 from hortum_pipeline import db, labeling, phrases
+from hortum_pipeline.clues import giveaway_facts
 from hortum_pipeline.config import PipelineSettings
 from hortum_pipeline.progress import Reporter
 from hortum_pipeline.relate import STOPWORDS
@@ -57,7 +59,7 @@ CREATE TABLE topic_clues (
     label TEXT NOT NULL,              -- the clue as questions most often write it
     clue_key TEXT NOT NULL,           -- folded words of its main spelling
     names_topic TEXT,                 -- a known topic this clue is the name of, if any
-    n_questions INTEGER NOT NULL,     -- distinct questions naming it outside the giveaway
+    n_questions INTEGER NOT NULL,     -- distinct questions naming it, giveaway included
     n_sets INTEGER NOT NULL,
     n_mentions INTEGER NOT NULL,      -- clue sentences naming it
     mean_position REAL NOT NULL,      -- 0 = start of the question, 1 = end
@@ -209,6 +211,7 @@ class Sentence:
     year: int | None
     text: str
     category: str | None = None
+    parse_text: str | None = None  # giveaway: facts only; None means parse ``text``
 
 
 @dataclass
@@ -682,6 +685,7 @@ def rank_topic(
         tossups = _distinct_questions(sentences, idx)
         sets = {sentences[i].set_id for i in idx}
         merged.append((len(tossups), len(sets), len(idx), label, key, group, idx))
+
     def rank_key(c):
         n_q, n_sets, n_ment, label, _key, _group, idx = c
         earliest = min(sentences[i].position for i in idx)
@@ -728,33 +732,60 @@ def rank_topic(
     return out
 
 
+def mined_text(sentence: Sentence) -> str:
+    """What spaCy should read. A giveaway is mined without its for-10-points frame."""
+    if sentence.parse_text is not None:
+        return sentence.parse_text
+    return sentence.text
+
+
 def load_sentences(
     conn: sqlite3.Connection,
 ) -> Iterator[tuple[str, list[tuple[Sentence, list[str]]]]]:
-    """Every clue sentence (no giveaways), topic by topic, with its key terms."""
+    """Clue sentences plus giveaways that state a fact, topic by topic, with key terms.
+
+    ``last_line`` is still the last clue before the giveaway. A giveaway's ``parse_text``
+    is the factual part, so noun phrases are not taken from "for 10 points".
+    """
     rows = conn.execute(
         "SELECT c.topic_id, c.id, c.tossup_id, t.set_id, c.position, c.in_power, "
-        "c.ordinal = l.last_ordinal, COALESCE(t.difficulty, 0), s.year, c.text, "
-        "t.category, c.key_terms "
+        "COALESCE(c.ordinal = l.last_ordinal, 0), COALESCE(t.difficulty, 0), s.year, c.text, "
+        "t.category, c.key_terms, c.kind "
         "FROM clues c JOIN tossups t ON t.id = c.tossup_id JOIN sets s ON s.id = t.set_id "
-        "JOIN (SELECT tossup_id, MAX(ordinal) AS last_ordinal FROM clues "
+        "LEFT JOIN (SELECT tossup_id, MAX(ordinal) AS last_ordinal FROM clues "
         "      WHERE kind = 'clue' GROUP BY tossup_id) l ON l.tossup_id = c.tossup_id "
-        "WHERE c.kind = 'clue' AND c.topic_id IS NOT NULL ORDER BY c.topic_id, c.id"
+        "WHERE c.kind IN ('clue', 'giveaway') AND c.topic_id IS NOT NULL "
+        "ORDER BY c.topic_id, c.id"
     )
     for topic_id, group in itertools.groupby(rows, key=lambda r: r[0]):
-        yield topic_id, [(Sentence(*r[1:11]), json.loads(r[11])) for r in group]
+        items: list[tuple[Sentence, list[str]]] = []
+        for row in group:
+            terms = json.loads(row[11])
+            sentence = Sentence(*row[1:11])
+            if row[12] == "giveaway":
+                facts = giveaway_facts(sentence.text)
+                if not facts and not terms:
+                    continue
+                sentence.parse_text = facts
+            items.append((sentence, terms))
+        if items:
+            yield topic_id, items
 
 
 def parse_all(
     conn: sqlite3.Connection, cache: ParseCache, reporter: Reporter, processes: int
 ) -> None:
     """Parse every clue sentence spaCy hasn't seen yet (the slow part, done once)."""
-    texts = {
-        text_key(labeling.clean(t)): labeling.clean(t)
-        for (t,) in conn.execute(
-            "SELECT text FROM clues WHERE kind = 'clue' AND topic_id IS NOT NULL"
-        )
-    }
+    texts: dict[str, str] = {}
+    for text, kind in conn.execute(
+        "SELECT text, kind FROM clues WHERE kind IN ('clue', 'giveaway') AND topic_id IS NOT NULL"
+    ):
+        if kind == "giveaway":
+            text = giveaway_facts(text)
+        if not str(text).strip():
+            continue
+        cleaned = labeling.clean(text)
+        texts[text_key(cleaned)] = cleaned
     todo = cache.missing(list(texts))
     reporter.begin("Parsing clue sentences (spaCy)", len(todo))
     reporter.stat(
@@ -827,10 +858,12 @@ def run(settings: PipelineSettings, reporter: Reporter) -> None:
     ranked = stored = 0
     for topic_id, items in load_sentences(conn):
         sentences = [s for s, _ in items]
-        parses = cache.get([text_key(labeling.clean(s.text)) for s in sentences])
+        mined = [mined_text(s) for s in sentences]
+        parse_keys = [text_key(labeling.clean(text)) if text.strip() else "" for text in mined]
+        parses = cache.get([key for key in parse_keys if key])
         terms = [
-            sentence_terms(s, keys, parses.get(text_key(labeling.clean(s.text)), {}), freq)
-            for s, keys in items
+            sentence_terms(s, keys, parses.get(parse_key, {}) if parse_key else {}, freq)
+            for (s, keys), parse_key in zip(items, parse_keys, strict=True)
         ]
         own = name_words.get(topic_id, frozenset())
 

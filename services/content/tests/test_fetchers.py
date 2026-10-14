@@ -257,6 +257,42 @@ def test_videos(conn: sqlite3.Connection, web: Any) -> None:
     assert out["videos"][0]["embed"] == "https://www.youtube-nocookie.com/embed/b"
 
 
+def test_bibliography_keeps_every_noted_book(conn: sqlite3.Connection, web: Any) -> None:
+    """Sources and a bibliography's subsections are read in full, then filtered by press."""
+    lines = ["== Sources =="]
+    for i in range(12):
+        lines.append(
+            f"{{{{cite book|title=Noted Book {i}|author=A. Writer"
+            f"|publisher=Oxford University Press|year=200{i % 10}}}}}"
+        )
+    lines += [
+        "{{cite book|title=Tiny Pamphlet|publisher=Tiny House|year=1999}}",
+        "{{citation|title=Journal Piece|journal=PMLA|publisher=Oxford University Press|year=1990}}",
+        "{{citation|title=Press Book|publisher=Harvard University Press|year=1998}}",
+        "== Bibliography ==",
+        "=== Studies ===",
+        "* Critic. ''Shelf Book''. Cambridge University Press, 2010.",
+        "=== Other ===",
+        "* Critic. ''Second Shelf''. Yale University Press, 2011.",
+        "== External links ==",
+        "* ignore me",
+    ]
+
+    def handler(request: httpx.Request) -> Any:
+        if "wikipedia" in request.url.host:
+            return {"parse": {"wikitext": "\n".join(lines)}}
+        return {"docs": []}
+
+    titles = {b["title"] for b in books.fetch(INVISIBLE_MAN, web(conn, handler))["books"]}
+    for i in range(12):
+        assert f"Noted Book {i}" in titles
+    assert "Press Book" in titles
+    assert "Shelf Book" in titles and "Second Shelf" in titles
+    assert "Tiny Pamphlet" not in titles
+    assert "Journal Piece" not in titles
+    assert "ignore me" not in titles
+
+
 def test_names_topic() -> None:
     assert books.names_topic("Dream Psychology", "Dream")
     assert books.names_topic("Lucid dreaming", "Dream")

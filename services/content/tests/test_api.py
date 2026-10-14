@@ -107,7 +107,9 @@ def fake_reply(backends: Any, request: Any, check: Any = None) -> Reply:
         quote = "A novel about a man who lives underground and steals power."
         data = {"events": []}
     elif request.task == "feature":
-        data = {"title": "Walking through", "body": " ".join(["word"] * 700)}
+        match = re.search(r"(\d+)-(\d+) words", request.prompt)
+        count = int(match.group(1)) if match else 700
+        data = {"title": "One sentence", "body": " ".join(["word"] * count)}
     elif request.task == "theme":
         light = {t: "#f4ead8" for t in ("bg", "surface", "accent_soft", "header_tint")}
         dark = {t: "#24161f" for t in ("bg", "surface", "accent_soft", "header_tint")}

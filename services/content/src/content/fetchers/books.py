@@ -1,10 +1,13 @@
-"""Bibliography candidates: books the article cites, matched in Open Library, plus a subject
-search. Ranked by ``cited_in_article * 3 + log(editions) + log(1 + ratings)``.
+"""The shelf: every book in the article's bibliography, sources, further reading, and
+citations, kept only when its publisher is one a general reader can find.
 
-Open Library's subject tags are noisy (a "Prohibition" search returns *Feel the Fear and Do
-It Anyway*; "Dreams", a romance novel), so a subject-search book counts only if its title
-names the topic, and outside literature fiction and children's books are excluded. Books
-cited only as dictionaries (a definition) are dropped.
+Ranked by ``cited_in_article * 3 + log(editions) + log(1 + ratings)``. Open Library fills
+in covers for the most-cited of those; it does not decide which books stay. A subject
+search can add a few more whose titles name the topic, but never by pushing a bibliography
+book off the shelf. Subject tags are noisy (a "Prohibition" search returns *Feel the Fear
+and Do It Anyway*), so a subject-search book counts only if its title names the topic, and
+outside literature fiction and children's books are excluded. Dictionaries, conference
+proceedings, and record books are dropped.
 """
 
 import math
@@ -16,26 +19,31 @@ from content.fetchers import Topic, Unavailable, markup
 from content.http import FetchError, PoliteClient
 from hortum_common.text import normalize
 
-VERSION = 3
+VERSION = 4
 WIKI_API = "https://en.wikipedia.org/w/api.php"
 OPEN_LIBRARY = "https://openlibrary.org/search.json"
 COVERS = "https://covers.openlibrary.org/b/id/{}-M.jpg"
 FIELDS = (
-    "key,title,author_name,first_publish_year,edition_count,ratings_count,"
-    "cover_i,isbn,publisher"
+    "key,title,author_name,first_publish_year,edition_count,ratings_count,cover_i,isbn,publisher"
 )
-MAX_LOOKUPS = 10  # cited books looked up in Open Library (1 request a second)
-KEEP = 15
+MAX_LOOKUPS = 40  # noted books given an Open Library cover (1 request a second)
+KEEP = 100
 SUBJECT_RESULTS = 8
-# Further reading, bibliography, and a "Books" section travel with the bibliography,
-# not with the article body.
+# A citation-style article keeps its books under Sources; others use Bibliography,
+# Further reading, Works cited, or References. Subsections belong to the parent.
 READING_HEADINGS = {
     "further reading",
+    "additional reading",
     "bibliography",
     "selected bibliography",
+    "annotated bibliography",
+    "works cited",
+    "sources",
     "books",
     "selected books",
+    "references",
 }
+_PERIODICAL = ("journal", "newspaper", "magazine", "periodical", "website", "encyclopedia")
 _HEADING = re.compile(r"(?m)^(={2,})\s*(.+?)\s*\1\s*$")
 _ITALIC = re.compile(r"''(.+?)''")
 _EXCLUDE = re.compile(
@@ -101,12 +109,20 @@ _NOTED: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
 )
 
 
+def _citation_is_book(body: str) -> bool:
+    """A ``{{citation}}`` that names a book, not a journal, news story, or web page."""
+    params = markup.params(body)
+    if any(params.get(key) for key in _PERIODICAL):
+        return False
+    return bool(params.get("title")) and bool(params.get("isbn") or params.get("publisher"))
+
+
 def cited_books(wikitext: str) -> list[dict[str, Any]]:
-    """Every ``{{cite book}}`` (and ``{{citation}}`` with an ISBN), counted by title."""
+    """Every ``{{cite book}}`` and book-like ``{{citation}}``, counted by title."""
     found: dict[str, dict[str, Any]] = {}
     counts: Counter[str] = Counter()
     bodies = markup.templates(wikitext, "cite book") + [
-        b for b in markup.templates(wikitext, "citation") if "isbn" in b.lower()
+        b for b in markup.templates(wikitext, "citation") if _citation_is_book(b)
     ]
     for body in bodies:
         p = markup.params(body)
@@ -149,14 +165,29 @@ def noted_publisher(text: str | None) -> str | None:
     return None
 
 
+def _reading_heading(title: str) -> bool:
+    name = " ".join(title.strip().lower().split())
+    if name in READING_HEADINGS:
+        return True
+    return any(
+        name.startswith(heading + " ") or name.endswith(" " + heading)
+        for heading in READING_HEADINGS
+    )
+
+
 def reading_blocks(wikitext: str) -> str:
-    """The further-reading, bibliography, and books sections, headings aside."""
+    """Bibliography, sources, further reading, and books, subsections included."""
     matches = list(_HEADING.finditer(wikitext))
     chunks: list[str] = []
     for i, match in enumerate(matches):
-        if match.group(2).strip().lower() not in READING_HEADINGS:
+        if not _reading_heading(match.group(2)):
             continue
-        end = matches[i + 1].start() if i + 1 < len(matches) else len(wikitext)
+        level = len(match.group(1))
+        end = len(wikitext)
+        for nxt in matches[i + 1 :]:
+            if len(nxt.group(1)) <= level:
+                end = nxt.start()
+                break
         chunks.append(wikitext[match.end() : end])
     return "\n".join(chunks)
 
@@ -275,6 +306,71 @@ def references(topic: Topic) -> list[dict[str, str]]:
     return refs
 
 
+def _blank(book: dict[str, Any], source: str) -> dict[str, Any]:
+    publisher = noted_publisher(str(book.get("publisher") or ""))
+    return {
+        "title": (book.get("title") or "").strip(),
+        "author": book.get("author"),
+        "year": book.get("year"),
+        "isbn": book.get("isbn"),
+        "cited": int(book.get("cited") or 0),
+        "editions": int(book.get("editions") or 0),
+        "ratings": int(book.get("ratings") or 0),
+        "cover": book.get("cover"),
+        "open_library": book.get("open_library"),
+        "work": book.get("work"),
+        "source": source,
+        "publisher": publisher,
+    }
+
+
+def _keep_public(shelf: dict[str, dict[str, Any]], book: dict[str, Any], source: str) -> None:
+    """Add a book whose publisher is on the noted list, merging a repeat of the same title."""
+    item = _blank(book, source)
+    key = normalize(item["title"])
+    if not key or not for_public(item):
+        return
+    prev = shelf.get(key)
+    if prev is None:
+        shelf[key] = item
+        return
+    prev["cited"] = max(int(prev["cited"]), item["cited"])
+    if source == "reading":
+        prev["source"] = "reading"
+    if item["editions"] > int(prev["editions"]):
+        prev["editions"] = item["editions"]
+        prev["ratings"] = item["ratings"]
+    for field in ("author", "year", "isbn", "cover", "open_library", "work"):
+        if not prev.get(field) and item.get(field):
+            prev[field] = item[field]
+
+
+def _attach_cover(book: dict[str, Any], http: PoliteClient) -> None:
+    """Open Library cover and edition counts. The citation stays if the lookup misses."""
+    if book.get("open_library"):
+        return
+    query: dict[str, Any] = {"title": book["title"], "limit": 1, "fields": FIELDS}
+    if book.get("author"):
+        query["author"] = str(book["author"]).split(",")[0]
+    try:
+        docs = http.get_json(OPEN_LIBRARY, query).get("docs", [])
+    except FetchError:
+        docs = []
+    if not docs:
+        return
+    match = _match(docs[0], book["source"], book["cited"], book.get("publisher"))
+    book["editions"] = match["editions"]
+    book["ratings"] = match["ratings"]
+    book["cover"] = match["cover"]
+    book["open_library"] = match["open_library"]
+    book["work"] = match["work"]
+    book["isbn"] = book.get("isbn") or match.get("isbn")
+    if not book.get("author"):
+        book["author"] = match.get("author")
+    if not book.get("year"):
+        book["year"] = match.get("year")
+
+
 def fetch(topic: Topic, http: PoliteClient) -> dict[str, Any]:
     if not topic.wikipedia_title:
         raise Unavailable("no Wikipedia article for this topic")
@@ -290,31 +386,16 @@ def fetch(topic: Topic, http: PoliteClient) -> dict[str, Any]:
         },
     )
     wikitext = parsed.get("parse", {}).get("wikitext", "")
-    books: dict[str, dict[str, Any]] = {}
+    shelf: dict[str, dict[str, Any]] = {}
+    for book in cited_books(wikitext):
+        _keep_public(shelf, book, "cited")
+    for book in reading_entries(wikitext):
+        _keep_public(shelf, book, "reading")
 
-    cited = sorted(cited_books(wikitext), key=lambda b: -b["cited"])
-    for book in cited[:MAX_LOOKUPS]:
-        query = {"title": book["title"], "limit": 1, "fields": FIELDS}
-        if book["author"]:
-            query["author"] = book["author"].split(",")[0]
-        try:
-            docs = http.get_json(OPEN_LIBRARY, query).get("docs", [])
-        except FetchError:
-            docs = []
-        if docs:
-            match = _match(docs[0], "cited", book["cited"], book.get("publisher"))
-            books[match["work"]] = match
-        else:  # not in Open Library: the citation still stands on its own
-            books[f"cite:{normalize(book['title'])}"] = {
-                **book,
-                "publisher": noted_publisher(book.get("publisher")),
-                "editions": 0,
-                "ratings": 0,
-                "cover": None,
-                "open_library": None,
-                "work": None,
-                "source": "cited",
-            }
+    # Covers for the most-cited noted books. The rest of the shelf stays either way.
+    by_cited = sorted(shelf.values(), key=lambda b: (-int(b["cited"]), b["title"] or ""))
+    for book in by_cited[:MAX_LOOKUPS]:
+        _attach_cover(book, http)
 
     subject = f'subject:"{topic.name}"'
     if topic.category != "Literature":
@@ -334,28 +415,15 @@ def fetch(topic: Topic, http: PoliteClient) -> dict[str, Any]:
                 continue
             if source == "subject" and not names_topic(doc.get("title", ""), topic.name):
                 continue
-            if doc.get("key") and doc["key"] not in books:
-                books[doc["key"]] = _match(doc, source)
+            _keep_public(shelf, _match(doc, source), source)
 
-    have = {normalize(b.get("title") or "") for b in books.values()}
-    for book in reading_entries(wikitext):
-        key = normalize(book["title"])
-        if not key or key in have:
-            continue
-        have.add(key)
-        books[f"reading:{key}"] = {
-            **book,
-            "publisher": noted_publisher(str(book.get("publisher") or "")) or None,
-            "editions": 0,
-            "ratings": 0,
-            "cover": None,
-            "open_library": None,
-            "work": None,
-            "source": "reading",
-        }
-
-    kept = [b for b in books.values() if for_public(b)]
-    ranked = sorted(kept, key=lambda b: (-score(b), b["title"] or ""))[:KEEP]
-    for book in ranked:
+    # A subject hit can outrank a cited book. It cannot take one's place.
+    ranked = sorted(shelf.values(), key=lambda b: (-score(b), b["title"] or ""))
+    core = [b for b in ranked if b["source"] in {"cited", "reading"}]
+    extra = [b for b in ranked if b["source"] not in {"cited", "reading"}]
+    chosen = core[:KEEP]
+    chosen.extend(extra[: max(0, KEEP - len(chosen))])
+    chosen.sort(key=lambda b: (-score(b), b["title"] or ""))
+    for book in chosen:
         book["score"] = round(score(book), 3)
-    return {"books": ranked, "references": references(topic)}
+    return {"books": chosen, "references": references(topic)}
