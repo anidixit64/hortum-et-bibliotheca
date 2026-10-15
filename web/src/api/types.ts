@@ -392,6 +392,61 @@ export interface RouletteTopic {
   count: number
 }
 
+export interface BuzzHistoryItem {
+  buzz_id: number
+  tossup_id: string
+  topic_id: string | null
+  result: string
+  position: number | null
+  in_power: boolean
+  answer_given: string | null
+  answer: string | null
+  category: string | null
+  subcategory: string | null
+  difficulty: number | null
+  created_at: string
+}
+
+export interface CategoryBreakdown {
+  category: string
+  subcategory: string | null
+  buzzes: number
+  correct: number
+  incorrect: number
+  no_buzz: number
+  accuracy: number | null
+  power_rate: number | null
+}
+
+export interface DifficultyBreakdown {
+  difficulty: number
+  buzzes: number
+  correct: number
+  incorrect: number
+  no_buzz: number
+  accuracy: number | null
+}
+
+export interface TopicBreakdown {
+  topic_id: string
+  answer: string
+  buzzes: number
+  correct: number
+  incorrect: number
+}
+
+export interface PracticeHistory {
+  recent: BuzzHistoryItem[]
+  by_category: CategoryBreakdown[]
+  by_difficulty: DifficultyBreakdown[]
+  struggled_topics: TopicBreakdown[]
+  overall: BuzzStats
+  total_buzzes: number
+  total_correct: number
+  total_incorrect: number
+  total_no_buzz: number
+}
+
 export type ContentKind = keyof SectionPayloads
 
 export type SectionStatus = 'ok' | 'empty' | 'unavailable' | 'pending' | 'failed'

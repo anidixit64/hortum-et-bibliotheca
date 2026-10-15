@@ -257,6 +257,7 @@ class TopicStore:
         self,
         topic: str | None,
         category: str | None,
+        subcategory: str | None,
         difficulty_min: int | None,
         difficulty_max: int | None,
         exclude: list[str],
@@ -264,31 +265,36 @@ class TopicStore:
         """A random question matching the filters, skipping ones already seen."""
         where: list[str] = []
         args: list[str | int] = []
+        join = ""
         with self._connect() as conn:
             if topic is not None:
                 topic_id = self._resolve(conn, topic)
                 if topic_id is None:
                     return None
-                where.append("topic_id = ?")
+                where.append("p.topic_id = ?")
                 args.append(topic_id)
             if category is not None:
-                where.append("category = ?")
+                where.append("p.category = ?")
                 args.append(category)
+            if subcategory is not None:
+                join = "JOIN tossups t2 ON t2.id = p.tossup_id"
+                where.append("t2.subcategory = ?")
+                args.append(subcategory)
             if difficulty_min is not None:
-                where.append("difficulty >= ?")
+                where.append("p.difficulty >= ?")
                 args.append(difficulty_min)
             if difficulty_max is not None:
-                where.append("difficulty <= ?")
+                where.append("p.difficulty <= ?")
                 args.append(difficulty_max)
             if exclude:
                 seen = exclude[:_MAX_EXCLUDE]
-                where.append(f"tossup_id NOT IN ({','.join('?' * len(seen))})")
+                where.append(f"p.tossup_id NOT IN ({','.join('?' * len(seen))})")
                 args.extend(seen)
             clause = f"WHERE {' AND '.join(where)}" if where else ""
-            # Filter the small indexed pool, then read one row: scanning the questions
-            # themselves took seconds for a whole category.
             ids = [
-                r[0] for r in conn.execute(f"SELECT tossup_id FROM practice_pool {clause}", args)
+                r[0] for r in conn.execute(
+                    f"SELECT p.tossup_id FROM practice_pool p {join} {clause}", args
+                )
             ]
             if not ids:
                 return None

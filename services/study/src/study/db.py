@@ -49,10 +49,28 @@ CREATE TABLE IF NOT EXISTS buzzes (
     in_power INTEGER NOT NULL,
     answer_given TEXT,
     judged_by TEXT NOT NULL,         -- auto | self
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    category TEXT,
+    subcategory TEXT,
+    difficulty INTEGER,
+    answer TEXT,
+    topic_name TEXT
 );
 CREATE INDEX IF NOT EXISTS buzzes_topic ON buzzes(topic_id);
 """
+
+
+_MIGRATIONS = [
+    "ALTER TABLE buzzes ADD COLUMN category TEXT",
+    "ALTER TABLE buzzes ADD COLUMN subcategory TEXT",
+    "ALTER TABLE buzzes ADD COLUMN difficulty INTEGER",
+    "ALTER TABLE buzzes ADD COLUMN answer TEXT",
+    "ALTER TABLE buzzes ADD COLUMN topic_name TEXT",
+    "ALTER TABLE cards ADD COLUMN category TEXT",
+    "ALTER TABLE cards ADD COLUMN subcategory TEXT",
+    "ALTER TABLE cards ADD COLUMN alt_subcategory TEXT",
+    "ALTER TABLE cards ADD COLUMN difficulty INTEGER",
+]
 
 
 def connect(path: Path) -> sqlite3.Connection:
@@ -60,14 +78,9 @@ def connect(path: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(path, check_same_thread=False)
     conn.execute("PRAGMA journal_mode=WAL")
     conn.executescript(SCHEMA)
-    # Databases created before cards carried a filing get the columns in place.
-    have = {row[1] for row in conn.execute("PRAGMA table_info(cards)")}
-    for name, decl in (
-        ("category", "TEXT"),
-        ("subcategory", "TEXT"),
-        ("alt_subcategory", "TEXT"),
-        ("difficulty", "INTEGER"),
-    ):
-        if name not in have:
-            conn.execute(f"ALTER TABLE cards ADD COLUMN {name} {decl}")
+    for stmt in _MIGRATIONS:
+        try:
+            conn.execute(stmt)
+        except sqlite3.OperationalError:
+            pass
     return conn

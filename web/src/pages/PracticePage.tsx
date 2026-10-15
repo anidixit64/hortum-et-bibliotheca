@@ -11,10 +11,24 @@ const WPM_KEY = 'museo.wpm'
 const HIGH_SCORE_KEY = 'museo.practice.highScore'
 const COUNTDOWN_SECONDS = 10
 
-const CATEGORIES = [
-  'Current Events', 'Fine Arts', 'Geography', 'History', 'Literature',
-  'Mythology', 'Other Academic', 'Philosophy', 'Pop Culture', 'Religion',
-  'Science', 'Social Science',
+interface CategoryGroup {
+  label: string
+  subcategories?: string[]
+}
+
+const CATEGORY_TREE: CategoryGroup[] = [
+  { label: 'Current Events' },
+  { label: 'Fine Arts', subcategories: ['Visual Fine Arts', 'Auditory Fine Arts', 'Other Fine Arts', 'Architecture', 'Dance', 'Film', 'Jazz', 'Musicals', 'Opera', 'Photography'] },
+  { label: 'Geography' },
+  { label: 'History', subcategories: ['American History', 'Ancient History', 'European History', 'World History', 'Other History'] },
+  { label: 'Literature', subcategories: ['American Literature', 'British Literature', 'Classical Literature', 'European Literature', 'World Literature', 'Other Literature', 'Drama', 'Long Fiction', 'Poetry', 'Short Fiction'] },
+  { label: 'Mythology' },
+  { label: 'Other Academic' },
+  { label: 'Philosophy' },
+  { label: 'Pop Culture', subcategories: ['Movies', 'Music', 'Sports', 'Television', 'Video Games'] },
+  { label: 'Religion' },
+  { label: 'Science', subcategories: ['Biology', 'Chemistry', 'Physics', 'Other Science', 'Math', 'Astronomy', 'Computer Science', 'Earth Science', 'Engineering'] },
+  { label: 'Social Science', subcategories: ['Anthropology', 'Economics', 'Linguistics', 'Psychology', 'Sociology', 'Other Social Science'] },
 ]
 
 const DIFFICULTY_LABELS: Record<number, string> = {
@@ -47,8 +61,10 @@ export function PracticePage() {
 
   // Filters
   const [filterCategory, setFilterCategory] = useState<string | undefined>(initCategory)
+  const [filterSubcategory, setFilterSubcategory] = useState<string | undefined>(undefined)
   const [diffMin, setDiffMin] = useState<number | undefined>(undefined)
   const [diffMax, setDiffMax] = useState<number | undefined>(undefined)
+  const [buzzEndsQuestion, setBuzzEndsQuestion] = useState(true)
 
   // Game state
   const [tossup, setTossup] = useState<Tossup | null>(null)
@@ -82,6 +98,7 @@ export function PracticePage() {
       .practiceNext({
         topic,
         category: filterCategory,
+        subcategory: filterSubcategory,
         difficultyMin: diffMin,
         difficultyMax: diffMax,
         exclude: seen.current,
@@ -95,7 +112,7 @@ export function PracticePage() {
         if (e.status === 404) setPhase('empty')
         else setError(e.message)
       })
-  }, [topic, filterCategory, diffMin, diffMax])
+  }, [topic, filterCategory, filterSubcategory, diffMin, diffMax])
 
   useEffect(load, [load])
 
@@ -142,6 +159,9 @@ export function PracticePage() {
         if (out.result === 'prompt') {
           setAnswer('')
           input.current?.focus()
+        } else if (out.result === 'incorrect' && !buzzEndsQuestion && wordIndex !== null) {
+          setAnswer('')
+          setPhase(shown >= words.length ? 'countdown' : 'reading')
         } else {
           setShown(words.length)
           setPhase('result')
@@ -151,7 +171,7 @@ export function PracticePage() {
         setError((e as Error).message)
       }
     },
-    [tossup, words.length, applyPoints],
+    [tossup, words.length, applyPoints, buzzEndsQuestion, shown],
   )
 
   // Reveal one word at a time; when done, enter countdown phase
@@ -274,11 +294,29 @@ export function PracticePage() {
             <select
               className="filter-select"
               value={filterCategory ?? ''}
-              onChange={e => { updateCategory(e.target.value || undefined); }}
+              onChange={e => {
+                updateCategory(e.target.value || undefined)
+                setFilterSubcategory(undefined)
+              }}
             >
               <option value="">All categories</option>
-              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              {CATEGORY_TREE.map(g => <option key={g.label} value={g.label}>{g.label}</option>)}
             </select>
+            {filterCategory && CATEGORY_TREE.find(g => g.label === filterCategory)?.subcategories && (
+              <>
+                <label className="filter-label">Subcategory</label>
+                <select
+                  className="filter-select"
+                  value={filterSubcategory ?? ''}
+                  onChange={e => setFilterSubcategory(e.target.value || undefined)}
+                >
+                  <option value="">All subcategories</option>
+                  {CATEGORY_TREE.find(g => g.label === filterCategory)!.subcategories!.map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </>
+            )}
 
             <label className="filter-label">Difficulty</label>
             <div className="filter-diff-row">
@@ -303,6 +341,24 @@ export function PracticePage() {
                   <option key={i} value={i}>{DIFFICULTY_LABELS[i]}</option>
                 ))}
               </select>
+            </div>
+
+            <label className="filter-label">Buzz mode</label>
+            <div className="filter-buzz-mode">
+              <label className="filter-toggle-label">
+                <span className={buzzEndsQuestion ? undefined : 'filter-toggle-active'}>Continue on wrong</span>
+                <button
+                  type="button"
+                  className={`nav-switch${buzzEndsQuestion ? ' on' : ''}`}
+                  role="switch"
+                  aria-checked={buzzEndsQuestion}
+                  aria-label="Buzz ends question"
+                  onClick={() => setBuzzEndsQuestion(!buzzEndsQuestion)}
+                >
+                  <span />
+                </button>
+                <span className={buzzEndsQuestion ? 'filter-toggle-active' : undefined}>End on buzz</span>
+              </label>
             </div>
 
             <label className="filter-label">Speed</label>
@@ -418,6 +474,21 @@ export function PracticePage() {
                   {tossup.topic_id && (
                     <div className="practice-topic-link-wrapper">
                       <TopicLinkButton topicId={tossup.topic_id} />
+                      {tossup.wikipedia_url && (
+                        <a
+                          href={tossup.wikipedia_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="practice-wiki-btn"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                            <polyline points="15 3 21 3 21 9" />
+                            <line x1="10" y1="14" x2="21" y2="3" />
+                          </svg>
+                          Wikipedia
+                        </a>
+                      )}
                     </div>
                   )}
                 </div>
@@ -468,6 +539,7 @@ export function PracticePage() {
               </div>
             </div>
             <button className="practice-new-game" onClick={newGame}>Start New Game</button>
+            <Link to="/practice/history" className="practice-history-btn">History</Link>
           </div>
         </aside>
       </div>
@@ -595,7 +667,7 @@ function TopicLinkButton({ topicId }: { topicId: string }) {
         onClick={() => setOpen(!open)}
         aria-expanded={open}
       >
-        About this answer
+        Learn more
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path d="M3 5l3 3 3-3" />
         </svg>
