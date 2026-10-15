@@ -111,6 +111,13 @@ def fake_reply(backends: Any, request: Any, check: Any = None) -> Reply:
         data = {
             "title": "Six moments",
             "entries": [{"name": f"Moment {i}", "text": text} for i in range(1, 7)],
+            "diagram_title": "How a mask holds a self",
+            "steps": [
+                {"label": "A role", "detail": "Someone is handed a part to play."},
+                {"label": "The mask", "detail": "The part starts to feel like a face."},
+                {"label": "The person", "detail": "What is left when the part comes off."},
+            ],
+            "diagram_blurb": " ".join(["word"] * 150),
         }
     elif request.task == "theme":
         light = {t: "#f4ead8" for t in ("bg", "surface", "accent_soft", "header_tint")}
@@ -127,7 +134,7 @@ def fake_reply(backends: Any, request: Any, check: Any = None) -> Reply:
         quote = "He lives underground and steals power from the building."
         data = {"facts": [{"fact": f"Fact {i}.", "source_sentence": quote} for i in range(5)]}
     elif request.task == "summary":
-        body = "[[1|The battle royal]] opens the novel. " + " ".join(["word"] * 600)
+        body = "[[1|The battle royal]] opens the novel. " + " ".join(["word"] * 420)
         data = {"hook": "A young man fights blindfolded for a scholarship.", "summary": body}
     else:
         data = {

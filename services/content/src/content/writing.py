@@ -11,11 +11,11 @@ import re
 from typing import Any
 
 EXPLANATIONS_VERSION = 6
-SUMMARY_VERSION = 6
+SUMMARY_VERSION = 7
 BATCH = 5  # clues per explanation request
 FIRST_PAGE = 10  # clues the hall shows before "show more"
 EXPLANATION_WORDS = (150, 220)
-SUMMARY_WORDS = (500, 600)
+SUMMARY_WORDS = (400, 500)
 # What a prompt may carry from the stored article. The full page is what Groq rejected
 # for Diocletian (about 16,300 tokens against an 8,000 token free-tier cap).
 # Facts quote later sections. The timeline quotes the lead plus the next sections.

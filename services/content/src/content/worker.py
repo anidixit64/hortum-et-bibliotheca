@@ -530,7 +530,7 @@ def _already_shown(conn: sqlite3.Connection, topic_id: str) -> tuple[str, str]:
 def write_special(
     conn: sqlite3.Connection, settings: Settings, catalog: httpx.Client, topic_id: str
 ) -> tuple[dict[str, Any], str, Reply | None]:
-    """A grounded timeline, a handful of examples, and a diagram for science-like categories."""
+    """A grounded timeline, a handful of examples, and a diagram of one hard idea."""
     row = conn.execute(
         "SELECT status, payload, fetched_at FROM enrichments WHERE topic_id = ? AND kind = 'wiki'",
         (topic_id,),
@@ -545,6 +545,15 @@ def write_special(
     title, instructions, kind = special.form(category)
     diagram = special.is_diagram(category)
     summary_text, clue_labels = _already_shown(conn, topic_id)
+    diagram_text = (
+        special.DIAGRAM.format(
+            name=name,
+            blur_low=special.BLURB_WORDS[0],
+            blur_high=special.BLURB_WORDS[1],
+        )
+        if diagram
+        else ""
+    )
     feature_prompt = special.HANDFUL.format(
         name=name,
         category=category or "unknown",
@@ -552,7 +561,7 @@ def write_special(
         instructions=instructions.format(name=name),
         low=special.ENTRY_WORDS[0],
         high=special.ENTRY_WORDS[1],
-        diagram=special.DIAGRAM if diagram else "",
+        diagram=diagram_text,
         summary=summary_text,
         clue_labels=clue_labels,
         source=lead,
@@ -601,6 +610,9 @@ def write_special(
             "form": title,
             "title": reply.data["title"].strip(),
             "body": "",
+            "diagram_title": (
+                str(reply.data.get("diagram_title") or "").strip() if diagram else ""
+            ),
             "steps": (reply.data.get("steps") or []) if diagram else [],
             "diagram_blurb": (
                 str(reply.data.get("diagram_blurb") or "").strip() if diagram else ""
