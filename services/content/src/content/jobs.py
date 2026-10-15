@@ -25,7 +25,7 @@ DEPENDENCIES: dict[str, tuple[str, str]] = {
     "summary": ("generations", "clues"),
     "facts": ("enrichments", "wiki"),
     "theme": ("enrichments", "images"),
-    "special": ("enrichments", "wiki"),
+    "special": ("generations", "summary"),
     "blurbs": ("enrichments", "books"),
 }
 
@@ -84,8 +84,9 @@ def dependency_ready(conn: sqlite3.Connection, topic_id: str, kind: str) -> bool
 def claim(conn: sqlite3.Connection) -> Job | None:
     """Takes the most urgent runnable job and marks it running.
 
-    Explanations and the summary stay queued until clue cleanup is stored. Facts, theme,
-    and the special section stay queued until the fetch they read is stored. That keeps
+    Explanations and the summary stay queued until clue cleanup is stored. The special
+    section stays queued until that summary is stored, so its examples can avoid it.
+    Facts and theme stay queued until the fetch they read is stored. That keeps
     the threads on work that can finish, instead of deferring for 20 seconds.
     """
     stamp = now().isoformat()

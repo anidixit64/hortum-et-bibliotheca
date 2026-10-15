@@ -96,7 +96,7 @@ CANDIDATES = {
 def fake_reply(backends: Any, request: Any, check: Any = None) -> Reply:
     """A model that merges the two battle royals, drops the stand-in, and writes."""
     if request.task == "clue_explanations":
-        text = " ".join(["word"] * 130)
+        text = " ".join(["word"] * 180)
         data: dict[str, Any] = {
             "explanations": [
                 {"rank": r, "one_line": f"Clue {r} in one line.", "explanation": text}
@@ -107,9 +107,11 @@ def fake_reply(backends: Any, request: Any, check: Any = None) -> Reply:
         quote = "A novel about a man who lives underground and steals power."
         data = {"events": []}
     elif request.task == "feature":
-        match = re.search(r"(\d+)-(\d+) words", request.prompt)
-        count = int(match.group(1)) if match else 700
-        data = {"title": "One sentence", "body": " ".join(["word"] * count)}
+        text = " ".join(["word"] * 70)
+        data = {
+            "title": "Six moments",
+            "entries": [{"name": f"Moment {i}", "text": text} for i in range(1, 7)],
+        }
     elif request.task == "theme":
         light = {t: "#f4ead8" for t in ("bg", "surface", "accent_soft", "header_tint")}
         dark = {t: "#24161f" for t in ("bg", "surface", "accent_soft", "header_tint")}
@@ -225,7 +227,7 @@ def test_explanations_cover_every_cleaned_clue(
         if request.task == "clue_explanations":
             ranks = [int(r) for r in re.findall(r'"rank": (\d+)', request.prompt)]
             asked.append(ranks)
-            text = " ".join(["word"] * 130)
+            text = " ".join(["word"] * 180)
             data = {"explanations": [{"rank": r, "one_line": f"Clue {r}.", "explanation": text}
                                      for r in ranks]}  # fmt: skip
             return Reply(data, "fake", "fake-model", 1, 1)
@@ -323,7 +325,14 @@ def test_a_page_view_holds_dependents_until_their_inputs_exist(tmp_path: Path) -
     while job := jobs.claim(conn):
         rest.append(job.kind)
         jobs.finish(conn, job)
-    assert rest == ["summary", "theme", "explanations", "facts", "special"]
+    assert rest == ["summary", "theme", "explanations", "facts"]
+    with conn:
+        conn.execute(
+            "INSERT INTO generations VALUES "
+            "('Q1', 'summary', 'fp', 1, 'gemini', 'm', '{}', 0, 0, '2026-01-01T00:00:00+00:00')"
+        )
+    special = jobs.claim(conn)
+    assert special is not None and special.kind == "special"
 
 
 def test_failed_writing_stays_partial_until_it_is_stored(tmp_path: Path) -> None:

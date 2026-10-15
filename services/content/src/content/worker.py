@@ -501,6 +501,32 @@ def write_theme(
     return payload, f"images:{row[2]}", reply
 
 
+def _already_shown(conn: sqlite3.Connection, topic_id: str) -> tuple[str, str]:
+    """The summary and clue labels already on the page, so the examples can avoid them."""
+    summary_row = conn.execute(
+        "SELECT payload FROM generations WHERE topic_id = ? AND kind = 'summary'", (topic_id,)
+    ).fetchone()
+    summary = "(no summary stored)"
+    if summary_row:
+        data = json.loads(summary_row[0])
+        text = writing.MARK.sub(lambda m: m.group(2), str(data.get("summary", "")))
+        if text.strip():
+            summary = text.strip()
+    clues_row = conn.execute(
+        "SELECT payload FROM generations WHERE topic_id = ? AND kind = 'clues'", (topic_id,)
+    ).fetchone()
+    labels = "(no clues stored)"
+    if clues_row:
+        names = [
+            str(clue.get("label", "")).strip()
+            for clue in json.loads(clues_row[0]).get("clues", [])
+            if str(clue.get("label", "")).strip()
+        ]
+        if names:
+            labels = ", ".join(names[:40])
+    return summary, labels
+
+
 def write_special(
     conn: sqlite3.Connection, settings: Settings, catalog: httpx.Client, topic_id: str
 ) -> tuple[dict[str, Any], str, Reply | None]:
@@ -518,6 +544,7 @@ def write_special(
     name, category = topic["name"], topic.get("category")
     title, instructions, kind = special.form(category)
     diagram = special.is_diagram(category)
+    summary_text, clue_labels = _already_shown(conn, topic_id)
     feature_prompt = special.HANDFUL.format(
         name=name,
         category=category or "unknown",
@@ -526,6 +553,8 @@ def write_special(
         low=special.ENTRY_WORDS[0],
         high=special.ENTRY_WORDS[1],
         diagram=special.DIAGRAM if diagram else "",
+        summary=summary_text,
+        clue_labels=clue_labels,
         source=lead,
     )
     feature_schema = special.handful_schema(diagram)

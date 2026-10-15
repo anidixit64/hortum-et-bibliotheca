@@ -13,7 +13,7 @@ from typing import Any
 
 from content.writing import _squash
 
-SPECIAL_VERSION = 7
+SPECIAL_VERSION = 8
 TIMELINE_EVENTS = (4, 12)
 HANDFUL_COUNT = (5, 6)
 ENTRY_WORDS = (50, 100)
@@ -34,7 +34,10 @@ HANDFUL_INSTRUCTIONS = (
     "moments in it. If {name} is an event or a battle, list specific moments or turning "
     "points. If {name} is a kind of thing, a place, or a field, list particular examples "
     "(species, places, pieces, people, objects). "
-    "Do not retell the overview, the life, or the plot as one essay."
+    "Do not retell the overview, the life, or the plot as one essay. "
+    "Each entry should add a fact the topic summary does not already tell, and should "
+    "not spend itself restating a clue the page already lists. A shared name is fine "
+    "when the new fact needs it."
 )
 DEFAULT_FORM = ("A handful", HANDFUL_INSTRUCTIONS, "events")
 
@@ -105,8 +108,17 @@ Write "{title}": {instructions}
   - "text": {low}-{high} words. Short, concrete and engaging, the way a fact book explains \
 one example. No headings inside the text. Do not invent quotations, dates or numbers.
 {diagram}
-Wikipedia lead (CC BY-SA), the article's summary. Write from it and from widely \
-established facts:
+Already on the page. Do not repeat this. The substance of each entry should be new; \
+a passing overlap in names is fine.
+
+Summary already shown:
+{summary}
+
+Clues already listed:
+{clue_labels}
+
+Wikipedia lead (CC BY-SA). Use it for names, dates and numbers, then add widely \
+established facts that the summary and the clues do not already cover:
 {source}"""
 
 HANDFUL_SCHEMA: dict[str, Any] = {
