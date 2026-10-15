@@ -2,10 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api/client'
-import type { Clue, SectionPayloads, TopicLink, TopicRecord, TopicStats, WikiPayload } from '../api/types'
-import { ClueCarousel, sortedClues } from '../components/ClueList'
-import type { SortMode } from '../components/ClueList'
-import { FloatImage, ImageGrid, Reading, Videos, WikiArticle } from '../components/Enrichment'
+import type { Clue, SectionPayloads, TopicLink, TopicRecord, TopicStats, WikiImage, WikiPayload } from '../api/types'
+import { ClueCarousel, defaultDir, sortedClues } from '../components/ClueList'
+import type { SortDir, SortMode } from '../components/ClueList'
+import { Artifact, FloatImage, ImageGrid, Reading, Videos, WikiArticle } from '../components/Enrichment'
 import { FunFacts, Hook, Summary } from '../components/Written'
 import { Heatmap } from '../components/Heatmap'
 import { ConfusionList } from '../components/Related'
@@ -59,6 +59,7 @@ export function TopicPage() {
   const [more, setMore] = useState<{ key: string; clues: Clue[] }>({ key: '', clues: [] })
   const [visible, setVisible] = useState<{ key: string; n: number }>({ key: '', n: PAGE })
   const [sortMode, setSortMode] = useState<SortMode>('frequency')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [loadingMore, setLoadingMore] = useState(false)
   const current = loaded?.key === key ? loaded.record : null
   const [content, refreshContent] = useTopicContent(current?.topic.id ?? '', ai)
@@ -174,7 +175,7 @@ export function TopicPage() {
   // After cleanup the hall is the valid clues only. Show more walks that list in the
   // active order, so rarity is the rarest of all of them, not the rarest of the first 10.
   const pool = cleaned ? applyCleanup(raw, cleaned) : raw
-  const ordered = sortedClues(pool, sortMode, null)
+  const ordered = sortedClues(pool, sortMode, null, sortDir)
   const total = cleaned ? ordered.length : rawTotal
   const n = visible.key === key ? visible.n : PAGE
   const shown = ordered.slice(0, n)
@@ -212,12 +213,21 @@ export function TopicPage() {
     }
   }
 
-  // Distribute images across the page like a museum exhibit / DK Eyewitness
+  // Distribute images across the page like a museum exhibit / DK Eyewitness.
+  // The first two sit in the summary and the examples. The next ones fill blank
+  // spots. Whatever remains stays in the gallery.
   const hasHeader = !!topicTheme?.header
   const scatterPool = hasHeader ? images.filter((img) => !img.is_main) : images
   const summaryFloat = scatterPool[0] ?? null
   const featureFloat = special ? (scatterPool[1] ?? null) : null
-  const galleryImages = scatterPool.slice(featureFloat ? 2 : 1)
+  const placed = scatterPool.slice(summaryFloat ? (featureFloat ? 2 : 1) : 0)
+  const take = (items: WikiImage[]) => ({ item: items[0] ?? null, rest: items.slice(1) })
+  const factsSpot = facts ? take(placed) : { item: null, rest: placed }
+  const clueSpot = take(factsSpot.rest)
+  const connectionsSpot = take(clueSpot.rest)
+  const leftSpot = take(connectionsSpot.rest)
+  const rightSpot = take(leftSpot.rest)
+  const galleryImages = rightSpot.rest
 
   // Has a timeline?
   const hasExhibitTimeline = special && special.timeline.events.length >= 3
@@ -280,6 +290,11 @@ export function TopicPage() {
               <Videos section={content.sections.videos} />
             </SidebarCard>
           )}
+          {leftSpot.item && (
+            <SidebarCard title="In the collection">
+              <Artifact image={leftSpot.item} />
+            </SidebarCard>
+          )}
         </aside>
 
         {/* Center: the main exhibit */}
@@ -301,7 +316,10 @@ export function TopicPage() {
           {ai && facts && facts.facts.length > 0 && (
             <aside className="plaque-row" aria-label="Did you know?">
               <h2>Did you know?</h2>
-              <FunFacts facts={facts.facts} />
+              <FunFacts
+                facts={facts.facts}
+                ornament={factsSpot.item ? <Artifact image={factsSpot.item} /> : undefined}
+              />
             </aside>
           )}
           {ai && !facts && isPending(factsSection) && (
@@ -337,6 +355,11 @@ export function TopicPage() {
               )}
             </SidebarCard>
           )}
+          {rightSpot.item && (
+            <SidebarCard title="In the collection">
+              <Artifact image={rightSpot.item} />
+            </SidebarCard>
+          )}
         </aside>
       </div>
 
@@ -352,7 +375,10 @@ export function TopicPage() {
           topicId={topic.id}
           images={images}
           sortMode={sortMode}
-          onSortMode={setSortMode}
+          onSortMode={(mode) => { setSortMode(mode); setSortDir(defaultDir(mode)) }}
+          sortDir={sortDir}
+          onSortDir={setSortDir}
+          ornament={clueSpot.item}
           articleNotes={articleNotes}
           wikiLoaded={wiki !== null}
         />
@@ -377,6 +403,7 @@ export function TopicPage() {
       </section>
       <section className="exhibit-connections" id="room-connections">
         <h2><span className="room-number">~</span> Connections</h2>
+        {connectionsSpot.item && <Artifact image={connectionsSpot.item} float="right" />}
         <h3>Don't confuse with</h3>
         <ConfusionList confusions={record.confusions} />
       </section>

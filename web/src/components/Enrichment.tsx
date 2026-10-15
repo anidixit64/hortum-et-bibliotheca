@@ -130,6 +130,20 @@ function ImageFigure({ img }: { img: WikiImage }) {
   )
 }
 
+/** A gallery photo set into an open part of the exhibit, small enough for text to pass it. */
+export function Artifact({ image, float }: { image: WikiImage; float?: 'left' | 'right' }) {
+  return (
+    <figure className={`artifact${float ? ` float-image float-${float}` : ''}`}>
+      <a href={image.page ?? image.url} target="_blank" rel="noreferrer">
+        <img src={image.url} alt={image.caption ?? image.file} loading="lazy" />
+      </a>
+      <figcaption className="museum-label small">
+        <strong title={image.caption ?? undefined}>{labelTitle(image)}</strong>
+      </figcaption>
+    </figure>
+  )
+}
+
 export function ImageGrid({ images }: { images: WikiImage[] }) {
   if (!images.length) return null
   return (

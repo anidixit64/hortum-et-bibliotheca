@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import type { Explanation, FunFact, TopicLink, WrittenSummary } from '../api/types'
 import { linkClues, parseMarks, type Piece } from '../lib/marks'
@@ -115,10 +115,11 @@ export function ExplanationText({
 }
 
 /** "Did you know?" plaques: each fact with the Wikipedia sentence it rests on. */
-export function FunFacts({ facts }: { facts: FunFact[] }) {
+export function FunFacts({ facts, ornament }: { facts: FunFact[]; ornament?: ReactNode }) {
   if (!facts.length) return null
   return (
     <div className="plaques">
+      {ornament}
       {facts.map((f) => (
         <figure key={f.fact} className="plaque">
           <span className="plaque-mark" aria-hidden="true">{'?'}</span>

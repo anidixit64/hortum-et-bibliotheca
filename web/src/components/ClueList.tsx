@@ -95,7 +95,20 @@ function matchClueImages(clues: Clue[], images: WikiImage[]): Map<number, WikiIm
   return matched
 }
 
-export type SortMode = 'frequency' | 'rarity'
+export type SortMode = 'frequency' | 'rarity' | 'position'
+export type SortDir = 'asc' | 'desc'
+
+export function defaultDir(mode: SortMode): SortDir {
+  return mode === 'frequency' ? 'desc' : 'asc'
+}
+
+function appearances(clue: Clue) {
+  return clue.n_questions ?? clue.n_tossups
+}
+
+function averagePosition(clue: Clue) {
+  return clue.mean_position ?? clue.median_position
+}
 
 export function dominantCategory(clue: Clue): string | null {
   const cats = clue.categories
@@ -117,46 +130,16 @@ function categoryList(clues: Clue[]): string[] {
   return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([k]) => k)
 }
 
-function interleaveByCategory(clues: Clue[]): Clue[] {
-  const cats = categoryList(clues)
-  if (cats.length <= 1) return clues
-  const buckets = new Map(cats.map((cat) => [cat, [] as Clue[]]))
-  const none: Clue[] = []
-  for (const clue of clues) {
-    const cat = dominantCategory(clue)
-    if (cat && buckets.has(cat)) buckets.get(cat)!.push(clue)
-    else none.push(clue)
-  }
-  const out: Clue[] = []
-  let i = 0
-  while (out.length < clues.length) {
-    let added = false
-    for (const cat of cats) {
-      const bucket = buckets.get(cat)!
-      if (i < bucket.length) {
-        out.push(bucket[i])
-        added = true
-      }
-    }
-    if (i < none.length) {
-      out.push(none[i])
-      added = true
-    }
-    if (!added) break
-    i += 1
-  }
-  return out
-}
-
-export function sortedClues(clues: Clue[], mode: SortMode, category: string | null): Clue[] {
+export function sortedClues(
+  clues: Clue[],
+  mode: SortMode,
+  category: string | null,
+  dir: SortDir = defaultDir(mode),
+): Clue[] {
   const list = category ? clues.filter((c) => dominantCategory(c) === category) : [...clues]
-  if (mode === 'rarity') {
-    return list.sort((a, b) => {
-      const early = (c: Clue) => c.earliest_position ?? c.median_position
-      return early(a) - early(b) || a.median_position - b.median_position
-    })
-  }
-  return category ? list : interleaveByCategory(list)
+  const sign = dir === 'asc' ? 1 : -1
+  const value = (clue: Clue) => (mode === 'position' ? averagePosition(clue) : appearances(clue))
+  return list.sort((a, b) => sign * (value(a) - value(b)) || a.rank - b.rank)
 }
 
 export function ClueCarousel({
@@ -169,6 +152,9 @@ export function ClueCarousel({
   images = [],
   sortMode: sortModeProp,
   onSortMode,
+  sortDir: sortDirProp,
+  onSortDir,
+  ornament,
   articleNotes,
   wikiLoaded = false,
 }: {
@@ -182,13 +168,19 @@ export function ClueCarousel({
   /** When set, `clues` are already in this order and the buttons report changes upward. */
   sortMode?: SortMode
   onSortMode?: (mode: SortMode) => void
+  sortDir?: SortDir
+  onSortDir?: (dir: SortDir) => void
+  /** A gallery photo set into the open part of the slide. */
+  ornament?: WikiImage | null
   articleNotes?: Record<number, WikiNote | null>
   wikiLoaded?: boolean
 }) {
   const [index, setIndex] = useState(0)
   const [flashMsg, setFlashMsg] = useState<string | null>(null)
   const [ownSort, setOwnSort] = useState<SortMode>('frequency')
+  const [ownDir, setOwnDir] = useState<SortDir>('desc')
   const sortMode = sortModeProp ?? ownSort
+  const sortDir = sortDirProp ?? ownDir
   const [category, setCategory] = useState<string | null>(null)
 
   const byRank = new Map((explanations ?? []).map((e) => [e.rank, e]))
@@ -197,10 +189,10 @@ export function ClueCarousel({
   const categories = useMemo(() => categoryList(clues), [clues])
 
   const sorted = useMemo(() => {
-    const ordered = onSortMode ? clues : sortedClues(clues, sortMode, category)
+    const ordered = onSortMode ? clues : sortedClues(clues, sortMode, category, sortDir)
     if (onSortMode && category) return ordered.filter((c) => dominantCategory(c) === category)
     return ordered
-  }, [clues, sortMode, category, onSortMode])
+  }, [clues, sortMode, category, sortDir, onSortMode])
   const clueImages = useMemo(() => matchClueImages(clues, images), [clues, images])
 
   if (!clues.length) return <p className="muted">Not asked often enough to rank clues yet.</p>
@@ -218,8 +210,19 @@ export function ClueCarousel({
   }
 
   const changeSort = (mode: SortMode) => {
+    const dir = defaultDir(mode)
     if (onSortMode) onSortMode(mode)
     else setOwnSort(mode)
+    if (onSortDir) onSortDir(dir)
+    else setOwnDir(dir)
+    setIndex(0)
+    setFlashMsg(null)
+  }
+
+  const changeDir = () => {
+    const dir: SortDir = sortDir === 'asc' ? 'desc' : 'asc'
+    if (onSortDir) onSortDir(dir)
+    else setOwnDir(dir)
     setIndex(0)
     setFlashMsg(null)
   }
@@ -250,6 +253,11 @@ export function ClueCarousel({
           onClick={() => changeSort('frequency')}>Frequency</button>
         <button className={`pill-btn${sortMode === 'rarity' ? ' active' : ''}`}
           onClick={() => changeSort('rarity')}>Rarity</button>
+        <button className={`pill-btn${sortMode === 'position' ? ' active' : ''}`}
+          onClick={() => changeSort('position')}>Position</button>
+        <button type="button" onClick={changeDir}>
+          {sortDir === 'asc' ? 'Ascending' : 'Descending'}
+        </button>
       </div>
       {categories.length > 1 && (
         <div className="clue-sort" role="group" aria-label="Filter clues by category">
@@ -263,6 +271,12 @@ export function ClueCarousel({
       )}
 
       <div className="clue-slide" key={clue.cluster_id}>
+        {ornament && !clueImage && (
+          <figure className="artifact float-image float-left">
+            <img src={ornament.url} alt={ornament.caption ?? ornament.file} loading="lazy" />
+            {ornament.caption && <figcaption className="muted small">{ornament.caption}</figcaption>}
+          </figure>
+        )}
         {clueImage && (
           <figure className="float-image float-right clue-img">
             <img src={clueImage.url} alt={clueImage.caption ?? ''} loading="lazy" />

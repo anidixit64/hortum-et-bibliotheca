@@ -10,11 +10,11 @@ the clue's one-line summary on hover and a "See more" link to its explanation.
 import re
 from typing import Any
 
-EXPLANATIONS_VERSION = 5
+EXPLANATIONS_VERSION = 6
 SUMMARY_VERSION = 5
 BATCH = 5  # clues per explanation request
 FIRST_PAGE = 10  # clues the hall shows before "show more"
-EXPLANATION_WORDS = (100, 160)
+EXPLANATION_WORDS = (150, 220)
 SUMMARY_WORDS = (500, 600)
 # What a prompt may carry from the stored article. The full page is what Groq rejected
 # for Diocletian (about 16,300 tokens against an 8,000 token free-tier cap).
@@ -38,12 +38,16 @@ EXPLAIN = """Answer: {name} (category: {category})
 For each clue below, write:
 - "one_line": one sentence (at most 30 words) whose subject is the clue itself, saying \
 what it is and how it ties to {name}. It appears in a hover popup.
-- "explanation": {low}-{high} words of plain prose (no headings or lists) in three moves:
-  1. What it is, explained from the ground up so it makes intuitive sense (a concrete \
-picture, the key fact or mechanism; define any specialist term you use).
-  2. Exactly how it connects to {name}: who, what, when, in one or two concrete facts.
-  3. Why it matters: what it shows about {name} or why it is remembered.
-  Every sentence must carry substance; don't repeat what another clue's explanation covers.
+- "explanation": {low}-{high} words of plain prose, one short story, no headings or lists. \
+Write it in this order, and let every sentence add something:
+  1. The thing itself, as its own subject. Give a concrete picture and the facts that \
+make it make sense even apart from {name}. Define any specialist term you use.
+  2. How it meets {name}: the people, the moment, or the mechanism that ties them, \
+in specific terms.
+  3. A detail a summary of {name} would leave out — its own history, a related person, \
+a consequence, or how it is known outside this topic — so the reader understands both \
+what it is and why it belongs with {name}.
+  Don't repeat what another explanation on this page covers.
 
 The example sentences show how questions use each clue ("this man", "this work" etc. stand \
 for {name}); use them to tell which thing the clue means, but write about the thing itself.
