@@ -3,11 +3,8 @@
 A. A timeline of dated events (discoveries, for science), from the Wikipedia text. Each
    event quotes the sentence it comes from; code keeps only events whose quote is in the
    article and contains the event's year, so dates can't be invented.
-B. A feature: the long, immersive piece, its form set by the category ("Be there" for
-   history, a close reading for literature, a deep dive into one core concept for
-   science...). Facts come from the source or are widely established; scenes are labeled
-   dramatized. Science and math features may include a step diagram, drawn by the page
-   from a fixed template.
+B. A handful: five or six related things (works, species, moments), each explained in a
+   short paragraph. Science, social science and philosophy also get a step diagram.
 """
 
 import re
@@ -15,113 +12,36 @@ from typing import Any
 
 from content.writing import _squash
 
-SPECIAL_VERSION = 4
+SPECIAL_VERSION = 6
 TIMELINE_EVENTS = (4, 12)
-FEATURE_WORDS = (600, 900)
-# One scene, one concept, one craft choice: a short piece can't sprawl into the summary.
-SHORT_FEATURE_WORDS = (300, 450)
-SHORT_FEATURES = {
-    "History",
-    "Current Events",
-    "Science",
-    "Social Science",
-    "Literature",
-    "Mythology",
-}
-
-
-def feature_words(category: str | None) -> tuple[int, int]:
-    return SHORT_FEATURE_WORDS if category in SHORT_FEATURES else FEATURE_WORDS
-
-
-FORMS: dict[str, tuple[str, str, str]] = {
-    # category: (title, what to write, timeline kind)
-    "History": (
-        "Be there",
-        "Choose one pivotal moment of {name} and put the reader on the ground for that "
-        "moment only. Do not retell the life, the career, or the overview. "
-        "Give the sights and a few sounds — what someone present saw and heard — "
-        "in a poetic, concrete way. Every event, person and place must be real; "
-        "only the sensory atmosphere is imagined. Stay inside that one scene.",
-        "events",
-    ),
-    "Current Events": (
-        "Be there",
-        "Choose one pivotal moment of {name} and put the reader on the ground for that "
-        "moment only. Do not retell the overview. Give the sights and a few sounds — "
-        "what someone present saw and heard — in a poetic, concrete way. "
-        "Every event, person and place must be real; only the sensory atmosphere is "
-        "imagined. Stay inside that one scene.",
-        "events",
-    ),
-    "Science": (
-        "Deep dive",
-        "Take one core concept of {name} and explain it in great detail "
-        "at an intuitive high-school level: build it from everyday experience, one "
-        "step at a time, with concrete examples and analogies, until the reader "
-        "really understands how and why it works.",
-        "discoveries",
-    ),
-    "Social Science": (
-        "Deep dive",
-        "Take one core idea, model or experiment of {name} and "
-        "explain it in great detail at an intuitive level: setup, how it "
-        "works, what it shows, and how it has held up.",
-        "events",
-    ),
-    "Philosophy": (
-        "The argument",
-        "Lay out the central argument of {name} step by step: the "
-        "question, the premises, the reasoning, the conclusion, the strongest "
-        "objection and the reply, in plain language.",
-        "events",
-    ),
-    "Literature": (
-        "Close reading",
-        "Write about how {name} is made, not about the life behind it. "
-        "Choose one formal choice — a narrator, a meter, a sentence, or a recurring "
-        "image — and stay inside that choice: how it is built and what it does. "
-        "For an author, stay inside a single work's technique. "
-        "Do not retell the life, the plot, the career, or the article's overview, "
-        "and do not walk through scenes, rooms, or works in order.",
-        "events",
-    ),
-    "Mythology": (
-        "One telling",
-        "Choose one image, motif, or choice of telling in {name} and stay with it: "
-        "where it appears, what it does, and how a source handles it. "
-        "Do not retell the whole myth, the plot, or the overview, "
-        "and do not walk through the story in order.",
-        "events",
-    ),
-    "Religion": (
-        "Inside the tradition",
-        "Take the reader inside {name}: a central practice "
-        "or text, what a participant experiences, and what it means.",
-        "events",
-    ),
-    "Fine Arts": (
-        "Look closer",
-        "Guide the reader around {name} as a museum docent would: "
-        "what to look at (or listen for) first, the details that reward attention, "
-        "and what they mean.",
-        "events",
-    ),
-    "Geography": (
-        "A traveller's route",
-        "Take the reader on a journey through {name}: a "
-        "route from place to place, what each looks and feels like, and why it "
-        "matters.",
-        "events",
-    ),
-}
-DEFAULT_FORM = ("Deep dive", "Take one central aspect of {name} and explain it in depth, "
-                "vividly and accurately, for a curious high-school reader.", "events")  # fmt: skip
+HANDFUL_COUNT = (5, 6)
+ENTRY_WORDS = (50, 100)
 DIAGRAM_CATEGORIES = {"Science", "Social Science", "Philosophy"}
 
 
+def is_diagram(category: str | None) -> bool:
+    """Science, social science and philosophy also draw a step diagram."""
+    return (category or "") in DIAGRAM_CATEGORIES
+
+
+HANDFUL_INSTRUCTIONS = (
+    "List 5 or 6 things in one category that belongs with {name}, the way a fact book "
+    "sets out a handful of examples and explains each one. "
+    "If {name} is a person who made works (an author, composer, painter, director), "
+    "list works. If {name} is a work (a book, play, film, poem, opera), list important "
+    "moments in it. If {name} is an event or a battle, list specific moments or turning "
+    "points. If {name} is a kind of thing, a place, or a field, list particular examples "
+    "(species, places, pieces, people, objects). "
+    "Do not retell the overview, the life, or the plot as one essay."
+)
+DEFAULT_FORM = ("A handful", HANDFUL_INSTRUCTIONS, "events")
+
+
 def form(category: str | None) -> tuple[str, str, str]:
-    return FORMS.get(category or "", DEFAULT_FORM)
+    """Every category lists a handful. Science timelines are discoveries."""
+    title, instructions, _kind = DEFAULT_FORM
+    kind = "discoveries" if category == "Science" else "events"
+    return title, instructions, kind
 
 
 TIMELINE_SYSTEM = """You extract a timeline from a source text. Every event must be stated \
@@ -164,37 +84,61 @@ FEATURE_SYSTEM = """You write the centerpiece of a study page about one quiz bow
 like the main room of a museum exhibit: immersive, vivid and accurate. You never invent \
 facts, quotations, dates or numbers: they come from the source or are widely established."""
 
-FEATURE = """Topic: {name} (category: {category})
+DIAGRAM = """
+- "steps": 3-8 steps that draw one core idea as a flow. Each has a "label" (at most 6 \
+words) and a "detail" (at most 30 words). The steps are a diagram beside the list, not an \
+essay and not a substitute for the entries."""
+
+HANDFUL = """Topic: {name} (category: {category})
 
 Write "{title}": {instructions}
 
-- "title": a short, specific title for the piece
-- "body": {low}-{high} words, paragraphs separated by blank lines, no headings{diagram}
-
+- "title": a short heading for the list, naming the set (for example "Six snakes" or \
+"Turning points")
+- "entries": exactly 5 or 6 objects. Each has:
+  - "name": the thing itself, at most 8 words (a species, a work, a moment)
+  - "text": {low}-{high} words. Short, concrete and engaging, the way a fact book explains \
+one example. No headings inside the text. Do not invent quotations, dates or numbers.
+{diagram}
 Wikipedia lead (CC BY-SA), the article's summary. Write from it and from widely \
 established facts:
 {source}"""
 
-DIAGRAM = """
-- "steps": 3-8 steps that summarize the concept as a flow the page will draw, each with a \
-"label" (at most 6 words) and a "detail" (at most 30 words); [] if a flow doesn't fit"""
-
-FEATURE_SCHEMA: dict[str, Any] = {
+HANDFUL_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
         "title": {"type": "string"},
-        "body": {"type": "string"},
-        "steps": {
+        "entries": {
             "type": "array",
             "items": {
                 "type": "object",
-                "properties": {"label": {"type": "string"}, "detail": {"type": "string"}},
-                "required": ["label", "detail"],
+                "properties": {"name": {"type": "string"}, "text": {"type": "string"}},
+                "required": ["name", "text"],
             },
         },
     },
-    "required": ["title", "body"],
+    "required": ["title", "entries"],
 }
+
+STEP_SCHEMA: dict[str, Any] = {
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {"label": {"type": "string"}, "detail": {"type": "string"}},
+        "required": ["label", "detail"],
+    },
+}
+
+
+def handful_schema(diagram: bool) -> dict[str, Any]:
+    """The list, plus diagram steps when this category draws one."""
+    if not diagram:
+        return HANDFUL_SCHEMA
+    return {
+        "type": "object",
+        "properties": {**HANDFUL_SCHEMA["properties"], "steps": STEP_SCHEMA},
+        "required": ["title", "entries", "steps"],
+    }
 
 
 def _year_in(year: int, quote: str) -> bool:
@@ -229,17 +173,32 @@ def timeline_problem(data: dict[str, Any], source: str) -> str | None:
     return None
 
 
-def feature_problem(data: dict[str, Any], words: tuple[int, int] = FEATURE_WORDS) -> str | None:
-    n = len(str(data.get("body", "")).split())
-    low, high = words
-    if not low * 0.85 <= n <= high * 1.2:
-        return f"the body has {n} words, not {low}-{high}"
+def entries_problem(data: dict[str, Any], *, diagram: bool = False) -> str | None:
+    """A handful is 5 or 6 named things, each a short paragraph. Diagram categories also
+    need short steps, and no essay."""
+    entries = data.get("entries") or []
+    low_n, high_n = HANDFUL_COUNT
+    if not low_n <= len(entries) <= high_n:
+        return f"need {low_n} or {high_n} entries, not {len(entries)}"
     if not str(data.get("title", "")).strip():
         return "missing title"
-    for step in data.get("steps") or []:
-        if (
-            len(str(step.get("label", "")).split()) > 8
-            or len(str(step.get("detail", "")).split()) > 40
-        ):
-            return "diagram steps must be short: a label of at most 6 words, details of 30"
+    low, high = ENTRY_WORDS
+    for entry in entries:
+        name = str(entry.get("name", "")).strip()
+        text = str(entry.get("text", "")).strip()
+        if not name or len(name.split()) > 10:
+            return "each entry needs a short name"
+        n = len(text.split())
+        if not low * 0.8 <= n <= high * 1.2:
+            return f"{name} has {n} words, not {low}-{high}"
+    if diagram:
+        steps = data.get("steps") or []
+        if not 3 <= len(steps) <= 8:
+            return f"the diagram needs 3-8 steps, not {len(steps)}"
+        for step in steps:
+            if (
+                len(str(step.get("label", "")).split()) > 8
+                or len(str(step.get("detail", "")).split()) > 40
+            ):
+                return "diagram steps must be short: a label of at most 6 words, details of 30"
     return None

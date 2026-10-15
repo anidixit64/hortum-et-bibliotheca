@@ -52,6 +52,25 @@ export interface PracticeFilter {
   exclude?: string[]
 }
 
+export interface CardFilter {
+  limit?: number
+  category?: string
+  subcategory?: string
+  difficultyMin?: number
+  difficultyMax?: number
+}
+
+function cardQuery(f: CardFilter = {}): string {
+  const params = new URLSearchParams()
+  if (f.limit !== undefined) params.set('limit', String(f.limit))
+  if (f.category) params.set('category', f.category)
+  if (f.subcategory) params.set('subcategory', f.subcategory)
+  if (f.difficultyMin !== undefined) params.set('difficulty_min', String(f.difficultyMin))
+  if (f.difficultyMax !== undefined) params.set('difficulty_max', String(f.difficultyMax))
+  const q = params.toString()
+  return q ? `?${q}` : ''
+}
+
 export const api = {
   search: (q: string, limit = 10) =>
     request<SearchResult[]>(catalog(`/search?${new URLSearchParams({ q, limit: String(limit) })}`)),
@@ -131,7 +150,15 @@ export const api = {
   topicStats: (topicId: string) =>
     request<TopicStats>(study(`/topics/${encodeURIComponent(topicId)}/stats`)),
   stats: () => request<Stats>(study('/stats')),
-  due: (limit = 100) => request<DueCard[]>(study(`/reviews/due?limit=${limit}`)),
+  due: (f: CardFilter = {}) => request<DueCard[]>(study(`/reviews/due${cardQuery({ limit: 100, ...f })}`)),
+  cards: (f: CardFilter = {}) => request<DueCard[]>(study(`/cards${cardQuery({ limit: 500, ...f })}`)),
+  updateCard: (cardId: string, front: string, back: string) =>
+    request<DueCard>(study(`/cards/${encodeURIComponent(cardId)}`), {
+      method: 'PATCH',
+      body: JSON.stringify({ front, back }),
+    }),
+  deleteCard: (cardId: string) =>
+    request<void>(study(`/cards/${encodeURIComponent(cardId)}`), { method: 'DELETE' }),
   review: (cardId: string, rating: 1 | 2 | 3 | 4) =>
     request<{ due: string }>(study('/reviews'), {
       method: 'POST',

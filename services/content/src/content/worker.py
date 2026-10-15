@@ -504,7 +504,7 @@ def write_theme(
 def write_special(
     conn: sqlite3.Connection, settings: Settings, catalog: httpx.Client, topic_id: str
 ) -> tuple[dict[str, Any], str, Reply | None]:
-    """The topic's two special sections: a grounded timeline and a feature by category."""
+    """A grounded timeline, a handful of examples, and a diagram for science-like categories."""
     row = conn.execute(
         "SELECT status, payload, fetched_at FROM enrichments WHERE topic_id = ? AND kind = 'wiki'",
         (topic_id,),
@@ -517,17 +517,19 @@ def write_special(
     topic = catalog.get(f"/topics/{topic_id}/clue-candidates", params={"limit": 1}).json()
     name, category = topic["name"], topic.get("category")
     title, instructions, kind = special.form(category)
-    diagram = special.DIAGRAM if category in special.DIAGRAM_CATEGORIES else ""
-    feature_prompt = special.FEATURE.format(
+    diagram = special.is_diagram(category)
+    feature_prompt = special.HANDFUL.format(
         name=name,
         category=category or "unknown",
         title=title,
         instructions=instructions.format(name=name),
-        low=special.feature_words(category)[0],
-        high=special.feature_words(category)[1],
-        diagram=diagram,
+        low=special.ENTRY_WORDS[0],
+        high=special.ENTRY_WORDS[1],
+        diagram=special.DIAGRAM if diagram else "",
         source=lead,
     )
+    feature_schema = special.handful_schema(diagram)
+    feature_check = functools.partial(special.entries_problem, diagram=diagram)
 
     def write_timeline() -> tuple[list[dict[str, Any]], Reply | None]:
         if not wiki:
@@ -553,8 +555,8 @@ def write_special(
     def write_feature() -> Reply:
         return chain.run(
             chain.build(settings.writing_chain, settings),
-            Request("feature", special.FEATURE_SYSTEM, feature_prompt, special.FEATURE_SCHEMA),
-            functools.partial(special.feature_problem, words=special.feature_words(category)),
+            Request("feature", special.FEATURE_SYSTEM, feature_prompt, feature_schema),
+            feature_check,
         )
 
     # The timeline quotes the excerpt. The feature reads the lead. They can run together.
@@ -569,9 +571,16 @@ def write_special(
         "feature": {
             "form": title,
             "title": reply.data["title"].strip(),
-            "body": reply.data["body"].strip(),
+            "body": "",
             "steps": (reply.data.get("steps") or []) if diagram else [],
-            "dramatized": title == "Be there",
+            "entries": [
+                {
+                    "name": str(entry.get("name", "")).strip(),
+                    "text": str(entry.get("text", "")).strip(),
+                }
+                for entry in reply.data.get("entries") or []
+            ],
+            "dramatized": False,
         },
         "source": {"title": wiki["title"], "url": wiki["url"]} if wiki else None,
     }

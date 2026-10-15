@@ -2,7 +2,7 @@
 
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from hortum_common.text import normalize
@@ -18,6 +18,24 @@ class NewCard:
     front: str
     back: str
     source_ref: dict[str, Any]
+    category: str | None = None
+    subcategory: str | None = None
+    alt_subcategory: str | None = None
+    difficulty: int | None = None
+
+
+def with_filing(card: NewCard, filing: dict[str, Any] | None) -> NewCard:
+    """Stamp the topic's category, subcategory, and typical difficulty onto a card."""
+    if not filing:
+        return card
+    difficulty = filing.get("difficulty")
+    return replace(
+        card,
+        category=filing.get("category"),
+        subcategory=filing.get("subcategory"),
+        alt_subcategory=filing.get("alt_subcategory"),
+        difficulty=int(difficulty) if difficulty is not None else None,
+    )
 
 
 def card_id(topic_id: str, kind: str, text: str) -> str:
@@ -61,5 +79,6 @@ def missed_card(topic_id: str, answer: str, clue_text: str, ref: dict[str, Any])
 def to_row(card: NewCard, now: str) -> tuple[object, ...]:
     return (
         card.card_id, card.topic_id, card.kind, card.front, card.back,
-        json.dumps(card.source_ref), now,
+        json.dumps(card.source_ref), now, card.category, card.subcategory,
+        card.alt_subcategory, card.difficulty,
     )  # fmt: skip

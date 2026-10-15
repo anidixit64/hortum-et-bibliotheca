@@ -47,7 +47,7 @@ export const SECTIONS: CategorySection[] = [
       { slug: 'biology', label: 'Biology', image: `${IMG}/3/37/Wilson1900Fig2.jpg/330px-Wilson1900Fig2.jpg`, category: 'Science', subcategory: 'Biology' },
       { slug: 'chemistry', label: 'Chemistry', image: `${IMG}/0/03/Simple_Periodic_Table_Chart-blocks.svg/330px-Simple_Periodic_Table_Chart-blocks.svg.png`, category: 'Science', subcategory: 'Chemistry' },
       { slug: 'physics', label: 'Physics', image: `${IMG}/3/3e/Einstein_1921_by_F_Schmutzer_-_restoration.jpg/330px-Einstein_1921_by_F_Schmutzer_-_restoration.jpg`, category: 'Science', subcategory: 'Physics' },
-      { slug: 'other-science', label: 'Other Science', image: `${IMG}/4/45/ISS-56_International_Space_Station.jpg/330px-ISS-56_International_Space_Station.jpg`, category: 'Science', subcategory: 'Other Science' },
+      { slug: 'other-science', label: 'Other Science', image: `${IMG}/b/b9/International_Space_Station.jpg/330px-International_Space_Station.jpg`, category: 'Science', subcategory: 'Other Science' },
       { slug: 'math', label: 'Math', image: `${IMG}/d/d2/Pythagorean.svg/330px-Pythagorean.svg.png`, category: 'Science', altSubcategory: 'Math' },
       { slug: 'astronomy', label: 'Astronomy', image: `${IMG}/6/68/Pillars_of_creation_2014_HST_WFC3-UVIS_full-res_denoised.jpg/330px-Pillars_of_creation_2014_HST_WFC3-UVIS_full-res_denoised.jpg`, category: 'Science', altSubcategory: 'Astronomy' },
       { slug: 'computer-science', label: 'Computer Science', image: `${IMG}/a/a1/Alan_Turing_Aged_16.jpg/330px-Alan_Turing_Aged_16.jpg`, category: 'Science', altSubcategory: 'Computer Science' },
@@ -63,11 +63,11 @@ export const SECTIONS: CategorySection[] = [
       { slug: 'auditory-fine-arts', label: 'Auditory Fine Arts', image: `${IMG}/6/6f/Beethoven.jpg/330px-Beethoven.jpg`, category: 'Fine Arts', subcategory: 'Auditory Fine Arts' },
       { slug: 'other-fine-arts', label: 'Other Fine Arts', image: `${IMG}/7/7c/Sydney_Opera_House_-_Dec_2008.jpg/330px-Sydney_Opera_House_-_Dec_2008.jpg`, category: 'Fine Arts', subcategory: 'Other Fine Arts' },
       { slug: 'architecture', label: 'Architecture', image: `${IMG}/1/1d/Taj_Mahal_%28Edited%29.jpeg/330px-Taj_Mahal_%28Edited%29.jpeg`, category: 'Fine Arts', altSubcategory: 'Architecture' },
-      { slug: 'dance', label: 'Dance', image: `${IMG}/6/6d/Anna_Pavlova_-_Pas_de_deux.jpg/330px-Anna_Pavlova_-_Pas_de_deux.jpg`, category: 'Fine Arts', altSubcategory: 'Dance' },
+      { slug: 'dance', label: 'Dance', image: `${IMG}/b/bd/Anna_Pavlova_dancing.jpg/330px-Anna_Pavlova_dancing.jpg`, category: 'Fine Arts', altSubcategory: 'Dance' },
       { slug: 'film', label: 'Film', image: `${IMG}/0/00/Charlie_Chaplin.jpg/330px-Charlie_Chaplin.jpg`, category: 'Fine Arts', altSubcategory: 'Film' },
       { slug: 'jazz', label: 'Jazz', image: `${IMG}/0/0e/Louis_Armstrong_restored.jpg/330px-Louis_Armstrong_restored.jpg`, category: 'Fine Arts', altSubcategory: 'Jazz' },
       { slug: 'musicals', label: 'Musicals', image: `${IMG}/a/ac/Musical_notes.svg/330px-Musical_notes.svg.png`, category: 'Fine Arts', altSubcategory: 'Musicals' },
-      { slug: 'opera', label: 'Opera', image: `${IMG}/8/84/Carmen_poster%2C_LoC.jpg/330px-Carmen_poster%2C_LoC.jpg`, category: 'Fine Arts', altSubcategory: 'Opera' },
+      { slug: 'opera', label: 'Opera', image: `${IMG}/d/d4/Prudent-Louis_Leray_-_Poster_for_the_premi%C3%A8re_of_Georges_Bizet%27s_Carmen.jpg/330px-Prudent-Louis_Leray_-_Poster_for_the_premi%C3%A8re_of_Georges_Bizet%27s_Carmen.jpg`, category: 'Fine Arts', altSubcategory: 'Opera' },
       { slug: 'photography', label: 'Photography', image: `${IMG}/0/05/Ansel_Adams_and_camera.jpg/330px-Ansel_Adams_and_camera.jpg`, category: 'Fine Arts', altSubcategory: 'Photography' },
       { slug: 'misc-arts', label: 'Misc Arts', image: `${IMG}/3/30/Metropolitan_Museum_of_Art_%28The_Met%29_-_Central_Park%2C_NYC.jpg/330px-Metropolitan_Museum_of_Art_%28The_Met%29_-_Central_Park%2C_NYC.jpg`, category: 'Fine Arts', altSubcategory: 'Misc Arts' },
     ],
@@ -94,7 +94,7 @@ export const SECTIONS: CategorySection[] = [
       { slug: 'music', label: 'Music', image: `${IMG}/d/d8/The_Beatles_members_at_New_York_City_in_1964.jpg/330px-The_Beatles_members_at_New_York_City_in_1964.jpg`, category: 'Pop Culture', subcategory: 'Music' },
       { slug: 'sports', label: 'Sports', image: `${IMG}/5/5c/Olympic_rings_without_rims.svg/330px-Olympic_rings_without_rims.svg.png`, category: 'Pop Culture', subcategory: 'Sports' },
       { slug: 'television', label: 'Television', image: `${IMG}/a/a3/Television_set_from_the_early_1950s.jpg/330px-Television_set_from_the_early_1950s.jpg`, category: 'Pop Culture', subcategory: 'Television' },
-      { slug: 'video-games', label: 'Video Games', image: `${IMG}/d/d8/Pac_Man_Midway_cabinet.jpg/330px-Pac_Man_Midway_cabinet.jpg`, category: 'Pop Culture', subcategory: 'Video Games' },
+      { slug: 'video-games', label: 'Video Games', image: `${IMG}/c/c6/Super_Pac-Man_-_Bally_Midway_Namco_arcade_cabinet.jpg/330px-Super_Pac-Man_-_Bally_Midway_Namco_arcade_cabinet.jpg`, category: 'Pop Culture', subcategory: 'Video Games' },
       { slug: 'other-pop-culture', label: 'Other Pop Culture', image: `${IMG}/4/42/Andy_Warhol_1975.jpg/330px-Andy_Warhol_1975.jpg`, category: 'Pop Culture', subcategory: 'Other Pop Culture' },
       { slug: 'geography', label: 'Geography', image: `${IMG}/9/97/The_Earth_seen_from_Apollo_17.jpg/330px-The_Earth_seen_from_Apollo_17.jpg`, category: 'Geography' },
       { slug: 'current-events', label: 'Current Events', image: `${IMG}/9/90/Printing_press_1811.jpg/330px-Printing_press_1811.jpg`, category: 'Current Events' },
@@ -112,4 +112,28 @@ for (const section of SECTIONS) {
 
 export function findCategory(slug: string): CategoryCard | undefined {
   return BY_SLUG.get(slug)
+}
+
+/** Quizbowl categories that have an Explore card, in first-seen order. */
+export function categoryNames(): string[] {
+  const names: string[] = []
+  for (const section of SECTIONS) {
+    for (const card of section.cards) {
+      if (!names.includes(card.category)) names.push(card.category)
+    }
+  }
+  return names
+}
+
+/** Subcategories and alternate subcategories filed under one category. */
+export function subcategoriesOf(category: string): string[] {
+  const labels: string[] = []
+  for (const section of SECTIONS) {
+    for (const card of section.cards) {
+      if (card.category !== category) continue
+      const label = card.subcategory ?? card.altSubcategory
+      if (label && !labels.includes(label)) labels.push(label)
+    }
+  }
+  return labels
 }

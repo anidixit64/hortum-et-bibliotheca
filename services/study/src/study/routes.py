@@ -46,7 +46,9 @@ def _add_cards(conn: sqlite3.Connection, new: list[cards.NewCard]) -> int:
     created = 0
     for card in new:
         cursor = conn.execute(
-            "INSERT OR IGNORE INTO cards VALUES (?, ?, ?, ?, ?, ?, ?, 0)",
+            "INSERT OR IGNORE INTO cards (card_id, topic_id, kind, front, back, source_ref, "
+            "created_at, suspended, category, subcategory, alt_subcategory, difficulty) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)",
             cards.to_row(card, now.isoformat()),
         )
         if cursor.rowcount:
@@ -57,7 +59,14 @@ def _add_cards(conn: sqlite3.Connection, new: list[cards.NewCard]) -> int:
             )
             created += 1
         else:
-            conn.execute("UPDATE cards SET suspended = 0 WHERE card_id = ?", (card.card_id,))
+            conn.execute(
+                "UPDATE cards SET suspended = 0, "
+                "category = COALESCE(category, ?), subcategory = COALESCE(subcategory, ?), "
+                "alt_subcategory = COALESCE(alt_subcategory, ?), "
+                "difficulty = COALESCE(difficulty, ?) WHERE card_id = ?",
+                (card.category, card.subcategory, card.alt_subcategory, card.difficulty,
+                 card.card_id),
+            )  # fmt: skip
     return created
 
 
@@ -73,14 +82,18 @@ class ClueCardsBody(BaseModel):
 @router.post("/topics/{topic_id}/clue-cards", status_code=201, tags=["topics"])
 def create_clue_cards(topic_id: str, body: ClueCardsBody, db: Db) -> dict[str, int]:
     """Create a flashcard for each question line of a clue."""
+    filing = _filing_on_topic(db, topic_id)
     new = [
-        cards.NewCard(
-            cards.card_id(topic_id, "clue", line),
-            topic_id,
-            "clue",
-            line,
-            f"{body.answer}\n{body.clue_label}",
-            {"clue_label": body.clue_label},
+        cards.with_filing(
+            cards.NewCard(
+                cards.card_id(topic_id, "clue", line),
+                topic_id,
+                "clue",
+                line,
+                f"{body.answer}\n{body.clue_label}",
+                {"clue_label": body.clue_label},
+            ),
+            filing,
         )
         for line in body.lines[:50]
     ]
@@ -111,7 +124,8 @@ async def follow(topic_id: str, db: Db, catalog: CatalogDep) -> Followed:
             "INSERT OR IGNORE INTO followed_topics VALUES (?, ?, ?)",
             (tid, name, _now().isoformat()),
         )
-        created = _add_cards(db, cards.topic_cards(record))
+        filing = await catalog.filing(topic_id)
+        created = _add_cards(db, [cards.with_filing(c, filing) for c in cards.topic_cards(record)])
     total = db.execute("SELECT COUNT(*) FROM cards WHERE topic_id = ?", (tid,)).fetchone()[0]
     return Followed(topic_id=tid, name=name, cards_created=created, cards_total=total)
 
@@ -129,6 +143,7 @@ class FollowedTopic(BaseModel):
     name: str
     cards: int
     due: int
+    accuracy: float | None = None
 
 
 @router.get("/topics", tags=["topics"])
@@ -136,12 +151,44 @@ def followed(db: Db) -> list[FollowedTopic]:
     now = _now().isoformat()
     rows = db.execute(
         "SELECT f.topic_id, f.name, COUNT(c.card_id), "
-        "SUM(c.card_id IS NOT NULL AND c.suspended = 0 AND s.due <= ?) "
+        "SUM(c.card_id IS NOT NULL AND c.suspended = 0 AND s.due <= ?), "
+        "(SELECT COUNT(*) FROM buzzes b WHERE b.topic_id = f.topic_id AND b.result != 'no_buzz'), "
+        "(SELECT SUM(b.result = 'correct') FROM buzzes b "
+        " WHERE b.topic_id = f.topic_id AND b.result != 'no_buzz') "
         "FROM followed_topics f LEFT JOIN cards c ON c.topic_id = f.topic_id "
         "LEFT JOIN card_state s ON s.card_id = c.card_id GROUP BY f.topic_id ORDER BY f.added_at",
         (now,),
     ).fetchall()
-    return [FollowedTopic(topic_id=t, name=n, cards=c, due=d or 0) for t, n, c, d in rows]
+    out = []
+    for topic_id, name, n_cards, due, judged, correct in rows:
+        judged = judged or 0
+        out.append(
+            FollowedTopic(
+                topic_id=topic_id,
+                name=name,
+                cards=n_cards,
+                due=due or 0,
+                accuracy=(correct or 0) / judged if judged else None,
+            )
+        )
+    return out
+
+
+def _filing_on_topic(db: sqlite3.Connection, topic_id: str) -> dict[str, object] | None:
+    """Filing already stored on one of this topic's cards, for cards made later."""
+    row = db.execute(
+        "SELECT category, subcategory, alt_subcategory, difficulty FROM cards "
+        "WHERE topic_id = ? AND category IS NOT NULL LIMIT 1",
+        (topic_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return {
+        "category": row[0],
+        "subcategory": row[1],
+        "alt_subcategory": row[2],
+        "difficulty": row[3],
+    }
 
 
 # --- Reviews ----------------------------------------------------------------------------
@@ -154,19 +201,129 @@ class DueCard(BaseModel):
     front: str
     back: str
     due: str
+    category: str | None = None
+    subcategory: str | None = None
+    alt_subcategory: str | None = None
+    difficulty: int | None = None
+
+
+_CARD_COLUMNS = (
+    "c.card_id, c.topic_id, c.kind, c.front, c.back, s.due, "
+    "c.category, c.subcategory, c.alt_subcategory, c.difficulty"
+)
+
+
+def _card(row: tuple[object, ...]) -> DueCard:
+    return DueCard(
+        card_id=str(row[0]), topic_id=str(row[1]), kind=str(row[2]), front=str(row[3]),
+        back=str(row[4]), due=str(row[5]), category=_opt_str(row[6]), subcategory=_opt_str(row[7]),
+        alt_subcategory=_opt_str(row[8]), difficulty=_opt_int(row[9]),
+    )  # fmt: skip
+
+
+def _opt_str(value: object) -> str | None:
+    return value if isinstance(value, str) else None
+
+
+def _opt_int(value: object) -> int | None:
+    return value if isinstance(value, int) else None
+
+
+def _filing_clause(
+    category: str | None,
+    subcategory: str | None,
+    difficulty_min: int | None,
+    difficulty_max: int | None,
+) -> tuple[str, list[object]]:
+    where = ["c.suspended = 0"]
+    args: list[object] = []
+    if category:
+        where.append("c.category = ?")
+        args.append(category)
+    if subcategory:
+        where.append("(c.subcategory = ? OR c.alt_subcategory = ?)")
+        args.extend([subcategory, subcategory])
+    if difficulty_min is not None:
+        where.append("c.difficulty >= ?")
+        args.append(difficulty_min)
+    if difficulty_max is not None:
+        where.append("c.difficulty <= ?")
+        args.append(difficulty_max)
+    return " AND ".join(where), args
 
 
 @router.get("/reviews/due", tags=["reviews"])
-def due(db: Db, limit: Annotated[int, Query(ge=1, le=500)] = 50) -> list[DueCard]:
-    """Cards due now across every followed topic, most overdue first."""
+def due(
+    db: Db,
+    limit: Annotated[int, Query(ge=1, le=500)] = 50,
+    category: str | None = None,
+    subcategory: str | None = None,
+    difficulty_min: Annotated[int | None, Query(ge=0, le=10)] = None,
+    difficulty_max: Annotated[int | None, Query(ge=0, le=10)] = None,
+) -> list[DueCard]:
+    """Cards due now, most overdue first. Filters use the filing stored on each card."""
+    clause, args = _filing_clause(category, subcategory, difficulty_min, difficulty_max)
     rows = db.execute(
-        "SELECT c.card_id, c.topic_id, c.kind, c.front, c.back, s.due FROM cards c "
-        "JOIN card_state s ON s.card_id = c.card_id "
-        "WHERE c.suspended = 0 AND s.due <= ? ORDER BY s.due LIMIT ?",
-        (_now().isoformat(), limit),
+        f"SELECT {_CARD_COLUMNS} FROM cards c JOIN card_state s ON s.card_id = c.card_id "
+        f"WHERE {clause} AND s.due <= ? ORDER BY s.due LIMIT ?",
+        (*args, _now().isoformat(), limit),
     ).fetchall()
-    return [DueCard(card_id=r[0], topic_id=r[1], kind=r[2], front=r[3], back=r[4], due=r[5])
-            for r in rows]  # fmt: skip
+    return [_card(r) for r in rows]
+
+
+@router.get("/cards", tags=["reviews"])
+def list_cards(
+    db: Db,
+    limit: Annotated[int, Query(ge=1, le=2000)] = 500,
+    category: str | None = None,
+    subcategory: str | None = None,
+    difficulty_min: Annotated[int | None, Query(ge=0, le=10)] = None,
+    difficulty_max: Annotated[int | None, Query(ge=0, le=10)] = None,
+) -> list[DueCard]:
+    """Every active card, newest first, for the review browser."""
+    clause, args = _filing_clause(category, subcategory, difficulty_min, difficulty_max)
+    rows = db.execute(
+        f"SELECT {_CARD_COLUMNS} FROM cards c JOIN card_state s ON s.card_id = c.card_id "
+        f"WHERE {clause} ORDER BY c.created_at DESC LIMIT ?",
+        (*args, limit),
+    ).fetchall()
+    return [_card(r) for r in rows]
+
+
+class CardEdit(BaseModel):
+    front: str = Field(min_length=1, max_length=4000)
+    back: str = Field(min_length=1, max_length=4000)
+
+
+@router.patch("/cards/{card_id}", tags=["reviews"])
+def edit_card(card_id: str, body: CardEdit, db: Db) -> DueCard:
+    """Rewrite a card's front and back. The id stays, so its review history stays with it."""
+    with db:
+        cursor = db.execute(
+            "UPDATE cards SET front = ?, back = ? WHERE card_id = ? AND suspended = 0",
+            (body.front, body.back, card_id),
+        )
+    if not cursor.rowcount:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"no card {card_id!r}")
+    row = db.execute(
+        f"SELECT {_CARD_COLUMNS} FROM cards c JOIN card_state s ON s.card_id = c.card_id "
+        "WHERE c.card_id = ?",
+        (card_id,),
+    ).fetchone()
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"no card {card_id!r}")
+    return _card(row)
+
+
+@router.delete("/cards/{card_id}", status_code=204, tags=["reviews"])
+def delete_card(card_id: str, db: Db) -> None:
+    """Remove a card and its review history."""
+    with db:
+        db.execute("DELETE FROM reviews WHERE card_id = ?", (card_id,))
+        db.execute("DELETE FROM card_state WHERE card_id = ?", (card_id,))
+        cursor = db.execute("DELETE FROM cards WHERE card_id = ?", (card_id,))
+    if not cursor.rowcount:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"no card {card_id!r}")
 
 
 class ReviewIn(BaseModel):
@@ -356,11 +513,20 @@ class BuzzStats(BaseModel):
     power_rate: float | None  # correct buzzes before the power mark
 
 
+class RatingCounts(BaseModel):
+    again: int
+    hard: int
+    good: int
+    easy: int
+
+
 class Stats(BaseModel):
     followed_topics: int
     cards: int
     due: int
     reviews_today: int
+    reviews_total: int
+    ratings: RatingCounts
     buzzing: BuzzStats
 
 
@@ -386,6 +552,10 @@ def stats(db: Db) -> Stats:
         value: int = db.execute(sql, args).fetchone()[0]
         return value
 
+    ratings = {1: 0, 2: 0, 3: 0, 4: 0}
+    for rating, count in db.execute("SELECT rating, COUNT(*) FROM reviews GROUP BY rating"):
+        if rating in ratings:
+            ratings[rating] = count
     return Stats(
         followed_topics=one("SELECT COUNT(*) FROM followed_topics"),
         cards=one("SELECT COUNT(*) FROM cards WHERE suspended = 0"),
@@ -395,6 +565,10 @@ def stats(db: Db) -> Stats:
             now.isoformat(),
         ),
         reviews_today=one("SELECT COUNT(*) FROM reviews WHERE reviewed_at >= ?", today),
+        reviews_total=sum(ratings.values()),
+        ratings=RatingCounts(
+            again=ratings[1], hard=ratings[2], good=ratings[3], easy=ratings[4]
+        ),
         buzzing=_buzz_stats(db.execute("SELECT result, position, in_power FROM buzzes").fetchall()),
     )
 

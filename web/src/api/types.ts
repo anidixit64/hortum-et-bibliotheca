@@ -156,6 +156,10 @@ export interface DueCard {
   front: string
   back: string
   due: string
+  category?: string | null
+  subcategory?: string | null
+  alt_subcategory?: string | null
+  difficulty?: number | null
 }
 
 export interface BuzzStats {
@@ -180,6 +184,14 @@ export interface FollowedTopic {
   name: string
   cards: number
   due: number
+  accuracy?: number | null
+}
+
+export interface RatingCounts {
+  again: number
+  hard: number
+  good: number
+  easy: number
 }
 
 export interface Stats {
@@ -187,6 +199,8 @@ export interface Stats {
   cards: number
   due: number
   reviews_today: number
+  reviews_total?: number
+  ratings?: RatingCounts
   buzzing: BuzzStats
 }
 
@@ -288,10 +302,22 @@ export interface FeatureStep {
   detail: string
 }
 
-/** Two sections chosen by category: a dated timeline and a long feature piece. */
+export interface HandfulEntry {
+  name: string
+  text: string
+}
+
+/** A timeline, plus either a diagram essay or a handful of related things. */
 export interface SpecialPayload {
   timeline: { kind: string; events: { year: number; label: string; source: string }[] }
-  feature: { form: string; title: string; body: string; steps: FeatureStep[]; dramatized: boolean }
+  feature: {
+    form: string
+    title: string
+    body: string
+    steps: FeatureStep[]
+    dramatized: boolean
+    entries?: HandfulEntry[]
+  }
   source: { title: string; url: string } | null
 }
 

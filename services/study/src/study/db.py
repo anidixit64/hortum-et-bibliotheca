@@ -17,7 +17,11 @@ CREATE TABLE IF NOT EXISTS cards (
     back TEXT NOT NULL,
     source_ref TEXT NOT NULL,        -- JSON: where the card came from (cluster, tossup)
     created_at TEXT NOT NULL,
-    suspended INTEGER NOT NULL DEFAULT 0
+    suspended INTEGER NOT NULL DEFAULT 0,
+    category TEXT,                   -- quizbowl category, copied when the card is made
+    subcategory TEXT,
+    alt_subcategory TEXT,
+    difficulty INTEGER               -- the topic's typical question difficulty, 0–10
 );
 CREATE INDEX IF NOT EXISTS cards_topic ON cards(topic_id);
 CREATE TABLE IF NOT EXISTS card_state (
@@ -56,4 +60,14 @@ def connect(path: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(path, check_same_thread=False)
     conn.execute("PRAGMA journal_mode=WAL")
     conn.executescript(SCHEMA)
+    # Databases created before cards carried a filing get the columns in place.
+    have = {row[1] for row in conn.execute("PRAGMA table_info(cards)")}
+    for name, decl in (
+        ("category", "TEXT"),
+        ("subcategory", "TEXT"),
+        ("alt_subcategory", "TEXT"),
+        ("difficulty", "INTEGER"),
+    ):
+        if name not in have:
+            conn.execute(f"ALTER TABLE cards ADD COLUMN {name} {decl}")
     return conn

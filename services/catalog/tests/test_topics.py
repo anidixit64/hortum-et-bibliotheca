@@ -28,8 +28,8 @@ def client(tmp_path: Path) -> TestClient:
         CREATE TABLE topic_snapshots (topic_id TEXT PRIMARY KEY, json TEXT, schema_version INT);
         CREATE TABLE sets (id TEXT PRIMARY KEY, name TEXT, year INTEGER);
         CREATE TABLE tossups (id TEXT PRIMARY KEY, set_id TEXT, difficulty INTEGER,
-                              category TEXT, subcategory TEXT, answer_text TEXT,
-                              answer_html TEXT);
+                              category TEXT, subcategory TEXT, alt_subcategory TEXT,
+                              answer_text TEXT, answer_html TEXT);
         CREATE TABLE tossup_topics (tossup_id TEXT PRIMARY KEY, topic_id TEXT);
         CREATE TABLE question_layout (tossup_id TEXT PRIMARY KEY, clean_text TEXT,
                                       power_word INTEGER);
@@ -56,9 +56,11 @@ def client(tmp_path: Path) -> TestClient:
             "INSERT INTO topic_clue_records VALUES ('Q1784288', ?, ?)", (rank, json.dumps(clue))
         )
     for qid, topic, set_id, _, difficulty, category, text in QUESTIONS:
+        sub = "American Literature" if category == "Literature" else None
+        alt = "Long Fiction" if category == "Literature" else None
         conn.execute(
-            "INSERT INTO tossups VALUES (?, ?, ?, ?, NULL, 'answer', NULL)",
-            (qid, set_id, difficulty, category),
+            "INSERT INTO tossups VALUES (?, ?, ?, ?, ?, ?, 'answer', NULL)",
+            (qid, set_id, difficulty, category, sub, alt),
         )
         conn.execute("INSERT INTO tossup_topics VALUES (?, ?)", (qid, topic))
         conn.execute(
@@ -80,6 +82,15 @@ def get(client: TestClient, url: str, **params: Any) -> Any:
     response = client.get(url, params=params)
     assert response.status_code == 200, response.text
     return response.json()
+
+
+def test_filing_uses_the_usual_subcategory_and_median_difficulty(client: TestClient) -> None:
+    filing = get(client, "/topics/Q1784288/filing")
+    assert filing["category"] == "Literature"
+    assert filing["subcategory"] == "American Literature"
+    assert filing["alt_subcategory"] == "Long Fiction"
+    assert filing["difficulty"] == 5  # median of 3 and 7
+    assert client.get("/topics/nope/filing").status_code == 404
 
 
 def test_topic_page_by_id_or_slug(client: TestClient) -> None:
