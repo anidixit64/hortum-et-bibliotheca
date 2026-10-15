@@ -573,6 +573,9 @@ def write_special(
             "title": reply.data["title"].strip(),
             "body": "",
             "steps": (reply.data.get("steps") or []) if diagram else [],
+            "diagram_blurb": (
+                str(reply.data.get("diagram_blurb") or "").strip() if diagram else ""
+            ),
             "entries": [
                 {
                     "name": str(entry.get("name", "")).strip(),

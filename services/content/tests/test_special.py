@@ -51,16 +51,21 @@ def test_a_handful_is_five_or_six_and_a_diagram_keeps_its_steps() -> None:
         {"label": "Premise", "detail": "What is granted."},
         {"label": "Conclusion", "detail": "What follows."},
     ]
-    assert special.entries_problem(
-        {"title": "Six things", "entries": entries, "steps": steps}, diagram=True
-    ) is None
+    blurb = " ".join(["word"] * 120)
+    drawn = {"title": "Six things", "entries": entries, "steps": steps, "diagram_blurb": blurb}
+    assert special.entries_problem(drawn, diagram=True) is None
     missing_steps = special.entries_problem(
-        {"title": "Six things", "entries": entries, "steps": []}, diagram=True
+        {"title": "Six things", "entries": entries, "steps": [], "diagram_blurb": blurb},
+        diagram=True,
     )
     assert "diagram" in str(missing_steps)
     long_step = [{"label": "a very long step label that goes on and on", "detail": "x"}, *steps]
     assert "short" in str(
-        special.entries_problem(
-            {"title": "Six things", "entries": entries, "steps": long_step}, diagram=True
-        )
+        special.entries_problem({**drawn, "steps": long_step}, diagram=True)
     )
+    short_blurb = " ".join(["word"] * 40)
+    short = special.entries_problem({**drawn, "diagram_blurb": short_blurb}, diagram=True)
+    assert short is not None and "blurb" in short
+    long_blurb = " ".join(["word"] * 200)
+    long = special.entries_problem({**drawn, "diagram_blurb": long_blurb}, diagram=True)
+    assert long is not None and "blurb" in long
