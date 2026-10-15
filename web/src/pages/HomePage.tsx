@@ -127,13 +127,16 @@ export function HomePage() {
         </div>
       </div>
 
-      {/* Footer trigger — opens wheel on hover */}
-      <div className="palette-footer">
-        <button
-          className="palette-trigger"
-          onMouseEnter={() => setWheelOpen(true)}
-          aria-label="Pick colors"
-        >
+      {/* Footer: trigger + wheel live in one container for seamless hover */}
+      <div
+        className="palette-footer"
+        onMouseEnter={() => setWheelOpen(true)}
+        onMouseLeave={() => { setWheelOpen(false); setHovered(null) }}
+      >
+        {/* Dimmed backdrop — visible only when wheel is open */}
+        {wheelOpen && <div className="palette-backdrop" />}
+
+        <div className="palette-trigger" aria-label="Pick colors">
           <span className="palette-trigger-ring">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
@@ -143,20 +146,16 @@ export function HomePage() {
             </svg>
           </span>
           <span className="palette-trigger-label">pick colors</span>
-        </button>
-      </div>
+        </div>
 
-      {/* Wheel overlay */}
-      {wheelOpen && (
-        <div className="palette-overlay" onClick={() => { setWheelOpen(false); setHovered(null) }}>
-          <div className="palette-wheel" onClick={(e) => e.stopPropagation()}>
-            {/* Colored ring */}
+        {/* Wheel — floats above the trigger */}
+        {wheelOpen && (
+          <div className="palette-wheel">
             <div
               className="palette-wheel-ring"
               style={{ background: ringGradient(previewColors) }}
             />
 
-            {/* Center area */}
             <div className="palette-wheel-center" style={{ background: previewColors.bg }}>
               <span className="palette-center-title" style={{ color: previewColors.accent }}>
                 Museo
@@ -176,7 +175,6 @@ export function HomePage() {
               )}
             </div>
 
-            {/* Palette nodes sitting on the ring */}
             {PALETTES.map((p, i) => {
               const angle = (2 * Math.PI * i) / PALETTES.length - Math.PI / 2
               const x = Math.cos(angle) * NODE_RADIUS
@@ -210,8 +208,8 @@ export function HomePage() {
               )
             })}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

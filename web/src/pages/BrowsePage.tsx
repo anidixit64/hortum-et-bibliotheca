@@ -1,6 +1,6 @@
 import type { FormEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { api } from '../api/client'
 import type { SearchResult } from '../api/types'
 import { SECTIONS } from '../lib/categories'
@@ -11,6 +11,13 @@ export function BrowsePage() {
   const [params, setParams] = useSearchParams()
   const initial = params.get('q') ?? ''
   const [query, setQuery] = useState(initial)
+  const { hash } = useLocation()
+
+  useEffect(() => {
+    if (hash === '#explore') {
+      document.getElementById('explore')?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [hash])
   const [results, setResults] = useState<SearchResult[]>([])
   const [thumbs, setThumbs] = useState<Record<string, string | null>>({})
   const [error, setError] = useState<string | null>(null)
@@ -110,7 +117,7 @@ export function BrowsePage() {
       </div>
       {error && <p className="error">{error}</p>}
 
-      <div className="explore-sections">
+      <div id="explore" className="explore-sections">
         {SECTIONS.map((section) => (
           <section key={section.title} className="explore-section">
             <h2 className="explore-section-title">{section.title}</h2>

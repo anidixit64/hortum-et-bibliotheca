@@ -280,6 +280,7 @@ main {
   color: var(--bg);
   cursor: pointer;
   transition: opacity 0.2s;
+  align-self: stretch;
 }
 .search-go:hover { opacity: 0.85; }
 
@@ -2266,21 +2267,36 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* --- Palette picker: footer trigger + wheel overlay --------------------------------------- */
+/* --- Palette picker: footer trigger + hover wheel ---------------------------------------- */
 
 .palette-footer {
   position: fixed;
   bottom: 0;
-  left: 0;
-  right: 0;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
-  justify-content: center;
-  padding: 0.75rem 0 1rem;
-  pointer-events: none;
-  z-index: 50;
+  flex-direction: column;
+  align-items: center;
+  z-index: 200;
 }
+
+/* Dimmed backdrop — non-interactive, just visual */
+.palette-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 45%);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  pointer-events: none;
+  animation: palette-fade-in 0.2s ease;
+  z-index: -1;
+}
+@keyframes palette-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 .palette-trigger {
-  pointer-events: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2288,7 +2304,7 @@ body {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0.3rem;
+  padding: 0.3rem 0.3rem 1rem;
   color: var(--muted);
   transition: color 0.2s;
 }
@@ -2314,34 +2330,26 @@ body {
   text-transform: uppercase;
 }
 
-/* Fullscreen overlay */
-.palette-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 200;
-  display: grid;
-  place-items: center;
-  background: rgb(0 0 0 / 55%);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  animation: palette-fade-in 0.25s ease;
-}
-@keyframes palette-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-/* The wheel: a large circle with a colored ring and a center area */
+/* The wheel — floats above the trigger */
 .palette-wheel {
-  position: relative;
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
   width: 420px;
   height: 420px;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-bottom: -0.5rem;
+  animation: palette-wheel-in 0.25s ease;
+}
+@keyframes palette-wheel-in {
+  from { opacity: 0; transform: translateX(-50%) scale(0.85); }
+  to { opacity: 1; transform: translateX(-50%) scale(1); }
 }
 
-/* Colored ring — sits behind center, covers full circle */
+/* Colored ring */
 .palette-wheel-ring {
   position: absolute;
   inset: 0;
@@ -2349,7 +2357,7 @@ body {
   transition: background 0.4s ease;
 }
 
-/* Center cutout — sits on top, shows preview text */
+/* Center cutout */
 .palette-wheel-center {
   position: absolute;
   width: 260px;
@@ -2396,7 +2404,7 @@ body {
   margin-top: 0.35rem;
 }
 
-/* Palette nodes: small circles sitting on the ring band */
+/* Palette nodes */
 .palette-node {
   position: absolute;
   width: 50px;

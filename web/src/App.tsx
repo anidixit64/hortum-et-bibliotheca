@@ -63,6 +63,7 @@ function Shell() {
           {menuOpen && (
             <nav className="nav-dropdown">
               <Link to="/search">Search</Link>
+              <Link to="/search#explore">Explore</Link>
               <Link to="/practice">Practice</Link>
               <Link to="/review">
                 Review
