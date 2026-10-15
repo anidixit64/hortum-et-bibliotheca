@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
-import { buildReel, spinDelays, topicBlurb } from '../lib/roulette'
+import { buildStrip, landingIndex, reelOffset, topicBlurb, WINDOW } from '../lib/roulette'
 import type { RouletteTopic } from '../api/types'
 import { ExplorePage } from '../pages/ExplorePage'
 import { HomePage } from '../pages/HomePage'
@@ -16,12 +16,14 @@ function topic(id: string): RouletteTopic {
   return topics.find((item) => item.topic_id === id) as RouletteTopic
 }
 
-test('the spin starts fast and lands on the chosen topic', () => {
-  const reel = buildReel(topics, 'Q2', 22)
-  const delays = spinDelays(reel.length)
-  expect(reel[reel.length - 1]).toEqual(topic('Q2'))
-  expect((reel.length - 1) % Math.min(topics.length, 10)).toBe(1)
-  expect(delays[0]).toBeLessThan(delays[delays.length - 1])
+test('the reel stops with the chosen topic on the center line', () => {
+  const strip = buildStrip(topics, 'Q2')
+  const index = landingIndex(strip)
+  expect(strip[index]).toEqual(topic('Q2'))
+  expect(index).toBeGreaterThan(topics.length * 4)
+  const cell = 104
+  const windowPx = WINDOW * cell
+  expect(reelOffset(index, windowPx, cell)).toBe(windowPx / 2 - cell / 2 - index * cell)
   expect(topicBlurb({ ...topic('Q3'), description: '  An 1863 battle. ' })).toBe('An 1863 battle.')
   expect(topicBlurb({ ...topic('Q3'), description: null })).toMatch(/History/)
 })

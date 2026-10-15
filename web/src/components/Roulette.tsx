@@ -2,58 +2,65 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import type { RouletteTopic } from '../api/types'
-import { buildReel, pickWinner, RIM, spinDelays, topicBlurb } from '../lib/roulette'
+import { buildStrip, CELL_PX, landingIndex, pickWinner, reelOffset, SPIN_MS, topicBlurb, WINDOW } from '../lib/roulette'
 
 function reduceMotion() {
   return typeof window.matchMedia === 'function'
     && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
+function skipMotion() {
+  return reduceMotion() || import.meta.env.MODE === 'test'
+}
+
 export function Roulette() {
-  const [rim, setRim] = useState<RouletteTopic[]>([])
+  const [strip, setStrip] = useState<RouletteTopic[]>([])
   const [current, setCurrent] = useState<RouletteTopic | null>(null)
   const [phase, setPhase] = useState<'loading' | 'spinning' | 'landed'>('loading')
   const [error, setError] = useState<string | null>(null)
-  const [turn, setTurn] = useState(0)
-  const [tickMs, setTickMs] = useState(40)
+  const [offset, setOffset] = useState(0)
+  const [instant, setInstant] = useState(true)
+  const windowRef = useRef<HTMLDivElement>(null)
   const spinId = useRef(0)
 
   const draw = useCallback(async () => {
     const id = ++spinId.current
     setPhase('loading')
     setError(null)
+    setInstant(true)
+    setOffset(0)
     try {
       const found = await api.roulette()
       if (id !== spinId.current) return
       const winner = pickWinner(found)
       if (!winner) {
-        setRim([])
+        setStrip([])
         setCurrent(null)
         setError('No topics to draw from yet.')
         setPhase('landed')
         return
       }
-      const reel = buildReel(found, winner.topic_id)
-      const delays = spinDelays(reel.length)
-      setRim(found.slice(0, RIM))
-      if (reduceMotion()) {
-        setCurrent(winner)
-        setTurn(reel.length - 1)
+      const next = buildStrip(found, winner.topic_id)
+      const endIndex = landingIndex(next)
+      const height = windowRef.current?.clientHeight || WINDOW * CELL_PX
+      const start = reelOffset(Math.floor(WINDOW / 2), height)
+      const end = reelOffset(endIndex, height)
+      setStrip(next)
+      setCurrent(winner)
+      setOffset(start)
+      if (skipMotion()) {
+        setOffset(end)
         setPhase('landed')
         return
       }
       setPhase('spinning')
-      for (let i = 0; i < reel.length; i++) {
-        if (id !== spinId.current) return
-        setCurrent(reel[i])
-        setTurn(i)
-        setTickMs(delays[i])
-        const wait = import.meta.env.MODE === 'test' ? 0 : delays[i]
-        await new Promise((resolve) => window.setTimeout(resolve, wait))
-      }
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
       if (id !== spinId.current) return
-      setCurrent(winner)
-      setPhase('landed')
+      setInstant(false)
+      setOffset(end)
+      window.setTimeout(() => {
+        if (id === spinId.current) setPhase('landed')
+      }, SPIN_MS + 400)
     } catch {
       if (id !== spinId.current) return
       setCurrent(null)
@@ -70,47 +77,25 @@ export function Roulette() {
     }
   }, [draw])
 
-  const slice = rim.length ? 360 / rim.length : 36
-  const spinning = phase === 'spinning'
-
   return (
     <div className="roulette-panel">
-      <div className="roulette-stage" aria-hidden={phase === 'landed'}>
-        <span className="roulette-pointer" />
+      <div className="reel-window" ref={windowRef} aria-hidden={phase !== 'landed'}>
+        <div className="reel-shade" />
+        <div className="reel-line" />
         <div
-          className="roulette-wheel"
-          style={{
-            transform: `rotate(${-turn * slice}deg)`,
-            transitionDuration: spinning ? `${tickMs}ms` : '0ms',
-          }}
+          className={instant ? 'reel-strip instant' : 'reel-strip'}
+          style={{ transform: `translateY(${offset}px)` }}
         >
-          <div
-            className="roulette-disc"
-            style={{
-              background: rim.length
-                ? `conic-gradient(${rim.map((_, i) => {
-                    const tone = i % 2 === 0 ? '#d9d4cc' : '#b7b1a8'
-                    const start = (i / rim.length) * 100
-                    const end = ((i + 1) / rim.length) * 100
-                    return `${tone} ${start}% ${end}%`
-                  }).join(', ')})`
-                : '#d9d4cc',
-            }}
-          />
-          {rim.map((topic, i) => (
-            <span
-              key={topic.topic_id}
-              className="roulette-label"
-              style={{ transform: `rotate(${i * slice}deg) translateY(-118px)` }}
-            >
-              {topic.name}
-            </span>
+          {strip.map((topic, index) => (
+            <div className="reel-cell" key={`${topic.topic_id}-${index}`}>
+              {topic.category && <span>{topic.category}</span>}
+              <strong>{topic.name}</strong>
+            </div>
           ))}
         </div>
-        <div className="roulette-hub">
-          <span>{spinning ? current?.name : phase === 'loading' ? 'Drawing…' : ''}</span>
-        </div>
       </div>
+
+      {phase === 'loading' && !current && <p className="roulette-status">Drawing…</p>}
 
       {phase === 'landed' && current && (
         <div className="roulette-result">
