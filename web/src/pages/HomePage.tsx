@@ -8,8 +8,25 @@ import { PALETTES, readPalette, savePalette, applyPalette } from '../lib/palette
 const DEBOUNCE_MS = 200
 const NODE_RADIUS = 160
 
-function ringGradient(colors: { bg: string; surface: string; accent: string; accent2: string; accentSoft: string }) {
-  return `conic-gradient(from 0deg, ${colors.bg}, ${colors.accent}, ${colors.accent2}, ${colors.accentSoft}, ${colors.surface}, ${colors.bg})`
+/** One wedge per palette, centered on its swatch, using the two colors that name it. */
+function wheelGradient() {
+  const n = PALETTES.length
+  const slice = 100 / n
+  const stops = PALETTES.map((p, i) => {
+    const start = i * slice
+    const mid = start + slice / 2
+    const end = (i + 1) * slice
+    return `${p.light.accent} ${start}% ${mid}%, ${p.light.accent2} ${mid}% ${end}%`
+  }).join(', ')
+  return `conic-gradient(from ${-90 - 180 / n}deg, ${stops})`
+}
+
+function swatchGradient(p: (typeof PALETTES)[number]) {
+  const colors = [p.light.accent, p.light.accent2, p.dark.accent, p.light.accentSoft]
+  const stops = colors
+    .map((c, j) => `${c} ${(j / colors.length) * 100}% ${((j + 1) / colors.length) * 100}%`)
+    .join(', ')
+  return `conic-gradient(from 0deg, ${stops})`
 }
 
 export function HomePage() {
@@ -127,24 +144,16 @@ export function HomePage() {
         </div>
       </div>
 
+      {wheelOpen && <div className="palette-backdrop" />}
+
       {/* Footer: trigger + wheel live in one container for seamless hover */}
       <div
         className="palette-footer"
         onMouseEnter={() => setWheelOpen(true)}
         onMouseLeave={() => { setWheelOpen(false); setHovered(null) }}
       >
-        {/* Dimmed backdrop — visible only when wheel is open */}
-        {wheelOpen && <div className="palette-backdrop" />}
-
         <div className="palette-trigger" aria-label="Pick colors">
-          <span className="palette-trigger-ring">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <circle cx="12" cy="8" r="1.5" fill="currentColor" stroke="none" />
-              <circle cx="8" cy="14" r="1.5" fill="currentColor" stroke="none" />
-              <circle cx="16" cy="14" r="1.5" fill="currentColor" stroke="none" />
-            </svg>
-          </span>
+          <span className="palette-trigger-ring" style={{ background: wheelGradient() }} />
           <span className="palette-trigger-label">pick colors</span>
         </div>
 
@@ -153,7 +162,7 @@ export function HomePage() {
           <div className="palette-wheel">
             <div
               className="palette-wheel-ring"
-              style={{ background: ringGradient(previewColors) }}
+              style={{ background: wheelGradient() }}
             />
 
             <div className="palette-wheel-center" style={{ background: previewColors.bg }}>
@@ -181,8 +190,6 @@ export function HomePage() {
               const y = Math.sin(angle) * NODE_RADIUS
               const isActive = palette === i
               const isHov = hovered === i
-              const nodeColors = Object.values(p.dark).slice(0, 5)
-              const stops = nodeColors.map((c, j) => `${c} ${j * 20}% ${(j + 1) * 20}%`).join(', ')
               return (
                 <button
                   key={p.name}
@@ -195,7 +202,7 @@ export function HomePage() {
                 >
                   <span
                     className="palette-node-fill"
-                    style={{ background: `conic-gradient(from 0deg, ${stops})` }}
+                    style={{ background: swatchGradient(p) }}
                   />
                   {isActive && (
                     <span className="palette-node-check">
