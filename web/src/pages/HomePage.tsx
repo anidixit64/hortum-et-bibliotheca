@@ -21,6 +21,26 @@ function wheelGradient() {
   return `conic-gradient(from ${-90 - 180 / n}deg, ${stops})`
 }
 
+/** Gray wedges, so the colored swatches read against the open wheel. */
+function monoWheelGradient() {
+  const tones = ['#d5d5d5', '#8d8d8d', '#efefef', '#6e6e6e', '#c4c4c4', '#9a9a9a', '#e2e2e2', '#7a7a7a']
+  const n = PALETTES.length
+  const slice = 100 / n
+  const stops = PALETTES.map((_, i) => {
+    const start = i * slice
+    const mid = start + slice / 2
+    const end = (i + 1) * slice
+    const light = tones[i % tones.length]
+    const dark = tones[(i + 3) % tones.length]
+    return `${light} ${start}% ${mid}%, ${dark} ${mid}% ${end}%`
+  }).join(', ')
+  return `conic-gradient(from ${-90 - 180 / n}deg, ${stops})`
+}
+
+function paletteRing(p: (typeof PALETTES)[number]) {
+  return `conic-gradient(from -24deg, ${p.light.accent}, ${p.light.accent2}, ${p.dark.accent}, ${p.light.accentSoft}, ${p.light.accent})`
+}
+
 function swatchGradient(p: (typeof PALETTES)[number]) {
   const colors = [p.light.accent, p.light.accent2, p.dark.accent, p.light.accentSoft]
   const stops = colors
@@ -160,9 +180,10 @@ export function HomePage() {
         {/* Wheel — floats above the trigger */}
         {wheelOpen && (
           <div className="palette-wheel">
+            <div className="palette-wheel-ring" style={{ background: monoWheelGradient() }} />
             <div
-              className="palette-wheel-ring"
-              style={{ background: wheelGradient() }}
+              className={`palette-wheel-ring palette-wheel-ring-color${hovered !== null ? ' on' : ''}`}
+              style={{ background: hovered !== null ? paletteRing(PALETTES[hovered]) : undefined }}
             />
 
             <div className="palette-wheel-center" style={{ background: previewColors.bg }}>
