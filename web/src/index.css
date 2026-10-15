@@ -1407,19 +1407,6 @@ main {
   font-size: 1.05rem;
   margin: 0 0 0.75rem;
 }
-.scroll-panel {
-  max-height: 18rem;
-  overflow-y: auto;
-  padding: 0.85rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: color-mix(in srgb, var(--bg) 70%, var(--surface));
-}
-.scroll-panel .prose {
-  font-size: 0.98rem;
-  line-height: 1.55;
-  max-width: none;
-}
 .handful {
   list-style: none;
   margin: 0;
@@ -1736,7 +1723,7 @@ body {
 /* Special sections: the feature piece, its step diagram, and the grounded timeline. */
 .feature-form { text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.75rem; color: var(--accent); margin: 0; }
 .feature h3 { font-family: var(--font-body); font-size: 1.5rem; margin: 0.2rem 0 0.6rem; }
-.feature p { line-height: 1.7; max-width: 68ch; }
+.feature p { line-height: 1.7; max-width: none; }
 .step-diagram { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 1.6rem; margin: 1.2rem 0; }
 .step-diagram li { position: relative; flex: 1 1 10rem; display: flex; flex-direction: column; gap: 0.25rem;
   border: 1px solid var(--border); border-top: 3px solid var(--accent); border-radius: 6px; padding: 0.7rem; background: var(--surface); }
@@ -2071,6 +2058,8 @@ body {
 .exhibit-main,
 .exhibit-feature {
   display: flow-root;
+  max-height: 36rem;
+  overflow-y: auto;
 }
 
 .exhibit-clues h2,

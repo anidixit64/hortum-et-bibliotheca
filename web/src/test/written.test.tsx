@@ -20,21 +20,28 @@ test('summary clues are bold, with a one-line popup and a link to the full expla
 })
 
 describe('special sections', () => {
-  it('shows the feature, a dramatized note, the step diagram and the grounded timeline', async () => {
+  it('keeps the diagram and the example list, and drops the essay', async () => {
     const { Feature, ExhibitTimeline } = await import('../components/Special')
     const special = {
-      timeline: { kind: 'events', events: [{ year: -44, label: 'Caesar is killed', source: 'In 44 BC Caesar was killed.' }] },
+      timeline: { kind: 'discoveries', events: [{ year: -44, label: 'Caesar is killed', source: 'In 44 BC Caesar was killed.' }] },
       feature: {
-        form: 'Be there', title: 'The Ides', body: 'First.\n\nSecond.', dramatized: true,
-        steps: [{ label: 'Senate meets', detail: 'x' }, { label: 'Daggers', detail: 'y' }],
+        form: 'A handful', title: 'How a lens works', body: 'This essay should stay hidden.',
+        dramatized: true,
+        steps: [{ label: 'Light enters', detail: 'x' }, { label: 'Rays bend', detail: 'y' }],
+        entries: [
+          { name: 'Convex lens', text: 'Thicker in the middle, it brings rays to a point.' },
+          { name: 'Focal length', text: 'The distance from the lens to that point.' },
+        ],
       },
-      source: { title: 'Julius Caesar', url: 'https://en.wikipedia.org/wiki/Julius_Caesar' },
+      source: { title: 'Lens', url: 'https://en.wikipedia.org/wiki/Lens' },
     }
     render(<><Feature special={special} /><ExhibitTimeline timeline={special.timeline} /></>)
-    expect(screen.getByText('The Ides')).toBeTruthy()
-    expect(screen.getByText(/dramatized scene/)).toBeTruthy()
-    expect(screen.getByText('Daggers')).toBeTruthy()
+    expect(screen.getByText('How a lens works')).toBeTruthy()
+    expect(screen.getByText('Convex lens')).toBeTruthy()
+    expect(screen.getByText('Rays bend')).toBeTruthy()
     expect(screen.getByText('44 BCE')).toBeTruthy()
+    expect(screen.queryByText(/essay should stay hidden/)).toBeNull()
+    expect(screen.queryByText(/dramatized scene/)).toBeNull()
   })
 
   it('lists a handful of related things instead of one long essay', async () => {
@@ -43,7 +50,7 @@ describe('special sections', () => {
       <Feature special={{
         timeline: { kind: 'events', events: [] },
         feature: {
-          form: 'A handful', title: 'Six snakes', body: '', dramatized: false, steps: [],
+          form: 'A handful', title: 'Six snakes', body: 'A leftover essay.', dramatized: false, steps: [],
           entries: [
             { name: 'King cobra', text: 'A long hooded snake that nests.' },
             { name: 'Sidewinder', text: 'It throws a loop of its body across the sand.' },
@@ -55,6 +62,7 @@ describe('special sections', () => {
     expect(screen.getByText('Six snakes')).toBeTruthy()
     expect(screen.getByText('King cobra')).toBeTruthy()
     expect(screen.getByText(/throws a loop/)).toBeTruthy()
+    expect(screen.queryByText(/leftover essay/)).toBeNull()
     expect(screen.queryByText(/dramatized scene/)).toBeNull()
   })
 })

@@ -504,7 +504,7 @@ def write_theme(
 def write_special(
     conn: sqlite3.Connection, settings: Settings, catalog: httpx.Client, topic_id: str
 ) -> tuple[dict[str, Any], str, Reply | None]:
-    """The topic's two special sections: a grounded timeline and a feature by category."""
+    """A grounded timeline, a handful of examples, and a diagram for science-like categories."""
     row = conn.execute(
         "SELECT status, payload, fetched_at FROM enrichments WHERE topic_id = ? AND kind = 'wiki'",
         (topic_id,),
@@ -518,33 +518,18 @@ def write_special(
     name, category = topic["name"], topic.get("category")
     title, instructions, kind = special.form(category)
     diagram = special.is_diagram(category)
-    if diagram:
-        feature_prompt = special.FEATURE.format(
-            name=name,
-            category=category or "unknown",
-            title=title,
-            instructions=instructions.format(name=name),
-            low=special.feature_words(category)[0],
-            high=special.feature_words(category)[1],
-            diagram=special.DIAGRAM,
-            source=lead,
-        )
-        feature_schema = special.FEATURE_SCHEMA
-        feature_check = functools.partial(
-            special.feature_problem, words=special.feature_words(category)
-        )
-    else:
-        feature_prompt = special.HANDFUL.format(
-            name=name,
-            category=category or "unknown",
-            title=title,
-            instructions=instructions.format(name=name),
-            low=special.ENTRY_WORDS[0],
-            high=special.ENTRY_WORDS[1],
-            source=lead,
-        )
-        feature_schema = special.HANDFUL_SCHEMA
-        feature_check = special.entries_problem
+    feature_prompt = special.HANDFUL.format(
+        name=name,
+        category=category or "unknown",
+        title=title,
+        instructions=instructions.format(name=name),
+        low=special.ENTRY_WORDS[0],
+        high=special.ENTRY_WORDS[1],
+        diagram=special.DIAGRAM if diagram else "",
+        source=lead,
+    )
+    feature_schema = special.handful_schema(diagram)
+    feature_check = functools.partial(special.entries_problem, diagram=diagram)
 
     def write_timeline() -> tuple[list[dict[str, Any]], Reply | None]:
         if not wiki:
@@ -586,11 +571,9 @@ def write_special(
         "feature": {
             "form": title,
             "title": reply.data["title"].strip(),
-            "body": str(reply.data.get("body") or "").strip(),
+            "body": "",
             "steps": (reply.data.get("steps") or []) if diagram else [],
-            "entries": []
-            if diagram
-            else [
+            "entries": [
                 {
                     "name": str(entry.get("name", "")).strip(),
                     "text": str(entry.get("text", "")).strip(),
