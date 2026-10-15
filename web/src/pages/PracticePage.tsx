@@ -59,6 +59,9 @@ export function PracticePage() {
   const [result, setResult] = useState<BuzzOut | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS)
+  const [paused, setPaused] = useState(false)
+  const [skipped, setSkipped] = useState(false)
+  const [holding, setHolding] = useState(false)
   const seen = useRef<string[]>([])
   const input = useRef<HTMLInputElement>(null)
 
@@ -105,6 +108,9 @@ export function PracticePage() {
     setResult(null)
     setError(null)
     setCountdown(COUNTDOWN_SECONDS)
+    setPaused(false)
+    setSkipped(false)
+    setHolding(false)
     setLastPoints(null)
     load()
   }
@@ -150,7 +156,7 @@ export function PracticePage() {
 
   // Reveal one word at a time; when done, enter countdown phase
   useEffect(() => {
-    if (phase !== 'reading' || !tossup) return
+    if (holding || paused || phase !== 'reading' || !tossup) return
     const timer = setTimeout(() => {
       if (shown >= words.length) {
         setShown(words.length)
@@ -160,18 +166,27 @@ export function PracticePage() {
       }
     }, msPerWord(wpm))
     return () => clearTimeout(timer)
-  }, [phase, shown, tossup, words.length, wpm])
+  }, [phase, shown, tossup, words.length, wpm, paused, holding])
 
   // Countdown timer after full question read
   useEffect(() => {
-    if (phase !== 'countdown') return
+    if (holding || paused || phase !== 'countdown') return
     if (countdown <= 0) {
       void submit(null)
       return
     }
     const timer = setTimeout(() => setCountdown(c => c - 1), 1000)
     return () => clearTimeout(timer)
-  }, [phase, countdown, submit])
+  }, [phase, countdown, submit, paused, holding])
+
+  const skip = useCallback(() => {
+    if (holding || (phase !== 'reading' && phase !== 'countdown')) return
+    setHolding(true)
+    setPaused(false)
+    setSkipped(true)
+    setShown(words.length)
+    void submit(null)
+  }, [holding, phase, words.length, submit])
 
   const buzz = useCallback(() => {
     if (phase !== 'reading' && phase !== 'countdown') return
@@ -335,12 +350,21 @@ export function PracticePage() {
               {phase === 'reading' && (
                 <div className="controls">
                   <button className="primary practice-buzz-btn" onClick={buzz}>Buzz (space)</button>
+                  <button type="button" onClick={skip}>Skip</button>
+                  <button type="button" aria-pressed={paused} onClick={() => setPaused(p => !p)}>
+                    {paused ? 'Resume' : 'Pause'}
+                  </button>
                 </div>
               )}
+              {paused && phase === 'reading' && <p className="muted small practice-paused">Reading paused</p>}
 
               {phase === 'countdown' && (
                 <div className="controls practice-countdown-controls">
                   <button className="primary practice-buzz-btn" onClick={buzz}>Buzz (space)</button>
+                  <button type="button" onClick={skip}>Skip</button>
+                  <button type="button" aria-pressed={paused} onClick={() => setPaused(p => !p)}>
+                    {paused ? 'Resume' : 'Pause'}
+                  </button>
                   <div className="countdown-ring">
                     <svg viewBox="0 0 40 40" className="countdown-svg">
                       <circle cx="20" cy="20" r="17" className="countdown-track" />
@@ -366,7 +390,7 @@ export function PracticePage() {
                 <div className="practice-result">
                   <div className="practice-result-header">
                     <span className={`result-${result.result === 'no_buzz' ? 'incorrect' : result.result}`}>
-                      {result.result === 'correct' ? 'Correct' : result.result === 'no_buzz' ? 'No buzz' : 'Incorrect'}
+                      {result.result === 'correct' ? 'Correct' : result.result === 'no_buzz' ? (skipped ? 'Skipped' : 'No buzz') : 'Incorrect'}
                     </span>
                     {result.in_power && result.result === 'correct' && <span className="practice-power-tag">Power!</span>}
                     {lastPoints !== null && lastPoints > 0 && (
