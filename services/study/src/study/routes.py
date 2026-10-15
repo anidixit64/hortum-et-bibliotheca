@@ -430,14 +430,19 @@ async def buzz(body: BuzzIn, db: Db, catalog: CatalogDep) -> BuzzOut:
         )
 
     topic_id = tossup.get("topic_id")
+    topic_name = tossup.get("topic_name")
+    cat = tossup.get("category")
+    subcat = tossup.get("subcategory")
+    diff = tossup.get("difficulty")
     with db:
         cursor = db.execute(
             "INSERT INTO buzzes (tossup_id, topic_id, word_index, position, clue_ordinal, "
-            "clue_cluster_id, result, in_power, answer_given, judged_by, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "clue_cluster_id, result, in_power, answer_given, judged_by, created_at, "
+            "category, subcategory, difficulty, answer, topic_name) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (body.tossup_id, topic_id, wi, position, reading and reading["ordinal"],
              reading and reading["cluster_id"], result, int(in_power), body.answer_given,
-             judged_by, _now().isoformat()),
+             judged_by, _now().isoformat(), cat, subcat, diff, answer, topic_name),
         )  # fmt: skip
     return BuzzOut(
         buzz_id=cursor.lastrowid,
@@ -608,6 +613,153 @@ def topic_stats(topic_id: str, db: Db) -> TopicStats:
         due=due_count or 0,
         buzzing=_buzz_stats([(r[0], r[1], r[2]) for r in rows]),
         buzzed_clusters=clusters,
+    )
+
+
+# --- Buzz history -----------------------------------------------------------------------
+
+
+class BuzzHistoryItem(BaseModel):
+    buzz_id: int
+    tossup_id: str
+    topic_id: str | None
+    result: str
+    position: float | None
+    in_power: bool
+    answer_given: str | None
+    answer: str | None
+    category: str | None
+    subcategory: str | None
+    difficulty: int | None
+    created_at: str
+
+
+class CategoryBreakdown(BaseModel):
+    category: str
+    subcategory: str | None
+    buzzes: int
+    correct: int
+    incorrect: int
+    no_buzz: int
+    accuracy: float | None
+    power_rate: float | None
+
+
+class DifficultyBreakdown(BaseModel):
+    difficulty: int
+    buzzes: int
+    correct: int
+    incorrect: int
+    no_buzz: int
+    accuracy: float | None
+
+
+class TopicBreakdown(BaseModel):
+    topic_id: str
+    answer: str
+    buzzes: int
+    correct: int
+    incorrect: int
+
+
+class PracticeHistory(BaseModel):
+    recent: list[BuzzHistoryItem]
+    by_category: list[CategoryBreakdown]
+    by_difficulty: list[DifficultyBreakdown]
+    struggled_topics: list[TopicBreakdown]
+    overall: BuzzStats
+    total_buzzes: int
+    total_correct: int
+    total_incorrect: int
+    total_no_buzz: int
+
+
+@router.get("/practice/history", tags=["stats"])
+def practice_history(
+    db: Db,
+    limit: Annotated[int, Query(ge=1, le=50)] = 10,
+) -> PracticeHistory:
+    recent_rows = db.execute(
+        "SELECT id, tossup_id, topic_id, result, position, in_power, answer_given, "
+        "answer, category, subcategory, difficulty, created_at "
+        "FROM buzzes ORDER BY created_at DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    recent = [
+        BuzzHistoryItem(
+            buzz_id=r[0], tossup_id=r[1], topic_id=r[2], result=r[3],
+            position=r[4], in_power=bool(r[5]), answer_given=r[6],
+            answer=r[7], category=r[8], subcategory=r[9],
+            difficulty=r[10], created_at=r[11],
+        )
+        for r in recent_rows
+    ]
+
+    cat_rows = db.execute(
+        "SELECT category, subcategory, COUNT(*), "
+        "SUM(result = 'correct'), SUM(result = 'incorrect'), SUM(result = 'no_buzz'), "
+        "SUM(CASE WHEN result = 'correct' THEN in_power ELSE 0 END) "
+        "FROM buzzes WHERE category IS NOT NULL GROUP BY category, subcategory "
+        "ORDER BY COUNT(*) DESC"
+    ).fetchall()
+    by_category = []
+    for r in cat_rows:
+        judged = r[3] + r[4]
+        correct_count = r[3]
+        power_count = r[6] or 0
+        by_category.append(CategoryBreakdown(
+            category=r[0], subcategory=r[1], buzzes=r[2],
+            correct=correct_count, incorrect=r[4], no_buzz=r[5],
+            accuracy=correct_count / judged if judged else None,
+            power_rate=power_count / correct_count if correct_count else None,
+        ))
+
+    diff_rows = db.execute(
+        "SELECT difficulty, COUNT(*), "
+        "SUM(result = 'correct'), SUM(result = 'incorrect'), SUM(result = 'no_buzz') "
+        "FROM buzzes WHERE difficulty IS NOT NULL GROUP BY difficulty ORDER BY difficulty"
+    ).fetchall()
+    by_difficulty = []
+    for r in diff_rows:
+        judged = r[2] + r[3]
+        by_difficulty.append(DifficultyBreakdown(
+            difficulty=r[0], buzzes=r[1],
+            correct=r[2], incorrect=r[3], no_buzz=r[4],
+            accuracy=r[2] / judged if judged else None,
+        ))
+
+    struggled_rows = db.execute(
+        "SELECT topic_id, answer, COUNT(*), "
+        "SUM(result = 'correct'), SUM(result = 'incorrect') "
+        "FROM buzzes WHERE topic_id IS NOT NULL AND result != 'no_buzz' "
+        "GROUP BY topic_id HAVING SUM(result = 'incorrect') >= 2 "
+        "ORDER BY SUM(result = 'incorrect') DESC LIMIT 20"
+    ).fetchall()
+    struggled = [
+        TopicBreakdown(
+            topic_id=r[0], answer=r[1] or r[0], buzzes=r[2],
+            correct=r[3], incorrect=r[4],
+        )
+        for r in struggled_rows
+    ]
+
+    all_rows = db.execute("SELECT result, position, in_power FROM buzzes").fetchall()
+    overall = _buzz_stats(all_rows)
+    totals = db.execute(
+        "SELECT COUNT(*), SUM(result = 'correct'), SUM(result = 'incorrect'), "
+        "SUM(result = 'no_buzz') FROM buzzes"
+    ).fetchone()
+
+    return PracticeHistory(
+        recent=recent,
+        by_category=by_category,
+        by_difficulty=by_difficulty,
+        struggled_topics=struggled,
+        overall=overall,
+        total_buzzes=totals[0],
+        total_correct=totals[1] or 0,
+        total_incorrect=totals[2] or 0,
+        total_no_buzz=totals[3] or 0,
     )
 
 

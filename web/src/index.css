@@ -89,6 +89,11 @@ input[type='text'] {
   border-radius: 8px;
   background: var(--surface);
 }
+input[type='search']:focus,
+input[type='text']:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
 
 /* --- Shell ----------------------------------------------------------------------------- */
 
@@ -785,7 +790,27 @@ main {
 .practice-topic-link-wrapper {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem;
   margin-top: 1rem;
+}
+.practice-wiki-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--accent);
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+.practice-wiki-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  text-decoration: none;
 }
 .topic-link-split {
   position: relative;
@@ -849,12 +874,28 @@ main {
 }
 .filter-select {
   width: 100%;
-  padding: 0.4rem 0.5rem;
+  padding: 0.45rem 0.6rem;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--bg);
   color: var(--text);
-  font-size: 0.88rem;
+  font-size: 0.85rem;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' fill='none' stroke='%235f6670' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  padding-right: 1.6rem;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.filter-select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-color: var(--accent);
+}
+.filter-select:hover {
+  border-color: var(--accent);
 }
 .filter-diff-row {
   display: flex;
@@ -882,6 +923,21 @@ main {
   color: var(--muted);
   min-width: 4.5rem;
   text-align: right;
+}
+.filter-buzz-mode {
+  margin-top: 0.2rem;
+}
+.filter-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+.filter-toggle-active {
+  color: var(--text);
+  font-weight: 600;
 }
 .filter-topic-badge {
   margin-top: 0.85rem;
@@ -975,6 +1031,27 @@ main {
 .practice-new-game:hover {
   background: var(--accent);
   color: var(--bg);
+}
+.practice-history-btn {
+  display: block;
+  margin-top: 0.5rem;
+  width: 100%;
+  padding: 0.5rem;
+  font-size: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.practice-history-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+  text-decoration: none;
 }
 
 /* --- Review ---------------------------------------------------------------------------- */
@@ -2858,4 +2935,150 @@ body {
   .browse-page { padding-left: 0.75rem; padding-right: 0.75rem; }
   .explore-clues { padding-left: 1rem; }
   .explore-controls { flex-direction: column; align-items: flex-start; }
+}
+
+/* --- Practice History -------------------------------------------------------------------- */
+
+.history-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1rem 3rem;
+}
+.history-header { margin-bottom: 1.5rem; }
+.history-title {
+  font-family: var(--font-body);
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin: 0.25rem 0 0;
+  letter-spacing: 0.03em;
+}
+.history-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+.history-stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.history-stat-value {
+  font-family: var(--font-body);
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.history-stat-label {
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.history-section {
+  margin-bottom: 2rem;
+}
+.history-section-title {
+  font-family: var(--font-body);
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin: 0 0 0.75rem;
+  letter-spacing: 0.03em;
+}
+.history-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  font-size: 0.88rem;
+}
+.history-table th {
+  text-align: left;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  border-bottom: 2px solid var(--border);
+  background: var(--bg);
+}
+.history-table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+.history-table tr:last-child td {
+  border-bottom: none;
+}
+.history-table tr:hover td {
+  background: var(--accent-soft);
+}
+.history-wiki-link {
+  color: var(--muted);
+  transition: color 0.15s;
+}
+.history-wiki-link:hover {
+  color: var(--accent);
+}
+.history-recent {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.history-recent-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 0.85rem 1rem;
+}
+.history-recent-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.3rem;
+}
+.history-recent-body {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+}
+.history-recent-links {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.history-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.78rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--accent);
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+.history-link-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  text-decoration: none;
 }

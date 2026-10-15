@@ -127,13 +127,14 @@ def practice_next(
     store: Annotated[TopicStore, Depends(get_topics)],
     topic: str | None = None,
     category: str | None = None,
+    subcategory: str | None = None,
     difficulty_min: Annotated[int | None, Query(ge=0, le=10)] = None,
     difficulty_max: Annotated[int | None, Query(ge=0, le=10)] = None,
     exclude: Annotated[str, Query(description="Comma-separated question ids already seen")] = "",
 ) -> Tossup:
     """A random question matching the filters, for buzzer practice."""
     seen = [x for x in exclude.split(",") if x]
-    tossup = store.practice(topic, category, difficulty_min, difficulty_max, seen)
+    tossup = store.practice(topic, category, subcategory, difficulty_min, difficulty_max, seen)
     if tossup is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no question matches")
     return tossup

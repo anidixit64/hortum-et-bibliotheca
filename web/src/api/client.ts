@@ -7,6 +7,7 @@ import type {
   ExploreResult,
   RouletteTopic,
   FollowedTopic,
+  PracticeHistory,
   SearchResult,
   Stats,
   TopicContent,
@@ -49,6 +50,7 @@ const study = (path: string) => `/api/study${path}`
 export interface PracticeFilter {
   topic?: string
   category?: string
+  subcategory?: string
   difficultyMin?: number
   difficultyMax?: number
   exclude?: string[]
@@ -85,6 +87,7 @@ export const api = {
     const params = new URLSearchParams()
     if (f.topic) params.set('topic', f.topic)
     if (f.category) params.set('category', f.category)
+    if (f.subcategory) params.set('subcategory', f.subcategory)
     if (f.difficultyMin !== undefined) params.set('difficulty_min', String(f.difficultyMin))
     if (f.difficultyMax !== undefined) params.set('difficulty_max', String(f.difficultyMax))
     if (f.exclude?.length) params.set('exclude', f.exclude.join(','))
@@ -184,6 +187,8 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ result }),
     }),
+
+  practiceHistory: () => request<PracticeHistory>(study('/practice/history')),
 
   adminUsage: (pin: string) =>
     request<AdminUsage>(content('/admin/usage'), {

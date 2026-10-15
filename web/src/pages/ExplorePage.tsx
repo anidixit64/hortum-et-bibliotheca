@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import type { ExploreResult } from '../api/types'
@@ -19,14 +19,12 @@ export function ExplorePage() {
   const { slug } = useParams<{ slug: string }>()
   const card = slug ? findCategory(slug) : undefined
   const [results, setResults] = useState<ExploreResult[] | null>(null)
-  const [thumbs, setThumbs] = useState<Record<string, string | null>>({})
   const [error, setError] = useState<string | null>(null)
   const [diffMin, setDiffMin] = useState<number | undefined>(undefined)
   const [diffMax, setDiffMax] = useState<number | undefined>(undefined)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [clueCache, setClueCache] = useState<Record<string, BriefClue[]>>({})
   const [clueSort, setClueSort] = useState<ClueSort>('frequency')
-  const thumbReq = useRef(0)
   const ai = useAiMode()
   const setAi = useSetAiMode()
   const [roulette, setRoulette] = useState(false)
@@ -46,13 +44,6 @@ export function ExplorePage() {
       })
       .then((data) => {
         setResults(data)
-        const ids = data.map((r) => r.topic_id)
-        if (ids.length) {
-          const req = ++thumbReq.current
-          api.thumbnails(ids).then((t) => {
-            if (req === thumbReq.current) setThumbs((prev) => ({ ...prev, ...t }))
-          }).catch(() => {})
-        }
       })
       .catch((e: Error) => setError(e.message))
   }, [card, diffMin, diffMax])
@@ -162,13 +153,6 @@ export function ExplorePage() {
                 <div className="explore-row-wrap">
                   <Link to={`/topic/${encodeURIComponent(r.topic_id)}`} className="explore-row">
                     <span className="explore-rank">{i + 1}</span>
-                    <div className="explore-thumb">
-                      {thumbs[r.topic_id] ? (
-                        <img src={thumbs[r.topic_id]!} alt="" loading="lazy" />
-                      ) : (
-                        <div className="explore-thumb-placeholder" />
-                      )}
-                    </div>
                     <div className="explore-info">
                       <strong>{r.name}</strong>
                       <span className="muted small">{r.count} questions</span>
