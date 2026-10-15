@@ -28,6 +28,7 @@ describe('special sections', () => {
         form: 'A handful', title: 'How a lens works', body: 'This essay should stay hidden.',
         dramatized: true,
         steps: [{ label: 'Light enters', detail: 'x' }, { label: 'Rays bend', detail: 'y' }],
+        diagram_blurb: 'The diagram follows one ray from the air into the glass and back out again.',
         entries: [
           { name: 'Convex lens', text: 'Thicker in the middle, it brings rays to a point.' },
           { name: 'Focal length', text: 'The distance from the lens to that point.' },
@@ -39,6 +40,7 @@ describe('special sections', () => {
     expect(screen.getByText('How a lens works')).toBeTruthy()
     expect(screen.getByText('Convex lens')).toBeTruthy()
     expect(screen.getByText('Rays bend')).toBeTruthy()
+    expect(screen.getByText(/follows one ray/)).toBeTruthy()
     expect(screen.getByText('44 BCE')).toBeTruthy()
     expect(screen.queryByText(/essay should stay hidden/)).toBeNull()
     expect(screen.queryByText(/dramatized scene/)).toBeNull()
