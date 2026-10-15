@@ -317,6 +317,7 @@ export interface SpecialPayload {
     steps: FeatureStep[]
     dramatized: boolean
     entries?: HandfulEntry[]
+    diagram_blurb?: string
   }
   source: { title: string; url: string } | null
 }

@@ -4,7 +4,8 @@ A. A timeline of dated events (discoveries, for science), from the Wikipedia tex
    event quotes the sentence it comes from; code keeps only events whose quote is in the
    article and contains the event's year, so dates can't be invented.
 B. A handful: five or six related things (works, species, moments), each explained in a
-   short paragraph. Science, social science and philosophy also get a step diagram.
+   short paragraph. Science, social science and philosophy also get a step diagram and a
+   100-150 word note about what that diagram shows.
 """
 
 import re
@@ -12,10 +13,11 @@ from typing import Any
 
 from content.writing import _squash
 
-SPECIAL_VERSION = 6
+SPECIAL_VERSION = 7
 TIMELINE_EVENTS = (4, 12)
 HANDFUL_COUNT = (5, 6)
 ENTRY_WORDS = (50, 100)
+BLURB_WORDS = (100, 150)
 DIAGRAM_CATEGORIES = {"Science", "Social Science", "Philosophy"}
 
 
@@ -87,7 +89,10 @@ facts, quotations, dates or numbers: they come from the source or are widely est
 DIAGRAM = """
 - "steps": 3-8 steps that draw one core idea as a flow. Each has a "label" (at most 6 \
 words) and a "detail" (at most 30 words). The steps are a diagram beside the list, not an \
-essay and not a substitute for the entries."""
+essay and not a substitute for the entries.
+- "diagram_blurb": 100-150 words in one paragraph about that diagram. Say what the flow \
+shows, how each step leads to the next, and what the picture is for. Do not repeat the \
+entries, and do not write a second overview of the topic."""
 
 HANDFUL = """Topic: {name} (category: {category})
 
@@ -131,13 +136,17 @@ STEP_SCHEMA: dict[str, Any] = {
 
 
 def handful_schema(diagram: bool) -> dict[str, Any]:
-    """The list, plus diagram steps when this category draws one."""
+    """The list, plus diagram steps and a short note when this category draws one."""
     if not diagram:
         return HANDFUL_SCHEMA
     return {
         "type": "object",
-        "properties": {**HANDFUL_SCHEMA["properties"], "steps": STEP_SCHEMA},
-        "required": ["title", "entries", "steps"],
+        "properties": {
+            **HANDFUL_SCHEMA["properties"],
+            "steps": STEP_SCHEMA,
+            "diagram_blurb": {"type": "string"},
+        },
+        "required": ["title", "entries", "steps", "diagram_blurb"],
     }
 
 
@@ -175,7 +184,7 @@ def timeline_problem(data: dict[str, Any], source: str) -> str | None:
 
 def entries_problem(data: dict[str, Any], *, diagram: bool = False) -> str | None:
     """A handful is 5 or 6 named things, each a short paragraph. Diagram categories also
-    need short steps, and no essay."""
+    need short steps and a 100-150 word note about the diagram, and no essay."""
     entries = data.get("entries") or []
     low_n, high_n = HANDFUL_COUNT
     if not low_n <= len(entries) <= high_n:
@@ -201,4 +210,9 @@ def entries_problem(data: dict[str, Any], *, diagram: bool = False) -> str | Non
                 or len(str(step.get("detail", "")).split()) > 40
             ):
                 return "diagram steps must be short: a label of at most 6 words, details of 30"
+        blurb = str(data.get("diagram_blurb", "")).strip()
+        n = len(blurb.split())
+        low, high = BLURB_WORDS
+        if not low * 0.85 <= n <= high * 1.2:
+            return f"the diagram blurb has {n} words, not {low}-{high}"
     return None

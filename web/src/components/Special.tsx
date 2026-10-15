@@ -62,7 +62,14 @@ export function Feature({ special }: { special: SpecialPayload }) {
           <p key={i} className="prose">{p}</p>
         ))
       )}
-      <StepDiagram steps={feature.steps} />
+      {diagram && (
+        <div className="diagram-block">
+          <StepDiagram steps={feature.steps} />
+          {feature.diagram_blurb?.trim() && (
+            <p className="prose diagram-blurb">{feature.diagram_blurb.trim()}</p>
+          )}
+        </div>
+      )}
       {source && (
         <p className="muted small attribution">
           Written by AI from <a href={source.url} target="_blank" rel="noreferrer">“{source.title}”</a>{' '}
