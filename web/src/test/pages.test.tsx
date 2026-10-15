@@ -59,6 +59,42 @@ test('review flips a card, rates it and moves on', async () => {
   expect(JSON.parse(String(review?.init?.body))).toEqual({ card_id: 'a', rating: 3 })
 })
 
+test('review browser edits and deletes cards', async () => {
+  const calls = mockFetch((url, init) => {
+    if (url.startsWith('/api/study/reviews/due'))
+      return [{ card_id: 'a', topic_id: 'Q1', kind: 'clue', front: 'Ras leads a riot.', back: 'Invisible Man', due: '' }]
+    if (url.startsWith('/api/study/cards/a') && init?.method === 'DELETE') return null
+    if (url.startsWith('/api/study/cards/a') && init?.method === 'PATCH')
+      return { card_id: 'a', topic_id: 'Q1', kind: 'clue', front: 'Ras starts the riot.', back: 'Invisible Man', due: '' }
+    if (url.startsWith('/api/study/cards'))
+      return [
+        { card_id: 'a', topic_id: 'Q1', kind: 'clue', front: 'Ras leads a riot.', back: 'Invisible Man', due: '' },
+        { card_id: 'b', topic_id: 'Q1', kind: 'reverse', front: 'Name 3 clues', back: 'Ras', due: '' },
+      ]
+    if (url === '/api/study/stats')
+      return { followed_topics: 1, cards: 2, due: 1, reviews_today: 0, reviews_total: 4,
+               ratings: { again: 1, hard: 0, good: 3, easy: 0 },
+               buzzing: { buzzes: 0, correct: 0, accuracy: null, median_correct_position: null, power_rate: null } }
+    if (url === '/api/study/topics') return []
+    return undefined
+  })
+  render(<MemoryRouter><ReviewPage /></MemoryRouter>)
+  expect(await screen.findByText('Ras leads a riot.')).toBeInTheDocument()
+  expect(await screen.findByText('75% · 3')).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Review' }))
+  expect(await screen.findByText('Name 3 clues')).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Edit Ras leads a riot.' }))
+  const front = screen.getByLabelText('Card front')
+  await userEvent.clear(front)
+  await userEvent.type(front, 'Ras starts the riot.')
+  await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+  expect(await screen.findByText('Ras starts the riot.')).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Select' }))
+  await userEvent.click(screen.getByRole('checkbox', { name: 'Select Name 3 clues' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Delete selected (1)' }))
+  expect(calls.some(c => c.url.includes('/cards/b') && c.init?.method === 'DELETE')).toBe(true)
+})
+
 test('practice reveals words, buzzes on space, judges and offers an override', async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   const calls = mockFetch((url, init) => {

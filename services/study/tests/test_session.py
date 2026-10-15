@@ -73,8 +73,21 @@ RECORD = {
 }
 
 
+FILING = {
+    "topic_id": "Q1784288",
+    "category": "Literature",
+    "subcategory": "American Literature",
+    "alt_subcategory": "Long Fiction",
+    "difficulty": 5,
+}
+
+
 def fake_catalog(request: httpx.Request) -> httpx.Response:
-    data: dict[str, Any] = {"/topics/Q1784288": RECORD, "/tossups/q1": TOSSUP}
+    data: dict[str, Any] = {
+        "/topics/Q1784288": RECORD,
+        "/topics/Q1784288/filing": FILING,
+        "/tossups/q1": TOSSUP,
+    }
     body = data.get(request.url.path)
     return httpx.Response(200, json=body) if body else httpx.Response(404, json={})
 
@@ -151,6 +164,32 @@ def test_scripted_session(client: TestClient) -> None:
     assert client.get("/reviews/due").json() == [] and client.get("/topics").json() == []
 
     assert Path(post(client, "/admin/backup")["backup"]).is_file()
+
+
+def test_cards_can_be_filtered_edited_and_deleted(client: TestClient) -> None:
+    post(client, "/topics/Q1784288/follow")
+    listed = client.get("/cards").json()
+    assert len(listed) == 4
+    assert {c["category"] for c in listed} == {"Literature"}
+    assert listed[0]["subcategory"] == "American Literature"
+    assert client.get("/cards", params={"category": "Science"}).json() == []
+    assert len(client.get("/cards", params={"subcategory": "Long Fiction"}).json()) == 4
+    due = client.get("/reviews/due", params={"difficulty_min": 5, "difficulty_max": 5}).json()
+    assert len(due) == 4
+
+    one = listed[0]
+    edited = client.patch(
+        f"/cards/{one['card_id']}", json={"front": "A new front", "back": "A new back"}
+    ).json()
+    assert edited["front"] == "A new front" and edited["back"] == "A new back"
+    assert client.delete(f"/cards/{one['card_id']}").status_code == 204
+    again = client.get("/cards").json()
+    assert len(again) == 3 and all(c["card_id"] != one["card_id"] for c in again)
+    assert client.delete(f"/cards/{one['card_id']}").status_code == 404
+
+    stats = client.get("/stats").json()
+    assert stats["reviews_total"] == 0
+    assert stats["ratings"] == {"again": 0, "hard": 0, "good": 0, "easy": 0}
 
 
 def test_prompt_is_not_recorded(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:

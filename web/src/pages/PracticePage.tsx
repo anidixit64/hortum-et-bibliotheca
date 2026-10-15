@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../api/client'
-import type { BuzzOut, ClueSpan, Tossup } from '../api/types'
+import type { BuzzOut, ClueSpan, Stats, Tossup } from '../api/types'
+import { percent } from '../lib/format'
 import { msPerWord, pastPower, words as split } from '../lib/reveal'
 
 type Phase = 'loading' | 'reading' | 'countdown' | 'answering' | 'result' | 'empty'
@@ -65,6 +66,11 @@ export function PracticePage() {
   const [score, setScore] = useState(0)
   const [highScore, setHighScore] = useState(readHighScore)
   const [lastPoints, setLastPoints] = useState<number | null>(null)
+  const [progress, setProgress] = useState<Stats | null>(null)
+
+  useEffect(() => {
+    api.stats().then(setProgress).catch(() => setProgress(null))
+  }, [])
 
   const words = tossup ? split(tossup.question) : []
 
@@ -405,6 +411,20 @@ export function PracticePage() {
             </div>
             <div className="score-high">
               Best: <strong>{highScore}</strong>
+            </div>
+            <div className="score-study">
+              <div>
+                <strong>{percent(progress?.buzzing.accuracy)}</strong>
+                <span>buzz accuracy</span>
+              </div>
+              <div>
+                <strong>{progress ? progress.buzzing.buzzes : '—'}</strong>
+                <span>buzzes</span>
+              </div>
+              <div>
+                <strong>{percent(progress?.buzzing.median_correct_position)}</strong>
+                <span>median buzz</span>
+              </div>
             </div>
             <div className="score-legend">
               <div className="score-legend-row">

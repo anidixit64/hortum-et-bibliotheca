@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, Route, Routes, useLocation } from 'react-router-dom'
+import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { api } from './api/client'
 import { PracticePage } from './pages/PracticePage'
 import { ReviewPage } from './pages/ReviewPage'
 import { HomePage } from './pages/HomePage'
 import { BrowsePage } from './pages/BrowsePage'
 import { SettingsPage } from './pages/SettingsPage'
-import { StudyingPage } from './pages/StudyingPage'
 import { TopicPage } from './pages/TopicPage'
 import { ExplorePage } from './pages/ExplorePage'
 import { AiModeProvider, useAiMode, useSetAiMode } from './lib/aiMode'
@@ -69,7 +68,6 @@ function Shell() {
                 Review
                 {due ? <span className="badge">{due}</span> : null}
               </Link>
-              <Link to="/studying">Studying</Link>
               <Link to="/settings">Settings</Link>
               <div className="nav-mode">
                 <span className={ai ? 'nav-mode-on' : undefined}>AI</span>
@@ -97,7 +95,7 @@ function Shell() {
           <Route path="/topic/:key" element={<TopicPage />} />
           <Route path="/practice" element={<PracticePage />} />
           <Route path="/review" element={<ReviewPage onReviewed={refreshDue} />} />
-          <Route path="/studying" element={<StudyingPage />} />
+          <Route path="/studying" element={<Navigate to="/review" replace />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<p>Page not found. <Link to="/">Home</Link></p>} />
         </Routes>

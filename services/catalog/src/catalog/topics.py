@@ -5,6 +5,8 @@ import json
 import random
 import re
 import sqlite3
+import statistics
+from collections import Counter
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote, quote_plus
@@ -83,6 +85,47 @@ class TopicStore:
         row = conn.execute("SELECT id FROM topics WHERE id = ?", (key,)).fetchone()
         row = row or conn.execute("SELECT id FROM topics WHERE slug = ?", (key,)).fetchone()
         return row[0] if row else None
+
+    def filing(self, key: str) -> dict[str, object] | None:
+        """The category a topic is usually asked in, plus its typical difficulty.
+
+        Subcategory is the most common one on the topic's questions. Difficulty is the
+        median question difficulty, so a flashcard can be filtered the way a tossup is.
+        """
+        with self._connect() as conn:
+            topic_id = self._resolve(conn, key)
+            if topic_id is None:
+                return None
+            try:
+                rows = conn.execute(
+                    "SELECT t.category, t.subcategory, t.alt_subcategory, t.difficulty "
+                    "FROM tossups t JOIN tossup_topics tt ON tt.tossup_id = t.id "
+                    "WHERE tt.topic_id = ?",
+                    (topic_id,),
+                ).fetchall()
+            except sqlite3.OperationalError:
+                # A partial corpus may not have question rows yet.
+                rows = []
+            try:
+                stored = conn.execute(
+                    "SELECT primary_category FROM topics WHERE id = ?", (topic_id,)
+                ).fetchone()
+            except sqlite3.OperationalError:
+                stored = None
+
+            def mode(index: int) -> str | None:
+                counts = Counter(row[index] for row in rows if row[index])
+                return counts.most_common(1)[0][0] if counts else None
+
+            difficulties = [row[3] for row in rows if isinstance(row[3], int)]
+            difficulty = int(round(statistics.median(difficulties))) if difficulties else None
+            return {
+                "topic_id": topic_id,
+                "category": mode(0) or (stored[0] if stored else None),
+                "subcategory": mode(1),
+                "alt_subcategory": mode(2),
+                "difficulty": difficulty,
+            }
 
     def snapshot(self, key: str) -> str | None:
         """The topic's ready-made page JSON, as stored: one primary-key read."""

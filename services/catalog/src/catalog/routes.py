@@ -59,6 +59,23 @@ def topic(key: str, store: Annotated[TopicStore, Depends(get_topics)]) -> Respon
     return Response(raw, media_type="application/json")
 
 
+class Filing(BaseModel):
+    topic_id: str
+    category: str | None
+    subcategory: str | None
+    alt_subcategory: str | None
+    difficulty: int | None
+
+
+@router.get("/topics/{key}/filing", tags=["topics"])
+def topic_filing(key: str, store: Annotated[TopicStore, Depends(get_topics)]) -> Filing:
+    """How a topic's questions are filed, so flashcards can be filtered the same way."""
+    found = store.filing(key)
+    if found is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"no topic {key!r}")
+    return Filing.model_validate(found)
+
+
 @router.get(
     "/topics/{key}/clues",
     tags=["topics"],

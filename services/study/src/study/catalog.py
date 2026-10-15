@@ -28,5 +28,9 @@ class Catalog:
     async def topic(self, topic_id: str) -> dict[str, Any] | None:
         return await self._get(f"/topics/{topic_id}")
 
+    async def filing(self, topic_id: str) -> dict[str, Any] | None:
+        """Category, the usual subcategory, and typical difficulty for a topic's cards."""
+        return await self._get(f"/topics/{topic_id}/filing")
+
     async def tossup(self, tossup_id: str) -> dict[str, Any] | None:
         return await self._get(f"/tossups/{tossup_id}")
