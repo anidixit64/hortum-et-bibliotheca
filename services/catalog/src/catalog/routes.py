@@ -139,6 +139,15 @@ def practice_next(
     return tossup
 
 
+@router.get("/explore/roulette", tags=["explore"])
+def explore_roulette(
+    store: Annotated[TopicStore, Depends(get_topics)],
+    limit: Annotated[int, Query(ge=1, le=60)] = 32,
+) -> list[dict[str, object]]:
+    """Random topics from the corpus, for the explore-page roulette."""
+    return store.roulette(limit)
+
+
 @router.get("/explore/top", tags=["explore"])
 def explore_top(
     store: Annotated[TopicStore, Depends(get_topics)],
