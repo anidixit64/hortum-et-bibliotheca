@@ -2266,46 +2266,211 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* --- Palette picker (homepage footer) ---------------------------------------------------- */
+/* --- Palette picker: footer trigger + wheel overlay --------------------------------------- */
 
-.palette-picker {
+.palette-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
   display: flex;
   justify-content: center;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-  padding: 1rem 1rem 2rem;
+  padding: 0.75rem 0 1rem;
+  pointer-events: none;
+  z-index: 50;
 }
-.palette-swatch {
+.palette-trigger {
+  pointer-events: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.25rem;
   background: none;
-  border: 2px solid transparent;
-  border-radius: 10px;
-  padding: 0.4rem 0.55rem;
+  border: none;
   cursor: pointer;
-  transition: border-color 0.2s;
+  padding: 0.3rem;
+  color: var(--muted);
+  transition: color 0.2s;
 }
-.palette-swatch:hover { border-color: var(--muted); }
-.palette-swatch.active { border-color: var(--accent); }
-.palette-dots {
+.palette-trigger:hover { color: var(--accent); }
+.palette-trigger-ring {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.palette-trigger:hover .palette-trigger-ring {
+  border-color: var(--accent);
+  box-shadow: 0 2px 12px rgb(0 0 0 / 12%);
+}
+.palette-trigger-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: block;
+}
+.palette-trigger-label {
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Fullscreen overlay */
+.palette-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 55%);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: palette-fade-in 0.25s ease;
+}
+@keyframes palette-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Wheel container: holds center + orbiting nodes */
+.palette-wheel-container {
+  position: relative;
+  width: 340px;
+  height: 340px;
   display: flex;
-  gap: 2px;
+  align-items: center;
+  justify-content: center;
 }
-.palette-dot {
-  width: 12px;
-  height: 12px;
+
+/* Center preview area */
+.palette-wheel-center {
+  position: absolute;
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  z-index: 2;
+  overflow: hidden;
+}
+.palette-wheel-hint {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-style: italic;
+}
+.palette-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 0.5rem;
+}
+.palette-preview-card {
+  width: 90px;
+  border-radius: 6px;
+  border: 1px solid;
+  padding: 0.35rem 0.4rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+}
+.palette-preview-title {
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.palette-preview-sub {
+  font-size: 0.55rem;
+  font-style: italic;
+}
+.palette-preview-bar {
+  display: flex;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 0.15rem;
+}
+.palette-preview-name {
+  font-size: 0.7rem;
+  color: var(--text);
+  font-weight: 600;
+  margin-top: 0.1rem;
+}
+
+/* Individual palette node on the wheel */
+.palette-node {
+  position: absolute;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: transform 0.3s ease, border-color 0.2s, box-shadow 0.2s;
+  z-index: 3;
+}
+.palette-node:hover, .palette-node.hovered {
+  border-color: var(--accent);
+  box-shadow: 0 0 16px rgb(0 0 0 / 25%);
+  z-index: 4;
+}
+.palette-node.active {
+  border-color: var(--accent);
+  border-width: 3px;
+}
+
+/* Conic gradient color wheel inside each node */
+.palette-node-ring {
+  display: block;
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
 }
-.palette-swatch-label {
-  font-size: 0.68rem;
-  color: var(--muted);
+
+/* Tooltip label on hover */
+.palette-node-label {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
   white-space: nowrap;
-}
-.palette-swatch.active .palette-swatch-label {
-  color: var(--accent);
+  font-size: 0.7rem;
   font-weight: 600;
+  color: #fff;
+  background: rgb(0 0 0 / 70%);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+@media (max-width: 420px) {
+  .palette-wheel-container {
+    width: 300px;
+    height: 300px;
+  }
+  .palette-wheel-center {
+    width: 110px;
+    height: 110px;
+  }
 }
 
 @media (max-width: 600px) {

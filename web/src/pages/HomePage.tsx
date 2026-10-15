@@ -6,6 +6,7 @@ import type { SearchResult } from '../api/types'
 import { PALETTES, readPalette, savePalette, applyPalette } from '../lib/palette'
 
 const DEBOUNCE_MS = 200
+const WHEEL_RADIUS = 140
 
 export function HomePage() {
   const [query, setQuery] = useState('')
@@ -54,13 +55,18 @@ export function HomePage() {
   }
 
   const [palette, setPaletteIdx] = useState(readPalette)
+  const [wheelOpen, setWheelOpen] = useState(false)
+  const [hovered, setHovered] = useState<number | null>(null)
   const choosePalette = (i: number) => {
     setPaletteIdx(i)
     savePalette(i)
     applyPalette(i)
+    setWheelOpen(false)
   }
 
   const showDropdown = focused && query.trim().length > 0 && results.length > 0
+
+  const previewPalette = hovered !== null ? PALETTES[hovered] : null
 
   return (
     <div className="home">
@@ -114,24 +120,105 @@ export function HomePage() {
           )}
         </div>
       </div>
-      <div className="palette-picker">
-        {PALETTES.map((p, i) => (
-          <button
-            key={p.name}
-            className={`palette-swatch${palette === i ? ' active' : ''}`}
-            onClick={() => choosePalette(i)}
-            aria-label={`${p.name} theme`}
-            title={p.mood}
-          >
-            <div className="palette-dots">
-              {Object.values(p.dark).slice(0, 5).map((c, j) => (
-                <span key={j} className="palette-dot" style={{ background: c }} />
-              ))}
-            </div>
-            <span className="palette-swatch-label">{p.name}</span>
-          </button>
-        ))}
+
+      {/* Footer trigger */}
+      <div className="palette-footer">
+        <button
+          className="palette-trigger"
+          onClick={() => setWheelOpen(true)}
+          aria-label="Pick colors"
+        >
+          <span className="palette-trigger-ring">
+            {PALETTES[palette].dark.accent !== PALETTES[0].dark.accent ? (
+              <span className="palette-trigger-dot" style={{ background: PALETTES[palette].dark.accent }} />
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <circle cx="12" cy="8" r="1.5" fill="currentColor" stroke="none" />
+                <circle cx="8" cy="14" r="1.5" fill="currentColor" stroke="none" />
+                <circle cx="16" cy="14" r="1.5" fill="currentColor" stroke="none" />
+              </svg>
+            )}
+          </span>
+          <span className="palette-trigger-label">pick colors</span>
+        </button>
       </div>
+
+      {/* Wheel overlay */}
+      {wheelOpen && (
+        <div className="palette-overlay" onClick={() => setWheelOpen(false)}>
+          <div className="palette-wheel-container" onClick={(e) => e.stopPropagation()}>
+            {/* Center preview */}
+            <div className="palette-wheel-center">
+              {previewPalette ? (
+                <div className="palette-preview">
+                  <div
+                    className="palette-preview-card"
+                    style={{
+                      background: previewPalette.dark.surface,
+                      borderColor: previewPalette.dark.border,
+                    }}
+                  >
+                    <span
+                      className="palette-preview-title"
+                      style={{ color: previewPalette.dark.accent }}
+                    >
+                      Museo
+                    </span>
+                    <span
+                      className="palette-preview-sub"
+                      style={{ color: previewPalette.dark.muted }}
+                    >
+                      {previewPalette.mood}
+                    </span>
+                    <div className="palette-preview-bar">
+                      {Object.values(previewPalette.dark).slice(0, 5).map((c, j) => (
+                        <span key={j} style={{ background: c, flex: 1, height: '100%' }} />
+                      ))}
+                    </div>
+                  </div>
+                  <span className="palette-preview-name">{previewPalette.name}</span>
+                </div>
+              ) : (
+                <span className="palette-wheel-hint">hover to preview</span>
+              )}
+            </div>
+
+            {/* Palette nodes on the wheel */}
+            {PALETTES.map((p, i) => {
+              const angle = (2 * Math.PI * i) / PALETTES.length - Math.PI / 2
+              const x = Math.cos(angle) * WHEEL_RADIUS
+              const y = Math.sin(angle) * WHEEL_RADIUS
+              const isActive = palette === i
+              return (
+                <button
+                  key={p.name}
+                  className={`palette-node${isActive ? ' active' : ''}${hovered === i ? ' hovered' : ''}`}
+                  style={{ transform: `translate(${x}px, ${y}px)` }}
+                  onMouseEnter={() => setHovered(i)}
+                  onMouseLeave={() => setHovered(null)}
+                  onClick={() => choosePalette(i)}
+                  aria-label={`${p.name} theme`}
+                >
+                  {(() => {
+                    const colors = Object.values(p.dark).slice(0, 5)
+                    const stops = colors.map((c, j) => `${c} ${j * 20}% ${(j + 1) * 20}%`).join(', ')
+                    return (
+                      <span
+                        className="palette-node-ring"
+                        style={{ background: `conic-gradient(from 0deg, ${stops})` }}
+                      />
+                    )
+                  })()}
+                  {hovered === i && (
+                    <span className="palette-node-label">{p.name}</span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
