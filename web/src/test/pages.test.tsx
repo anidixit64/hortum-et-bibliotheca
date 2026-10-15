@@ -95,6 +95,68 @@ test('review browser edits and deletes cards', async () => {
   expect(calls.some(c => c.url.includes('/cards/b') && c.init?.method === 'DELETE')).toBe(true)
 })
 
+test('review cards sit in groups and select all can take one group or every card', async () => {
+  mockFetch((url) => {
+    if (url.startsWith('/api/study/reviews/due')) return []
+    if (url.startsWith('/api/study/cards'))
+      return [
+        { card_id: 'a', topic_id: 'Q1', kind: 'clue', front: 'Ras leads a riot.', back: 'Invisible Man', due: '2026-10-20',
+          category: 'Literature', subcategory: 'American Literature' },
+        { card_id: 'b', topic_id: 'Q2', kind: 'clue', front: 'Little Round Top.', back: 'Gettysburg', due: '2026-10-18',
+          category: 'History', subcategory: 'American History' },
+        { card_id: 'c', topic_id: 'Q1', kind: 'reverse', front: 'Name the narrator.', back: 'Invisible Man', due: '2026-10-19',
+          category: 'Literature', subcategory: 'American Literature' },
+      ]
+    if (url === '/api/study/stats')
+      return { followed_topics: 0, cards: 3, due: 0, reviews_today: 0, reviews_total: 0,
+               ratings: { again: 0, hard: 0, good: 0, easy: 0 },
+               buzzing: { buzzes: 0, correct: 0, accuracy: null, median_correct_position: null, power_rate: null } }
+    if (url === '/api/study/topics') return []
+    return undefined
+  })
+  render(<MemoryRouter><ReviewPage /></MemoryRouter>)
+  await userEvent.click(await screen.findByRole('button', { name: 'Review' }))
+  expect(await screen.findByText('Little Round Top.')).toBeInTheDocument()
+  await userEvent.selectOptions(screen.getByLabelText('Group cards'), 'subcategory')
+  expect(screen.getByRole('heading', { name: 'History · American History' })).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Literature · American Literature' })).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Select' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Select group History · American History' }))
+  expect(screen.getByRole('checkbox', { name: 'Select Little Round Top.' })).toBeChecked()
+  expect(screen.getByRole('checkbox', { name: 'Select Ras leads a riot.' })).not.toBeChecked()
+  await userEvent.click(screen.getByRole('button', { name: 'Select all cards' }))
+  expect(screen.getByRole('checkbox', { name: 'Select Name the narrator.' })).toBeChecked()
+  expect(screen.getByRole('button', { name: 'Select all cards' })).toHaveTextContent('Clear all')
+})
+
+test('practice pause holds the reading and skip shows the answer', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  const calls = mockFetch((url) => {
+    if (url.startsWith('/api/catalog/practice/next'))
+      return { id: 'q1', set_name: 'ACF', year: 2024, difficulty: 7, category: 'Literature', subcategory: null,
+               question: 'He is expelled by Bledsoe. For 10 points, name this novel.', power_word: 2,
+               answer: 'Invisible Man', answer_html: null, topic_id: 'Q1784288', clues: [] }
+    if (url === '/api/study/buzzes')
+      return { buzz_id: null, result: 'no_buzz', recorded: true, judged_by: 'auto', position: null,
+               clue_ordinal: null, in_power: false, answer: 'Invisible Man', missed_cards: 0 }
+    return undefined
+  })
+  render(<MemoryRouter initialEntries={['/practice?topic=Q1784288']}><PracticePage /></MemoryRouter>)
+  await userEvent.click(await screen.findByRole('button', { name: 'Pause' }))
+  expect(screen.getByText('Reading paused')).toBeInTheDocument()
+  await act(async () => { vi.advanceTimersByTime(2000) })
+  expect(screen.queryByText(/expelled/)).toBeNull()
+  await userEvent.click(screen.getByRole('button', { name: 'Resume' }))
+  for (let i = 0; i < 3; i++) await act(async () => { vi.advanceTimersByTime(300) })
+  expect(screen.getByText(/expelled/)).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Skip' }))
+  expect(await screen.findByText('Skipped')).toBeInTheDocument()
+  expect(document.querySelector('.reader')?.textContent).toMatch(/name this novel/)
+  expect(document.querySelector('.practice-answer-reveal')?.textContent).toMatch(/Invisible Man/)
+  const buzz = calls.find((c) => c.url === '/api/study/buzzes')
+  expect(JSON.parse(String(buzz?.init?.body)).word_index).toBeNull()
+})
+
 test('practice reveals words, buzzes on space, judges and offers an override', async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   const calls = mockFetch((url, init) => {

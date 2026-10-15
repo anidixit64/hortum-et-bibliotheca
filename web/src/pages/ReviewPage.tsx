@@ -408,6 +408,40 @@ function ReviewCard({
   )
 }
 
+type CardGrouping = 'none' | 'category' | 'subcategory'
+type CardSort = 'front' | 'category' | 'subcategory' | 'due'
+
+function cardFiling(card: DueCard) {
+  return {
+    category: card.category || 'Uncategorized',
+    subcategory: card.subcategory || card.alt_subcategory || 'Uncategorized',
+  }
+}
+
+function cardSortKey(card: DueCard, sort: CardSort) {
+  const filing = cardFiling(card)
+  if (sort === 'front') return card.front.toLocaleLowerCase()
+  if (sort === 'due') return card.due || ''
+  if (sort === 'category') return `${filing.category}\0${filing.subcategory}\0${card.front}`
+  return `${filing.subcategory}\0${filing.category}\0${card.front}`
+}
+
+function cardGroups(cards: DueCard[], grouping: CardGrouping, sort: CardSort) {
+  const sorted = [...cards].sort((a, b) => cardSortKey(a, sort).localeCompare(cardSortKey(b, sort)))
+  if (grouping === 'none') return [{ title: '', cards: sorted }]
+  const buckets = new Map<string, DueCard[]>()
+  for (const card of sorted) {
+    const filing = cardFiling(card)
+    const title = grouping === 'category' ? filing.category : `${filing.category} · ${filing.subcategory}`
+    const list = buckets.get(title) ?? []
+    list.push(card)
+    buckets.set(title, list)
+  }
+  return [...buckets.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([title, list]) => ({ title, cards: list }))
+}
+
 function CardBrowser({
   cards, onClose, onDeleted, onEdited,
 }: {
@@ -421,6 +455,8 @@ function CardBrowser({
   const [editing, setEditing] = useState<string | null>(null)
   const [draft, setDraft] = useState({ front: '', back: '' })
   const [busy, setBusy] = useState(false)
+  const [grouping, setGrouping] = useState<CardGrouping>('none')
+  const [sort, setSort] = useState<CardSort>('front')
 
   const remove = async (ids: string[]) => {
     setBusy(true)
@@ -447,6 +483,16 @@ function CardBrowser({
     }
   }
 
+  const groups = cardGroups(cards ?? [], grouping, sort)
+  const visibleIds = groups.flatMap(group => group.cards.map(card => card.card_id))
+  const allPicked = visibleIds.length > 0 && visibleIds.every(id => picked.includes(id))
+  const toggleIds = (ids: string[]) => {
+    const every = ids.length > 0 && ids.every(id => picked.includes(id))
+    setPicked(current => every
+      ? current.filter(id => !ids.includes(id))
+      : [...new Set([...current, ...ids])])
+  }
+
   return (
     <div className="card-browser">
       <div className="card-browser-bar">
@@ -455,6 +501,11 @@ function CardBrowser({
           <button type="button" onClick={() => { setSelecting(s => !s); setPicked([]) }}>
             {selecting ? 'Cancel' : 'Select'}
           </button>
+          {selecting && (
+            <button type="button" aria-label="Select all cards" onClick={() => toggleIds(visibleIds)}>
+              {allPicked ? 'Clear all' : 'Select all'}
+            </button>
+          )}
           {selecting && (
             <button
               type="button"
@@ -468,64 +519,107 @@ function CardBrowser({
           <button type="button" onClick={onClose}>Study</button>
         </div>
       </div>
+      <div className="card-browser-arrange">
+        <label>
+          Group
+          <select aria-label="Group cards" value={grouping} onChange={e => setGrouping(e.target.value as CardGrouping)}>
+            <option value="none">None</option>
+            <option value="category">Category</option>
+            <option value="subcategory">Subcategory</option>
+          </select>
+        </label>
+        <label>
+          Sort
+          <select aria-label="Sort cards" value={sort} onChange={e => setSort(e.target.value as CardSort)}>
+            <option value="front">Front A–Z</option>
+            <option value="category">Category</option>
+            <option value="subcategory">Subcategory</option>
+            <option value="due">Due date</option>
+          </select>
+        </label>
+      </div>
       {!cards ? (
         <p className="muted">Loading cards…</p>
       ) : !cards.length ? (
         <p className="muted">No cards match these filters.</p>
       ) : (
-        cards.map(card => (
-          <article key={card.card_id} className={`card-row${selecting ? ' selecting' : ''}`}>
-            {selecting && (
-              <input
-                type="checkbox"
-                className="card-check"
-                aria-label={`Select ${card.front}`}
-                checked={picked.includes(card.card_id)}
-                onChange={() => setPicked(current =>
-                  current.includes(card.card_id)
-                    ? current.filter(id => id !== card.card_id)
-                    : [...current, card.card_id],
-                )}
-              />
-            )}
-            {editing === card.card_id ? (
-              <form className="card-edit" onSubmit={e => { e.preventDefault(); void save(card) }}>
-                <textarea aria-label="Card front" value={draft.front} onChange={e => setDraft(d => ({ ...d, front: e.target.value }))} />
-                <textarea aria-label="Card back" value={draft.back} onChange={e => setDraft(d => ({ ...d, back: e.target.value }))} />
-                <div className="card-browser-actions">
-                  <button className="primary" type="submit" disabled={busy}>Save</button>
-                  <button type="button" onClick={() => setEditing(null)}>Cancel</button>
+        groups.map(group => {
+          const ids = group.cards.map(card => card.card_id)
+          const groupPicked = ids.every(id => picked.includes(id))
+          return (
+            <section key={group.title || 'all'} className="card-group">
+              {group.title && (
+                <div className="card-group-head">
+                  <h3>{group.title}</h3>
+                  {selecting && (
+                    <button
+                      type="button"
+                      aria-label={groupPicked ? `Clear ${group.title}` : `Select group ${group.title}`}
+                      onClick={() => toggleIds(ids)}
+                    >
+                      {groupPicked ? 'Clear' : 'Select group'}
+                    </button>
+                  )}
                 </div>
-              </form>
-            ) : (
-              <div className="card-row-body">
-                <p className="card-row-front">{card.front}</p>
-                <p className="card-row-back muted small">{card.back}</p>
+              )}
+              <div className="card-grid">
+                {group.cards.map(card => {
+                  const filing = cardFiling(card)
+                  return (
+                    <article key={card.card_id} className={`card-tile${selecting ? ' selecting' : ''}`}>
+                      {selecting && (
+                        <input
+                          type="checkbox"
+                          className="card-check"
+                          aria-label={`Select ${card.front}`}
+                          checked={picked.includes(card.card_id)}
+                          onChange={() => toggleIds([card.card_id])}
+                        />
+                      )}
+                      {editing === card.card_id ? (
+                        <form className="card-edit" onSubmit={e => { e.preventDefault(); void save(card) }}>
+                          <textarea aria-label="Card front" value={draft.front} onChange={e => setDraft(d => ({ ...d, front: e.target.value }))} />
+                          <textarea aria-label="Card back" value={draft.back} onChange={e => setDraft(d => ({ ...d, back: e.target.value }))} />
+                          <div className="card-browser-actions">
+                            <button className="primary" type="submit" disabled={busy}>Save</button>
+                            <button type="button" onClick={() => setEditing(null)}>Cancel</button>
+                          </div>
+                        </form>
+                      ) : (
+                        <div className="card-row-body">
+                          <p className="card-row-front">{card.front}</p>
+                          <p className="card-row-back muted small">{card.back}</p>
+                          <p className="card-tile-filing muted small">{filing.category} · {filing.subcategory}</p>
+                        </div>
+                      )}
+                      {editing !== card.card_id && (
+                        <div className="card-row-actions">
+                          <button
+                            type="button"
+                            className="card-icon-btn"
+                            aria-label={`Edit ${card.front}`}
+                            onClick={() => { setEditing(card.card_id); setDraft({ front: card.front, back: card.back }) }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="card-icon-btn danger"
+                            aria-label={`Delete ${card.front}`}
+                            disabled={busy}
+                            onClick={() => void remove([card.card_id])}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </article>
+                  )
+                })}
               </div>
-            )}
-            {editing !== card.card_id && (
-              <div className="card-row-actions">
-                <button
-                  type="button"
-                  className="card-icon-btn"
-                  aria-label={`Edit ${card.front}`}
-                  onClick={() => { setEditing(card.card_id); setDraft({ front: card.front, back: card.back }) }}
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  className="card-icon-btn danger"
-                  aria-label={`Delete ${card.front}`}
-                  disabled={busy}
-                  onClick={() => void remove([card.card_id])}
-                >
-                  Delete
-                </button>
-              </div>
-            )}
-          </article>
-        ))
+            </section>
+          )
+        })
       )}
     </div>
   )
