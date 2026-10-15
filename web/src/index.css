@@ -1527,7 +1527,7 @@ details h3 {
   color: var(--accent);
 }
 
-.wiki-article { display: flex; flex-direction: column; gap: 0.85rem; }
+.wiki-article { display: block; }
 .wiki-section {
   border-top: 1px solid var(--border);
   padding-top: 0.65rem;
