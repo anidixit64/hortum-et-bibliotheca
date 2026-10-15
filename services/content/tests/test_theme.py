@@ -37,7 +37,8 @@ def test_problem_and_finish() -> None:
                                                     "accent": "#c9a0dc"}  # fmt: skip
     dark = {t: "#24161f" for t in theme.TOKENS} | {"text": "#444444", "muted": "#333333",
                                                    "accent": "#7a3b8f"}  # fmt: skip
-    data = {"light": light, "dark": dark, "font": "classical-serif"}
+    rationale = " ".join(["The era is candlelit and the accents pick out the gold leaf."] * 6)
+    data = {"light": light, "dark": dark, "font": "classical-serif", "rationale": rationale}
     assert theme.problem(data) is None
     assert "hex" in str(theme.problem({**data, "light": {**light, "bg": "white"}}))
     assert "lighter" in str(theme.problem({**data, "light": dark, "dark": light}))
@@ -45,7 +46,9 @@ def test_problem_and_finish() -> None:
     assert "plain grey" in str(theme.problem({**data, "light": {**light, "bg": "#f7f6f2"}}))
     teal = {**data, "dark": {**dark, "accent": "#7cc2ab"}}
     assert "default teal" in str(theme.problem(teal))
+    assert "rationale" in str(theme.problem({**data, "rationale": "Too short."}))
     done = theme.finish(data)
+    assert "candlelit" in done["rationale"]
     for mode in ("light", "dark"):
         colors = done[mode]
         assert theme.contrast(colors["text"], colors["surface"]) >= 7

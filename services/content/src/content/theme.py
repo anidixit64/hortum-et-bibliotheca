@@ -15,7 +15,7 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
-THEME_VERSION = 3
+THEME_VERSION = 4
 TOKENS = ("bg", "surface", "text", "muted", "accent", "accent2", "accent_soft", "header_tint")
 FONT_PAIRINGS = {
     "classical-serif": "Old-style serif (Palatino, Iowan): history, classics, literature",
@@ -145,19 +145,20 @@ def palette(image: bytes, k: int = 6, seed: int = 7) -> list[dict[str, Any]]:
 # --- the request and its checks ---------------------------------------------------------
 
 SYSTEM = """You design the color palette of a study page about one topic, like the color \
-scheme of a museum exhibit. First envision the 5-6 colors that represent the topic — for \
-a polar topic, whites, icy purples and blues with hints of aurora green and pink; for the \
-Aztec Empire, jade, terracotta, obsidian, gold and turquoise. Then map those colors to a \
-coherent page scheme. Text stays easy to read."""
+scheme of a museum exhibit. Choose 2-3 colors that embody the atmosphere, aesthetic, and \
+era of the topic, and 2-3 colors that accent or highlight particular aspects of it. Those \
+colors have to blend into one seamless palette. Text stays easy to read. For a polar topic \
+that might be ice white, a deep blue, and a thin aurora green; for the Aztec Empire, jade, \
+terracotta, and gold."""
 
 PROMPT = """Topic: {name} (category: {category})
 Opening of the page: {hook}
 Header image: {caption}
 Dominant colors of the header image (hex, share of the image): {palette}
 {related_colors}
-First think of 5-6 colors that REPRESENT this topic — what a designer would put in a \
-mood board. Then map them into two color sets, "light" and "dark", each with these hex \
-colors:
+First choose 2-3 colors for the atmosphere, aesthetic, and era, and 2-3 accent colors that \
+highlight particular aspects and still belong in the same palette. Then map them into two \
+color sets, "light" and "dark", each with these hex colors:
 - bg: page background, clearly tinted with the topic's character (light: a pale version \
 of a topic color; dark: a deep, rich version), never plain grey, white or black
 - surface: card background, slightly lifted from bg, with the same tint
@@ -170,7 +171,9 @@ of a topic color; dark: a deep, rich version), never plain grey, white or black
 Then pick "font" from: {fonts}
 The site's default scheme is grey with a teal-green accent ({default}); this page must \
 look distinctly different from it. The colors should feel like the topic — someone seeing \
-only the colors should guess the subject. Avoid plain grey schemes and garish neon."""
+only the colors should guess the subject. Avoid plain grey schemes and garish neon.
+Also write "rationale": 40 to 80 words on why these colors were picked. Name the atmosphere, \
+the era, and what the accent colors are highlighting. No hex codes in that paragraph."""
 
 SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -180,8 +183,9 @@ SCHEMA: dict[str, Any] = {
         "dark": {"type": "object", "properties": {t: {"type": "string"} for t in TOKENS},
                  "required": list(TOKENS)},
         "font": {"type": "string", "enum": list(FONT_PAIRINGS)},
+        "rationale": {"type": "string"},
     },
-    "required": ["light", "dark", "font"],
+    "required": ["light", "dark", "font", "rationale"],
 }  # fmt: skip
 
 
@@ -203,6 +207,9 @@ def problem(data: dict[str, Any]) -> str | None:
                 f"the {mode} accent is too close to the site's default teal "
                 f"{DEFAULT_ACCENT[mode]}: choose a different hue"
             )
+    rationale = str(data.get("rationale", "")).split()
+    if not 30 <= len(rationale) <= 110:
+        return "rationale should explain the palette in about 40-80 words"
     return None
 
 
@@ -221,4 +228,5 @@ def finish(data: dict[str, Any]) -> dict[str, Any]:
         "light": enforce(data["light"]),
         "dark": enforce(data["dark"]),
         "font": data["font"],
+        "rationale": " ".join(str(data.get("rationale", "")).split()),
     }

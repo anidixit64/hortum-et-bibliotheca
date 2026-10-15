@@ -121,6 +121,7 @@ def fake_reply(backends: Any, request: Any, check: Any = None) -> Reply:
             "dark": dark | {"text": "#eeeeee", "muted": "#aaaaaa", "accent": "#c9a0dc",
                             "accent2": "#e2a160"},
             "font": "classical-serif",
+            "rationale": " ".join(["A candlelit era, with gold leaf on the accents."] * 6),
         }  # fmt: skip
     elif request.task == "fun_facts":
         quote = "He lives underground and steals power from the building."
