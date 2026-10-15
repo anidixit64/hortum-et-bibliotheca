@@ -10,6 +10,7 @@ import type {
   Stats,
   TopicContent,
   TopicLink,
+  WikiImage,
   TopicRecord,
   TopicStats,
   Tossup,
@@ -120,6 +121,14 @@ export const api = {
       content(`/topics/${encodeURIComponent(topicId)}/explain-more?through=${through}`),
       { method: 'POST' },
     ),
+
+  exampleImages: (names: string[]) => {
+    const params = new URLSearchParams()
+    for (const name of names) params.append('names', name)
+    return request<{ images: { name: string; image: WikiImage }[] }>(
+      content(`/example-images?${params}`),
+    )
+  },
 
   thumbnails: (topicIds: string[]) =>
     request<Record<string, string | null>>(content('/thumbnails'), {

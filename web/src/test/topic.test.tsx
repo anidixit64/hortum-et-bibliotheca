@@ -76,6 +76,64 @@ function content(status: 'ready' | 'partial'): {
   }
 }
 
+test('examples step through one at a time, with pictures on about two of them', async () => {
+  const ready = content('ready')
+  ready.sections.special = {
+    status: 'ok',
+    fetched_at: '2026-10-10',
+    payload: {
+      timeline: { kind: 'events', events: [] },
+      feature: {
+        form: 'A handful', title: 'Six moments', body: '', dramatized: false, steps: [],
+        entries: [
+          { name: 'Battle royal', text: 'Boys box blindfolded.' },
+          { name: 'The prologue', text: 'He speaks from a hole full of light.' },
+          { name: 'Ras the Destroyer', text: 'A Harlem figure on a horse.' },
+        ],
+      },
+      source: null,
+    },
+  }
+  const image = (file: string, caption: string) => ({
+    file, url: `https://example.test/${file}`, width: 800, height: 600, page: null, caption,
+    artist: null, license: 'CC BY-SA 4.0', license_url: null, attribution_required: false, is_main: false,
+  })
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    let body: unknown = {
+      topic_id: 'Q1784288', followed: false, cards: 0, due: 0, buzzed_clusters: {},
+      buzzing: { buzzes: 0, correct: 0, accuracy: null, median_correct_position: null, power_rate: null },
+    }
+    if (url.includes('example-images')) {
+      body = {
+        images: [
+          { name: 'Battle royal', image: image('File:Ring.jpg', 'A boxing ring') },
+          { name: 'Ras the Destroyer', image: image('File:Rider.jpg', 'A rider') },
+        ],
+      }
+    } else if (url.includes('/lookup')) body = {}
+    else if (url.startsWith('/api/catalog/topics/')) body = record
+    else if (url.startsWith('/api/content/')) body = ready
+    return new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } })
+  }))
+  render(
+    <MemoryRouter initialEntries={['/topic/invisible-man']}>
+      <Routes><Route path="/topic/:key" element={<TopicPage />} /></Routes>
+    </MemoryRouter>,
+  )
+  const feature = await screen.findByRole('heading', { name: 'Six moments' })
+  const box = feature.closest('#room-feature')
+  expect(box?.closest('.museum-layout')).toBeNull()
+  expect(document.getElementById('room-introduction')?.closest('.museum-center')).not.toBeNull()
+  expect(await within(box as HTMLElement).findByRole('img', { name: 'A boxing ring' })).toBeInTheDocument()
+  expect(within(box as HTMLElement).queryByText(/hole full of light/)).not.toBeInTheDocument()
+  fireEvent.click(within(box as HTMLElement).getByRole('button', { name: 'Next example' }))
+  expect(within(box as HTMLElement).getByText(/hole full of light/)).toBeInTheDocument()
+  expect(within(box as HTMLElement).queryByRole('img')).not.toBeInTheDocument()
+  fireEvent.click(within(box as HTMLElement).getByRole('button', { name: 'Next example' }))
+  expect(within(box as HTMLElement).getByRole('img', { name: 'A rider' })).toBeInTheDocument()
+  vi.unstubAllGlobals()
+})
+
 test('the topic page shows the loading screen until generated content is ready', async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   let contentCalls = 0

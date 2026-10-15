@@ -61,6 +61,103 @@ def test_wiki_fetch_and_no_article(conn: sqlite3.Connection, web: Any) -> None:
         wiki.fetch(Topic("local:x", "x", None, None, None, None), http)
 
 
+def _jpeg(title: str, width: int = 900) -> dict[str, Any]:
+    return {
+        "title": title,
+        "imageinfo": [
+            {
+                "mime": "image/jpeg",
+                "width": width,
+                "height": 600,
+                "url": f"https://x/{title}",
+                "thumburl": f"https://x/t/{title}",
+                "thumbwidth": 400,
+                "thumbheight": 300,
+                "descriptionurl": f"https://commons/{title}",
+                "extmetadata": {
+                    "LicenseShortName": {"value": "CC BY-SA 4.0"},
+                    "ImageDescription": {"value": title},
+                },
+            }
+        ],
+    }
+
+
+def test_illustrations_spread_two_images_across_the_examples(
+    conn: sqlite3.Connection, web: Any
+) -> None:
+    def handler(request: httpx.Request) -> Any:
+        if request.url.params.get("prop") == "pageimages":
+            return {
+                "query": {
+                    "redirects": [{"from": "Cobra", "to": "King cobra"}],
+                    "pages": [
+                        {"title": "King cobra", "pageimage": "King_cobra.jpg"},
+                        {"title": "Sidewinder", "pageimage": "Sidewinder.jpg"},
+                        {"title": "Inland taipan", "pageimage": "Inland_taipan.jpg"},
+                    ],
+                }
+            }
+        return {
+            "query": {
+                "pages": [
+                    _jpeg("File:King cobra.jpg"),
+                    _jpeg("File:Sidewinder.jpg"),
+                    _jpeg("File:Inland taipan.jpg"),
+                ]
+            }
+        }
+
+    out = images.illustrations(
+        ["Cobra", "Sidewinder", "Inland taipan"],
+        web(conn, handler),
+    )
+    assert [item["name"] for item in out] == ["Cobra", "Inland taipan"]
+    assert out[0]["image"]["file"] == "File:King cobra.jpg"
+    assert out[0]["image"]["license"] == "CC BY-SA 4.0"
+
+
+def test_illustrations_search_a_short_name_and_skip_a_long_moment(
+    conn: sqlite3.Connection, web: Any
+) -> None:
+    moment = "The morning that Caesar and his army crossed the Rubicon river"
+    searched: list[str] = []
+
+    def handler(request: httpx.Request) -> Any:
+        params = request.url.params
+        if params.get("generator") == "search":
+            searched.append(params["gsrsearch"])
+            return {
+                "query": {
+                    "pages": [{"title": "Sidewinder", "pageimage": "Crotalus_cerastes.jpg"}]
+                }
+            }
+        if params.get("prop") == "pageimages":
+            return {
+                "query": {
+                    "pages": [
+                        {"title": "Sidewinder", "missing": True},
+                        {"title": moment, "missing": True},
+                    ]
+                }
+            }
+        return {"query": {"pages": [_jpeg("File:Crotalus cerastes.jpg")]}}
+
+    out = images.illustrations(["Sidewinder", moment], web(conn, handler))
+    assert searched == ["Sidewinder"]
+    assert [item["name"] for item in out] == ["Sidewinder"]
+    assert out[0]["image"]["url"].endswith("File:Crotalus cerastes.jpg")
+
+
+def test_illustrations_skip_logos(conn: sqlite3.Connection, web: Any) -> None:
+    def handler(request: httpx.Request) -> Any:
+        if request.url.params.get("generator") == "search":
+            return {"query": {}}
+        return {"query": {"pages": [{"title": "Flag", "pageimage": "Flag_of_France.svg"}]}}
+
+    assert images.illustrations(["Flag"], web(conn, handler)) == []
+
+
 def test_images_skip_chrome_and_keep_credit(conn: sqlite3.Connection, web: Any) -> None:
     def handler(request: httpx.Request) -> Any:
         if request.url.params["prop"] == "pageimages|images":

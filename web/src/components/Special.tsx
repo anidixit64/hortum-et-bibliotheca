@@ -1,4 +1,5 @@
-import type { FeatureStep, SpecialPayload } from '../api/types'
+import { useState } from 'react'
+import type { FeatureStep, SpecialPayload, WikiImage } from '../api/types'
 
 function year(y: number) {
   return y < 0 ? `${-y} BCE` : String(y)
@@ -35,10 +36,20 @@ export function StepDiagram({ steps }: { steps: FeatureStep[] }) {
   )
 }
 
-export function Feature({ special }: { special: SpecialPayload }) {
+export function Feature({
+  special,
+  illustrations = {},
+}: {
+  special: SpecialPayload
+  illustrations?: Record<string, WikiImage>
+}) {
   const { feature, source } = special
   const entries = feature.entries?.filter((entry) => entry.name && entry.text) ?? []
   const diagram = feature.steps.length >= 2
+  const [index, setIndex] = useState(0)
+  const safe = entries.length ? Math.min(index, entries.length - 1) : 0
+  const entry = entries[safe]
+  const image = entry ? illustrations[entry.name] : undefined
   return (
     <article className="feature">
       <h3>{feature.title}</h3>
@@ -47,15 +58,43 @@ export function Feature({ special }: { special: SpecialPayload }) {
           A dramatized scene: the events, people and places are real; the atmosphere is imagined.
         </p>
       )}
-      {entries.length > 0 ? (
-        <ol className="handful">
-          {entries.map((entry) => (
-            <li key={entry.name}>
-              <strong>{entry.name}</strong>
-              <p className="prose">{entry.text}</p>
-            </li>
-          ))}
-        </ol>
+      {entry ? (
+        <div className="example-carousel">
+          <div className="clue-slide" key={entry.name}>
+            {image && (
+              <figure className="float-image float-right clue-img">
+                <img src={image.url} alt={image.caption || entry.name} loading="lazy" />
+                {image.caption && <figcaption className="muted small">{image.caption}</figcaption>}
+              </figure>
+            )}
+            <p className="clue-slide-rank muted small">
+              Example {safe + 1} of {entries.length}
+            </p>
+            <h3 className="clue-slide-title">{entry.name}</h3>
+            <p className="prose">{entry.text}</p>
+          </div>
+          <nav className="clue-nav" aria-label="Example navigation">
+            <button
+              type="button"
+              onClick={() => setIndex((i) => Math.max(0, i - 1))}
+              disabled={safe === 0}
+              aria-label="Previous example"
+            >
+              ←
+            </button>
+            <span>
+              {safe + 1} of {entries.length}
+            </span>
+            <button
+              type="button"
+              onClick={() => setIndex((i) => Math.min(entries.length - 1, i + 1))}
+              disabled={safe === entries.length - 1}
+              aria-label="Next example"
+            >
+              →
+            </button>
+          </nav>
+        </div>
       ) : (
         !diagram &&
         feature.body.split(/\n\s*\n/).filter(Boolean).map((p, i) => (
