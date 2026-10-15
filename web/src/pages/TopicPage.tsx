@@ -2,15 +2,17 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api/client'
-import type { Clue, SectionPayloads, TopicLink, TopicRecord, TopicStats, WikiImage, WikiPayload } from '../api/types'
+import type { Clue, SectionPayloads, TopicLink, TopicRecord, TopicStats, WikiPayload } from '../api/types'
 import { ClueCarousel, defaultDir, sortedClues } from '../components/ClueList'
 import type { SortDir, SortMode } from '../components/ClueList'
 import { Artifact, FloatImage, ImageGrid, Reading, Videos, WikiArticle } from '../components/Enrichment'
 import { FunFacts, Hook, Summary } from '../components/Written'
+import { ThemePalette } from '../components/ThemePalette'
 import { Heatmap } from '../components/Heatmap'
 import { ConfusionList } from '../components/Related'
 import { Timeline } from '../components/Timeline'
 import { ExhibitTimeline, Feature } from '../components/Special'
+import { placePhotos } from '../lib/exhibit'
 import { chooseIllustrations } from '../lib/illustrations'
 import type { ExampleShot } from '../lib/illustrations'
 import { TopicMap } from '../components/TopicMap'
@@ -139,14 +141,19 @@ export function TopicPage() {
       .catch(() => setTopicLinks({}))
   }, [topicId, written?.summary, cleaned?.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const needRaw = cleaned !== null && current !== null && more.key !== key
+  const pageClues = current?.clues.length ?? 0
+  const reportedClues = current ? (current.n_clues ?? current.topic.stats.n_tossups) : 0
+  const needFill = current !== null && pageClues === 0 && reportedClues > 0 && more.key !== key
+  const needRaw = cleaned !== null && current !== null && pageClues > 0 && more.key !== key
   useEffect(() => {
-    if (!needRaw || !current) return
+    if (!current || (!needFill && !needRaw)) return
+    const offset = needFill ? 0 : current.clues.length
+    const limit = needFill ? CLEANED_FROM : Math.max(1, CLEANED_FROM - current.clues.length)
     api
-      .moreClues(current.topic.id, current.clues.length, CLEANED_FROM - current.clues.length)
+      .moreClues(current.topic.id, offset, limit)
       .then((clues) => setMore({ key, clues }))
       .catch(() => setMore({ key, clues: [] }))
-  }, [needRaw, current, key])
+  }, [needFill, needRaw, current, key])
 
   const loadStats = useCallback((id: string) => {
     api.topicStats(id).then(setStats).catch(() => setStats(null))
@@ -197,9 +204,14 @@ export function TopicPage() {
   const rawTotal = record.n_clues ?? record.clues.length
   // After cleanup the hall is the valid clues only. Show more walks that list in the
   // active order, so rarity is the rarest of all of them, not the rarest of the first 10.
-  const pool = cleaned ? applyCleanup(raw, cleaned) : raw
+  const matched = cleaned && cleaned.length ? applyCleanup(raw, cleaned) : []
+  // A cleanup that matches none of the loaded records must not hide clues the
+  // catalog already ranked. Benedict Arnold can have dozens of questions and
+  // still come back from that pass with an empty hall.
+  const usingCleanup = matched.length > 0
+  const pool = usingCleanup ? matched : raw
   const ordered = sortedClues(pool, sortMode, null, sortDir)
-  const total = cleaned ? ordered.length : rawTotal
+  const total = usingCleanup ? ordered.length : rawTotal
   const n = visible.key === key ? visible.n : PAGE
   const shown = ordered.slice(0, n)
   const articleNotes: Record<number, ReturnType<typeof wikiNote>> = {}
@@ -207,7 +219,7 @@ export function TopicPage() {
     articleNotes[clue.rank] = wiki ? wikiNote(clue.label, clue.variants ?? [], wiki) : null
   }
   const showMore = async () => {
-    if (!cleaned && n + MORE > pool.length && raw.length < rawTotal) {
+    if (!usingCleanup && n + MORE > pool.length && raw.length < rawTotal) {
       setLoadingMore(true)
       try {
         const next = await api.moreClues(topic.id, raw.length, n + MORE - pool.length)
@@ -217,7 +229,7 @@ export function TopicPage() {
       }
     }
     setVisible({ key, n: n + MORE })
-    if (ai && cleaned && explanations.length < cleaned.length) {
+    if (ai && usingCleanup && cleaned && explanations.length < cleaned.length) {
       api
         .explainMore(topic.id, cleaned.length)
         .then(refreshContent)
@@ -236,25 +248,14 @@ export function TopicPage() {
     }
   }
 
-  // Distribute images across the page like a museum exhibit / DK Eyewitness.
-  // The summary takes the first. Example slides carry their own pictures. The
-  // rest fill blank spots, and whatever remains stays in the gallery.
+  // Two photos in the summary, then collection cards down each sidebar.
+  // Example slides keep their own pictures. Whatever does not fit is the gallery.
   const exampleShots = lookedUp.key === exampleKey ? lookedUp.images : []
   const illustrations = chooseIllustrations(exampleNames, exampleShots, images)
   const illustratedFiles = new Set(Object.values(illustrations).map((image) => image.file))
   const hasHeader = !!topicTheme?.header
-  const scatterPool = (hasHeader ? images.filter((img) => !img.is_main) : images).filter(
-    (image) => !illustratedFiles.has(image.file),
-  )
-  const summaryFloat = scatterPool[0] ?? null
-  const placed = scatterPool.slice(summaryFloat ? 1 : 0)
-  const take = (items: WikiImage[]) => ({ item: items[0] ?? null, rest: items.slice(1) })
-  const factsSpot = facts ? take(placed) : { item: null, rest: placed }
-  const clueSpot = take(factsSpot.rest)
-  const connectionsSpot = take(clueSpot.rest)
-  const leftSpot = take(connectionsSpot.rest)
-  const rightSpot = take(leftSpot.rest)
-  const galleryImages = rightSpot.rest
+  const placed = placePhotos(images, illustratedFiles, hasHeader)
+  const galleryImages = placed.gallery
 
   // Has a timeline?
   const hasExhibitTimeline = special && special.timeline.events.length >= 3
@@ -275,6 +276,7 @@ export function TopicPage() {
             {topic.thin && <span className="pill">rarely asked</span>}
           </div>
           <div className="topic-actions">
+            {ai && topicTheme && <ThemePalette theme={topicTheme} topicName={topic.name} />}
             <Link to={`/practice?topic=${encodeURIComponent(topic.id)}`}>
               <button>Practice</button>
             </Link>
@@ -307,6 +309,15 @@ export function TopicPage() {
 
         {/* Left sidebar: map + videos */}
         <aside className="museum-sidebar museum-left">
+          {placed.left.length > 0 && (
+            <div className="sidebar-photos">
+              {placed.left.map((image) => (
+                <SidebarCard key={image.file} title="In the collection">
+                  <Artifact image={image} />
+                </SidebarCard>
+              ))}
+            </div>
+          )}
           {record.map.length > 0 && (
             <SidebarCard title="Map">
               <TopicMap points={record.map} />
@@ -317,24 +328,25 @@ export function TopicPage() {
               <Videos section={content.sections.videos} />
             </SidebarCard>
           )}
-          {leftSpot.item && (
-            <SidebarCard title="In the collection">
-              <Artifact image={leftSpot.item} />
-            </SidebarCard>
-          )}
         </aside>
 
         {/* Center: the main exhibit */}
         <div className="museum-center">
           {/* Summary — the centerpiece, with key image floated alongside */}
           <section className="exhibit-main" id="room-introduction">
-            {summaryFloat && <FloatImage image={summaryFloat} side="right" />}
             {ai && written ? (
-              <Summary summary={written} explanations={explanations} topicLinks={topicLinks} />
+              <Summary
+                summary={written}
+                explanations={explanations}
+                topicLinks={topicLinks}
+                images={placed.summary}
+              />
             ) : (
               <>
+                {placed.summary[0] && <FloatImage image={placed.summary[0]} side="right" />}
                 {ai && isPending(summarySection) && <ExhibitGenerating />}
                 <WikiArticle section={wikiSection} />
+                {placed.summary[1] && <FloatImage image={placed.summary[1]} side="left" />}
               </>
             )}
           </section>
@@ -343,10 +355,7 @@ export function TopicPage() {
           {ai && facts && facts.facts.length > 0 && (
             <aside className="plaque-row" aria-label="Did you know?">
               <h2>Did you know?</h2>
-              <FunFacts
-                facts={facts.facts}
-                ornament={factsSpot.item ? <Artifact image={factsSpot.item} /> : undefined}
-              />
+              <FunFacts facts={facts.facts} />
             </aside>
           )}
           {ai && !facts && isPending(factsSection) && (
@@ -360,6 +369,15 @@ export function TopicPage() {
 
         {/* Right sidebar: timeline, reading */}
         <aside className="museum-sidebar museum-right">
+          {placed.right.length > 0 && (
+            <div className="sidebar-photos">
+              {placed.right.map((image) => (
+                <SidebarCard key={image.file} title="In the collection">
+                  <Artifact image={image} />
+                </SidebarCard>
+              ))}
+            </div>
+          )}
           {(hasExhibitTimeline || hasWikidataTimeline || (ai && isPending(specialSection))) && (
             <SidebarCard title={special?.timeline.kind === 'discoveries' ? 'Discoveries' : 'Timeline'}>
               {ai && isPending(specialSection) && <ExhibitGenerating />}
@@ -368,11 +386,6 @@ export function TopicPage() {
               ) : (
                 hasWikidataTimeline && <Timeline events={record.timeline} />
               )}
-            </SidebarCard>
-          )}
-          {rightSpot.item && (
-            <SidebarCard title="In the collection">
-              <Artifact image={rightSpot.item} />
             </SidebarCard>
           )}
         </aside>
@@ -399,14 +412,14 @@ export function TopicPage() {
           topicLinks={topicLinks}
           topicName={topic.name}
           topicId={topic.id}
-          images={images}
+          images={galleryImages}
           sortMode={sortMode}
           onSortMode={(mode) => { setSortMode(mode); setSortDir(defaultDir(mode)) }}
           sortDir={sortDir}
           onSortDir={setSortDir}
-          ornament={clueSpot.item}
           articleNotes={articleNotes}
           wikiLoaded={wiki !== null}
+          questions={topic.stats.n_tossups}
         />
         {shown.length < total && (
           <button onClick={showMore} disabled={loadingMore}>
@@ -429,7 +442,6 @@ export function TopicPage() {
       </section>
       <section className="exhibit-connections" id="room-connections">
         <h2><span className="room-number">~</span> Connections</h2>
-        {connectionsSpot.item && <Artifact image={connectionsSpot.item} float="right" />}
         <h3>Don't confuse with</h3>
         <ConfusionList confusions={record.confusions} />
       </section>

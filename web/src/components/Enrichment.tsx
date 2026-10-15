@@ -1,4 +1,6 @@
-import type { BookBlurb, ContentKind, Section, SectionPayloads, WikiImage } from '../api/types'
+import { useState } from 'react'
+import type { Book, BookBlurb, ContentKind, Section, SectionPayloads, WikiImage } from '../api/types'
+import { bookCover, evenShelf } from '../lib/books'
 
 function payload<K extends ContentKind>(section: Section<K>): SectionPayloads[K] | null {
   return section.status === 'ok' ? (section.payload as SectionPayloads[K]) : null
@@ -81,7 +83,7 @@ export function WikiSummary({ section }: { section: Section<'wiki'> }) {
 function labelTitle(img: WikiImage) {
   const text = img.caption ?? img.file.replace(/^File:/, '').replace(/\.[a-z0-9]+$/i, '').replace(/_/g, ' ')
   const words = text.split(/\s+/)
-  return words.length > 16 ? `${words.slice(0, 14).join(' ')}…` : text // full caption on hover
+  return words.length > 40 ? `${words.slice(0, 38).join(' ')}…` : text
 }
 
 export function FloatImage({ image, side }: { image: WikiImage; side: 'left' | 'right' }) {
@@ -164,6 +166,27 @@ function foldTitle(title: string) {
   return title.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 }
 
+function BookCover({ book }: { book: Book }) {
+  const [failed, setFailed] = useState(false)
+  const src = bookCover(book)
+  if (!src || failed) {
+    return <div className="no-cover" aria-hidden>{(book.title ?? '?').slice(0, 1)}</div>
+  }
+  return (
+    <img
+      src={src}
+      alt=""
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+      onLoad={(event) => {
+        const img = event.currentTarget
+        if (img.naturalWidth < 20 || img.naturalHeight < 20) setFailed(true)
+      }}
+    />
+  )
+}
+
 export function Reading({
   section,
   blurbs = [],
@@ -174,7 +197,7 @@ export function Reading({
   if (!section) return <p className="muted">Fetching books…</p>
   const data = payload(section)
   if (!data) return <Status section={section} what="books" />
-  const books = data.books.filter((b) => b.title)
+  const books = evenShelf(data.books)
   const blurbFor = new Map(blurbs.map((b) => [foldTitle(b.title), b.blurb]))
   return (
     <>
@@ -186,11 +209,7 @@ export function Reading({
             const blurb = b.title ? blurbFor.get(foldTitle(b.title)) : undefined
             return (
               <li key={b.open_library ?? b.title}>
-                {b.cover ? (
-                  <img src={b.cover} alt="" loading="lazy" />
-                ) : (
-                  <div className="no-cover" aria-hidden />
-                )}
+                <BookCover book={b} />
                 <div>
                   {b.open_library ? (
                     <a href={b.open_library} target="_blank" rel="noreferrer">{b.title}</a>

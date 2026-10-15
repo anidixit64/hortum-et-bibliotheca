@@ -1,6 +1,7 @@
-import { useState, type ReactNode } from 'react'
+import { Fragment, useState } from 'react'
 import { Link } from 'react-router-dom'
-import type { Explanation, FunFact, TopicLink, WrittenSummary } from '../api/types'
+import type { Explanation, FunFact, TopicLink, WikiImage, WrittenSummary } from '../api/types'
+import { FloatImage } from './Enrichment'
 import { linkClues, parseMarks, type Piece } from '../lib/marks'
 
 /** A clue named in the text: bold; hover or tap shows its one-line summary and a link to
@@ -80,18 +81,27 @@ export function Summary({
   summary,
   explanations,
   topicLinks = {},
+  images = [],
 }: {
   summary: WrittenSummary
   explanations: Explanation[]
   topicLinks?: Record<string, TopicLink>
+  /** Two photos: the first floats right at the opening, the second left further down. */
+  images?: WikiImage[]
 }) {
   const lines = new Map(explanations.map((e) => [e.rank, e.one_line]))
+  const paras = summary.summary.split(/\n\s*\n/).filter((para) => para.trim())
+  const later = paras.length > 1 ? Math.max(1, Math.floor(paras.length / 2)) - 1 : 0
   return (
     <>
-      {summary.summary.split(/\n\s*\n/).map((para, i) => (
-        <p key={i} className="prose">
-          <Pieces pieces={parseMarks(para)} lines={lines} topicLinks={topicLinks} />
-        </p>
+      {paras.map((para, i) => (
+        <Fragment key={i}>
+          {i === 0 && images[0] && <FloatImage image={images[0]} side="right" />}
+          <p className="prose">
+            <Pieces pieces={parseMarks(para)} lines={lines} topicLinks={topicLinks} />
+          </p>
+          {i === later && images[1] && <FloatImage image={images[1]} side="left" />}
+        </Fragment>
       ))}
     </>
   )
@@ -114,12 +124,11 @@ export function ExplanationText({
   )
 }
 
-/** "Did you know?" plaques: each fact with the Wikipedia sentence it rests on. */
-export function FunFacts({ facts, ornament }: { facts: FunFact[]; ornament?: ReactNode }) {
+/** "Did you know?" plaques, two by two, so the diagonals share a color. */
+export function FunFacts({ facts }: { facts: FunFact[] }) {
   if (!facts.length) return null
   return (
     <div className="plaques">
-      {ornament}
       {facts.map((f) => (
         <figure key={f.fact} className="plaque">
           <span className="plaque-mark" aria-hidden="true">{'?'}</span>

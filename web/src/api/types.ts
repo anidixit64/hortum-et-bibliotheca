@@ -332,6 +332,7 @@ export interface Theme {
   dark: ThemeColors
   font: string // one of a fixed set of pairings
   header: WikiImage | null
+  rationale?: string
 }
 
 export interface FunFact {
