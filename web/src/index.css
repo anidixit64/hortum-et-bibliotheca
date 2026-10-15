@@ -1174,29 +1174,63 @@ main {
 }
 
 .card-browser {
-  width: min(100%, 520px);
+  width: 100%;
+  align-self: stretch;
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.85rem;
 }
 .card-browser-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+  flex-wrap: wrap;
 }
-.card-browser-actions { display: flex; gap: 0.4rem; }
-.card-row {
+.card-browser-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.card-browser-arrange {
+  display: flex;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+.card-browser-arrange label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.card-browser-arrange select { font: inherit; }
+.card-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin: 0.2rem 0 0.45rem;
+}
+.card-group-head h3 {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--accent);
+}
+.card-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.55rem;
-  align-items: start;
-  padding: 0.75rem 0.85rem;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+.card-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-height: 11rem;
+  padding: 0.85rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
 }
+.card-tile-filing { margin: 0.15rem 0 0; }
 .card-row-body { min-width: 0; }
 .card-row-front {
   margin: 0;
@@ -1213,15 +1247,13 @@ main {
 .card-row-actions {
   display: flex;
   gap: 0.2rem;
+  margin-top: auto;
   opacity: 0;
   transition: opacity 0.15s;
 }
-.card-row.selecting {
-  grid-template-columns: auto minmax(0, 1fr) auto;
-}
-.card-row:hover .card-row-actions,
-.card-row:focus-within .card-row-actions,
-.card-row.selecting .card-row-actions {
+.card-tile:hover .card-row-actions,
+.card-tile:focus-within .card-row-actions,
+.card-tile.selecting .card-row-actions {
   opacity: 1;
 }
 .card-icon-btn {
