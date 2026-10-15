@@ -10,6 +10,7 @@ import { StudyingPage } from './pages/StudyingPage'
 import { TopicPage } from './pages/TopicPage'
 import { ExplorePage } from './pages/ExplorePage'
 import { AiModeProvider, useAiMode, useSetAiMode } from './lib/aiMode'
+import { applyPalette, readPalette } from './lib/palette'
 
 function Shell() {
   const [due, setDue] = useState<number | null>(null)
@@ -105,6 +106,16 @@ function Shell() {
 }
 
 export function App() {
+  useEffect(() => {
+    const idx = readPalette()
+    if (idx !== 0) applyPalette(idx)
+    if (typeof window.matchMedia !== 'function') return
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const update = () => applyPalette(readPalette())
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
+
   return (
     <AiModeProvider>
       <Shell />

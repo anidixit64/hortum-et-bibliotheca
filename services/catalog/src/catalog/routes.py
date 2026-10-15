@@ -137,6 +137,19 @@ def explore_top(
     )
 
 
+@router.get("/topics/{key}/clues-brief", tags=["explore"])
+def clues_brief(
+    key: str,
+    store: Annotated[TopicStore, Depends(get_topics)],
+    limit: Annotated[int, Query(ge=1, le=20)] = 10,
+) -> list[dict[str, object]]:
+    """Top clues for a topic, lightweight: just label and question count."""
+    found = store.topic_clues_brief(key, limit)
+    if found is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"no topic {key!r}")
+    return found
+
+
 @router.get("/tossups/{tossup_id}", tags=["practice"])
 def tossup(tossup_id: str, store: Annotated[TopicStore, Depends(get_topics)]) -> Tossup:
     """One question with its parsed answer line and clue spans, for judging a buzz."""

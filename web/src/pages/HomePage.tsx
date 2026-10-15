@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import type { SearchResult } from '../api/types'
+import { PALETTES, readPalette, savePalette, applyPalette } from '../lib/palette'
 
 const DEBOUNCE_MS = 200
 
@@ -50,6 +51,13 @@ export function HomePage() {
     } else {
       navigate('/search')
     }
+  }
+
+  const [palette, setPaletteIdx] = useState(readPalette)
+  const choosePalette = (i: number) => {
+    setPaletteIdx(i)
+    savePalette(i)
+    applyPalette(i)
   }
 
   const showDropdown = focused && query.trim().length > 0 && results.length > 0
@@ -105,6 +113,24 @@ export function HomePage() {
             </ul>
           )}
         </div>
+      </div>
+      <div className="palette-picker">
+        {PALETTES.map((p, i) => (
+          <button
+            key={p.name}
+            className={`palette-swatch${palette === i ? ' active' : ''}`}
+            onClick={() => choosePalette(i)}
+            aria-label={`${p.name} theme`}
+            title={p.mood}
+          >
+            <div className="palette-dots">
+              {Object.values(p.dark).slice(0, 5).map((c, j) => (
+                <span key={j} className="palette-dot" style={{ background: c }} />
+              ))}
+            </div>
+            <span className="palette-swatch-label">{p.name}</span>
+          </button>
+        ))}
       </div>
     </div>
   )

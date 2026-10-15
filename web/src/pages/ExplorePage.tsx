@@ -3,11 +3,16 @@ import { Link, useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import type { ExploreResult } from '../api/types'
 import { findCategory } from '../lib/categories'
+import { useAiMode, useSetAiMode } from '../lib/aiMode'
 
 const DIFFICULTY_LABELS: Record<number, string> = {
   0: 'MS', 1: '1', 2: '2', 3: '3', 4: '4',
   5: '5', 6: '6', 7: '7', 8: '8', 9: '9', 10: 'Open',
 }
+
+type ClueSort = 'frequency' | 'rarity'
+
+interface BriefClue { label: string; count: number }
 
 export function ExplorePage() {
   const { slug } = useParams<{ slug: string }>()
@@ -17,12 +22,18 @@ export function ExplorePage() {
   const [error, setError] = useState<string | null>(null)
   const [diffMin, setDiffMin] = useState<number | undefined>(undefined)
   const [diffMax, setDiffMax] = useState<number | undefined>(undefined)
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const [clueCache, setClueCache] = useState<Record<string, BriefClue[]>>({})
+  const [clueSort, setClueSort] = useState<ClueSort>('frequency')
   const thumbReq = useRef(0)
+  const ai = useAiMode()
+  const setAi = useSetAiMode()
 
   useEffect(() => {
     if (!card) return
     setResults(null)
     setError(null)
+    setExpanded(null)
     api
       .exploreTop({
         category: card.category,
@@ -43,6 +54,21 @@ export function ExplorePage() {
       })
       .catch((e: Error) => setError(e.message))
   }, [card, diffMin, diffMax])
+
+  const toggleExpand = (topicId: string) => {
+    if (expanded === topicId) { setExpanded(null); return }
+    setExpanded(topicId)
+    if (!clueCache[topicId]) {
+      api.cluesBrief(topicId).then((clues) => {
+        setClueCache((prev) => ({ ...prev, [topicId]: clues }))
+      }).catch(() => {})
+    }
+  }
+
+  const sortedClues = (clues: BriefClue[]) => {
+    if (clueSort === 'rarity') return [...clues].sort((a, b) => a.count - b.count)
+    return [...clues].sort((a, b) => b.count - a.count)
+  }
 
   if (!card) {
     return (
@@ -66,25 +92,41 @@ export function ExplorePage() {
         <p className="muted explore-subtitle">Top topics by question frequency</p>
       </div>
 
-      <div className="explore-diff-bar">
-        <button
-          className={`explore-diff-btn${diffMin === undefined && diffMax === undefined ? ' active' : ''}`}
-          onClick={() => setDifficulty()}
-        >
-          All
-        </button>
-        {Object.entries(DIFFICULTY_LABELS).map(([val, label]) => {
-          const n = Number(val)
-          return (
-            <button
-              key={val}
-              className={`explore-diff-btn${diffMin === n && diffMax === n ? ' active' : ''}`}
-              onClick={() => setDifficulty(n, n)}
-            >
-              {label}
-            </button>
-          )
-        })}
+      <div className="explore-controls">
+        <div className="explore-diff-bar">
+          <button
+            className={`explore-diff-btn${diffMin === undefined && diffMax === undefined ? ' active' : ''}`}
+            onClick={() => setDifficulty()}
+          >
+            All
+          </button>
+          {Object.entries(DIFFICULTY_LABELS).map(([val, label]) => {
+            const n = Number(val)
+            return (
+              <button
+                key={val}
+                className={`explore-diff-btn${diffMin === n && diffMax === n ? ' active' : ''}`}
+                onClick={() => setDifficulty(n, n)}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
+        <div className="explore-ai-toggle">
+          <span className={ai ? 'explore-mode-on' : undefined}>AI</span>
+          <button
+            type="button"
+            className={`nav-switch${ai ? ' on' : ''}`}
+            role="switch"
+            aria-checked={ai}
+            aria-label="AI writing"
+            onClick={() => setAi(!ai)}
+          >
+            <span />
+          </button>
+          <span className={!ai ? 'explore-mode-on' : undefined}>Non-AI</span>
+        </div>
       </div>
 
       {error && <p className="error">{error}</p>}
@@ -95,24 +137,68 @@ export function ExplorePage() {
 
       {results && results.length > 0 && (
         <ol className="explore-results">
-          {results.map((r, i) => (
-            <li key={r.topic_id}>
-              <Link to={`/topic/${encodeURIComponent(r.topic_id)}`} className="explore-row">
-                <span className="explore-rank">{i + 1}</span>
-                <div className="explore-thumb">
-                  {thumbs[r.topic_id] ? (
-                    <img src={thumbs[r.topic_id]!} alt="" loading="lazy" />
-                  ) : (
-                    <div className="explore-thumb-placeholder" />
-                  )}
+          {results.map((r, i) => {
+            const isOpen = expanded === r.topic_id
+            const clues = clueCache[r.topic_id]
+            return (
+              <li key={r.topic_id} className={isOpen ? 'explore-li-open' : undefined}>
+                <div className="explore-row-wrap">
+                  <Link to={`/topic/${encodeURIComponent(r.topic_id)}`} className="explore-row">
+                    <span className="explore-rank">{i + 1}</span>
+                    <div className="explore-thumb">
+                      {thumbs[r.topic_id] ? (
+                        <img src={thumbs[r.topic_id]!} alt="" loading="lazy" />
+                      ) : (
+                        <div className="explore-thumb-placeholder" />
+                      )}
+                    </div>
+                    <div className="explore-info">
+                      <strong>{r.name}</strong>
+                      <span className="muted small">{r.count} questions</span>
+                    </div>
+                  </Link>
+                  <button
+                    className={`explore-expand-btn${isOpen ? ' open' : ''}`}
+                    onClick={() => toggleExpand(r.topic_id)}
+                    aria-label={isOpen ? 'Hide clues' : 'Show clues'}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </button>
                 </div>
-                <div className="explore-info">
-                  <strong>{r.name}</strong>
-                  <span className="muted small">{r.count} questions</span>
-                </div>
-              </Link>
-            </li>
-          ))}
+                {isOpen && (
+                  <div className="explore-clues">
+                    {!clues ? (
+                      <p className="muted small">Loading clues...</p>
+                    ) : clues.length === 0 ? (
+                      <p className="muted small">No clues indexed yet.</p>
+                    ) : (
+                      <>
+                        <div className="explore-clue-header">
+                          <span className="muted small">Top clues</span>
+                          <button
+                            className="explore-clue-sort"
+                            onClick={() => setClueSort(clueSort === 'frequency' ? 'rarity' : 'frequency')}
+                          >
+                            {clueSort === 'frequency' ? 'Most asked' : 'Rarest first'}
+                          </button>
+                        </div>
+                        <ul className="explore-clue-list">
+                          {sortedClues(clues).map((c) => (
+                            <li key={c.label} className="explore-clue-item">
+                              <span className="explore-clue-label">{c.label}</span>
+                              <span className="explore-clue-count muted small">{c.count}q</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+                  </div>
+                )}
+              </li>
+            )
+          })}
         </ol>
       )}
     </div>

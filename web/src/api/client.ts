@@ -87,6 +87,11 @@ export const api = {
     return request<ExploreResult[]>(catalog(`/explore/top?${params}`))
   },
 
+  cluesBrief: (topicId: string, limit = 10) =>
+    request<{ label: string; count: number }[]>(
+      catalog(`/topics/${encodeURIComponent(topicId)}/clues-brief?limit=${limit}`),
+    ),
+
   content: (topicId: string, generate = true) =>
     request<TopicContent>(
       content(`/topics/${encodeURIComponent(topicId)}/content?generate=${generate ? 'true' : 'false'}`),

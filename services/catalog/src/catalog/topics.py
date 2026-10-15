@@ -333,6 +333,17 @@ class TopicStore:
             for r in rows
         ]
 
+    def topic_clues_brief(self, topic_id: str, limit: int) -> list[dict[str, object]] | None:
+        with self._connect() as conn:
+            if self._resolve(conn, topic_id) is None:
+                return None
+            rows = conn.execute(
+                "SELECT label, n_questions FROM topic_clues "
+                "WHERE topic_id = ? ORDER BY rank LIMIT ?",
+                (topic_id, limit),
+            ).fetchall()
+        return [{"label": r[0], "count": r[1]} for r in rows]
+
 
 def wikipedia_url(title: str | None, answer: str) -> str:
     """The linked article, or a Wikipedia search for the answer without its brackets."""
