@@ -8,6 +8,7 @@ import { BrowsePage } from './pages/BrowsePage'
 import { SettingsPage } from './pages/SettingsPage'
 import { StudyingPage } from './pages/StudyingPage'
 import { TopicPage } from './pages/TopicPage'
+import { ExplorePage } from './pages/ExplorePage'
 import { AiModeProvider, useAiMode, useSetAiMode } from './lib/aiMode'
 
 function Shell() {
@@ -90,6 +91,7 @@ function Shell() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/search" element={<BrowsePage />} />
+          <Route path="/explore/:slug" element={<ExplorePage />} />
           <Route path="/topic/:key" element={<TopicPage />} />
           <Route path="/practice" element={<PracticePage />} />
           <Route path="/review" element={<ReviewPage onReviewed={refreshDue} />} />

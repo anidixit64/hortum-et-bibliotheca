@@ -350,6 +350,13 @@ export interface AdminUsage {
   jobs: Record<string, Record<string, number>>
 }
 
+export interface ExploreResult {
+  topic_id: string
+  name: string
+  category: string | null
+  count: number
+}
+
 export type ContentKind = keyof SectionPayloads
 
 export type SectionStatus = 'ok' | 'empty' | 'unavailable' | 'pending' | 'failed'

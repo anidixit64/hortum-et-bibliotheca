@@ -4,6 +4,7 @@ import type {
   BuzzOut,
   Clue,
   DueCard,
+  ExploreResult,
   FollowedTopic,
   SearchResult,
   Stats,
@@ -67,6 +68,23 @@ export const api = {
     if (f.difficultyMax !== undefined) params.set('difficulty_max', String(f.difficultyMax))
     if (f.exclude?.length) params.set('exclude', f.exclude.join(','))
     return request<Tossup>(catalog(`/practice/next?${params}`))
+  },
+
+  exploreTop: (opts: {
+    category: string
+    subcategory?: string
+    altSubcategory?: string
+    difficultyMin?: number
+    difficultyMax?: number
+    limit?: number
+  }) => {
+    const params = new URLSearchParams({ category: opts.category })
+    if (opts.subcategory) params.set('subcategory', opts.subcategory)
+    if (opts.altSubcategory) params.set('alt_subcategory', opts.altSubcategory)
+    if (opts.difficultyMin !== undefined) params.set('difficulty_min', String(opts.difficultyMin))
+    if (opts.difficultyMax !== undefined) params.set('difficulty_max', String(opts.difficultyMax))
+    if (opts.limit !== undefined) params.set('limit', String(opts.limit))
+    return request<ExploreResult[]>(catalog(`/explore/top?${params}`))
   },
 
   content: (topicId: string, generate = true) =>

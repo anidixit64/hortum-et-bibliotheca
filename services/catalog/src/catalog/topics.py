@@ -296,6 +296,44 @@ class TopicStore:
         return Tossup.model_validate(fields)
 
 
+    def explore_top(
+        self,
+        category: str,
+        subcategory: str | None,
+        alt_subcategory: str | None,
+        difficulty_min: int | None,
+        difficulty_max: int | None,
+        limit: int,
+    ) -> list[dict[str, object]]:
+        where = ["t.category = ?"]
+        args: list[str | int] = [category]
+        if subcategory is not None:
+            where.append("t.subcategory = ?")
+            args.append(subcategory)
+        if alt_subcategory is not None:
+            where.append("t.alt_subcategory = ?")
+            args.append(alt_subcategory)
+        if difficulty_min is not None:
+            where.append("t.difficulty >= ?")
+            args.append(difficulty_min)
+        if difficulty_max is not None:
+            where.append("t.difficulty <= ?")
+            args.append(difficulty_max)
+        clause = " AND ".join(where)
+        with self._connect() as conn:
+            rows = conn.execute(
+                f"SELECT tp.id, tp.display_name, tp.primary_category, COUNT(*) AS cnt "
+                f"FROM tossups t JOIN tossup_topics tt ON tt.tossup_id = t.id "
+                f"JOIN topics tp ON tp.id = tt.topic_id WHERE {clause} "
+                f"GROUP BY tp.id ORDER BY cnt DESC LIMIT ?",
+                (*args, limit),
+            ).fetchall()
+        return [
+            {"topic_id": r[0], "name": r[1], "category": r[2], "count": r[3]}
+            for r in rows
+        ]
+
+
 def wikipedia_url(title: str | None, answer: str) -> str:
     """The linked article, or a Wikipedia search for the answer without its brackets."""
     if title:

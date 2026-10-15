@@ -122,6 +122,21 @@ def practice_next(
     return tossup
 
 
+@router.get("/explore/top", tags=["explore"])
+def explore_top(
+    store: Annotated[TopicStore, Depends(get_topics)],
+    category: str = Query(min_length=1),
+    subcategory: str | None = None,
+    alt_subcategory: str | None = None,
+    difficulty_min: Annotated[int | None, Query(ge=0, le=10)] = None,
+    difficulty_max: Annotated[int | None, Query(ge=0, le=10)] = None,
+    limit: Annotated[int, Query(ge=1, le=200)] = 100,
+) -> list[dict[str, object]]:
+    return store.explore_top(
+        category, subcategory, alt_subcategory, difficulty_min, difficulty_max, limit
+    )
+
+
 @router.get("/tossups/{tossup_id}", tags=["practice"])
 def tossup(tossup_id: str, store: Annotated[TopicStore, Depends(get_topics)]) -> Tossup:
     """One question with its parsed answer line and clue spans, for judging a buzz."""
