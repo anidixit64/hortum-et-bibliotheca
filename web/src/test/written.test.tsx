@@ -1,5 +1,15 @@
 import { fireEvent, render, screen } from '@testing-library/react'
+import type { WikiImage } from '../api/types'
+import { chooseIllustrations } from '../lib/illustrations'
 import { Summary } from '../components/Written'
+
+function shot(file: string, caption = ''): WikiImage {
+  return {
+    file, url: `https://example.test/${file}`, width: 800, height: 600, page: null,
+    caption, artist: null, license: 'CC BY-SA 4.0', license_url: null,
+    attribution_required: false, is_main: false,
+  }
+}
 
 test('summary clues are bold, with a one-line popup and a link to the full explanation', () => {
   render(
@@ -39,6 +49,11 @@ describe('special sections', () => {
     render(<><Feature special={special} /><ExhibitTimeline timeline={special.timeline} /></>)
     expect(screen.getByText('How a lens works')).toBeTruthy()
     expect(screen.getByText('Convex lens')).toBeTruthy()
+    expect(screen.queryByText('Focal length')).toBeNull()
+    expect(screen.getByRole('navigation', { name: 'Example navigation' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Next example' }))
+    expect(screen.getByText('Focal length')).toBeTruthy()
+    expect(screen.queryByText('Convex lens')).toBeNull()
     expect(screen.getByText('Rays bend')).toBeTruthy()
     expect(screen.getByText(/follows one ray/)).toBeTruthy()
     expect(screen.getByText('44 BCE')).toBeTruthy()
@@ -49,7 +64,9 @@ describe('special sections', () => {
   it('lists a handful of related things instead of one long essay', async () => {
     const { Feature } = await import('../components/Special')
     render(
-      <Feature special={{
+      <Feature
+        illustrations={{ Sidewinder: shot('File:Sidewinder.jpg', 'A horned viper') }}
+        special={{
         timeline: { kind: 'events', events: [] },
         feature: {
           form: 'A handful', title: 'Six snakes', body: 'A leftover essay.', dramatized: false, steps: [],
@@ -63,9 +80,31 @@ describe('special sections', () => {
     )
     expect(screen.getByText('Six snakes')).toBeTruthy()
     expect(screen.getByText('King cobra')).toBeTruthy()
+    expect(screen.queryByText(/throws a loop/)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Next example' }))
     expect(screen.getByText(/throws a loop/)).toBeTruthy()
+    expect(screen.getByRole('img', { name: 'A horned viper' })).toBeTruthy()
     expect(screen.queryByText(/leftover essay/)).toBeNull()
     expect(screen.queryByText(/dramatized scene/)).toBeNull()
+  })
+
+  it('shows a picture on about two examples, spread through the list', () => {
+    const names = ['King cobra', 'Sidewinder', 'Python', 'Taipan', 'Krait']
+    const lookedUp = names.map((name) => ({ name, image: shot(`File:${name}.jpg`, name) }))
+    const chosen = chooseIllustrations(names, lookedUp)
+    expect(Object.keys(chosen)).toEqual(['King cobra', 'Krait'])
+
+    const gallery = [
+      shot('File:King cobra close.jpg', 'King cobra rearing'),
+      shot('File:Python molurus.jpg', 'Indian python'),
+      shot('File:Bungarus.jpg', 'A krait'),
+    ]
+    const filled = chooseIllustrations(
+      names,
+      [{ name: 'Sidewinder', image: shot('File:Sidewinder.jpg') }],
+      gallery,
+    )
+    expect(Object.keys(filled).sort()).toEqual(['Krait', 'Sidewinder'])
   })
 })
 

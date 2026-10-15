@@ -11,6 +11,8 @@ import { Heatmap } from '../components/Heatmap'
 import { ConfusionList } from '../components/Related'
 import { Timeline } from '../components/Timeline'
 import { ExhibitTimeline, Feature } from '../components/Special'
+import { chooseIllustrations } from '../lib/illustrations'
+import type { ExampleShot } from '../lib/illustrations'
 import { TopicMap } from '../components/TopicMap'
 import { LoadingScreen } from '../components/LoadingScreen'
 import { applyCleanup, CLEANED_FROM } from '../lib/cleanClues'
@@ -99,6 +101,27 @@ export function TopicPage() {
     imagesSection?.status === 'ok'
       ? (imagesSection.payload as SectionPayloads['images']).images
       : []
+  const exampleNames = (special?.feature.entries ?? []).map((entry) => entry.name).filter(Boolean)
+  const exampleKey = exampleNames.join('\u0000')
+  const [lookedUp, setLookedUp] = useState<{ key: string; images: ExampleShot[] }>({
+    key: '',
+    images: [],
+  })
+  useEffect(() => {
+    if (!ai || !exampleKey) return
+    let cancel = false
+    api
+      .exampleImages(exampleKey.split('\u0000'))
+      .then((found) => {
+        if (!cancel) setLookedUp({ key: exampleKey, images: found.images })
+      })
+      .catch(() => {
+        if (!cancel) setLookedUp({ key: exampleKey, images: [] })
+      })
+    return () => {
+      cancel = true
+    }
+  }, [ai, exampleKey])
 
   // Topic links: proper nouns in the summary + clue labels that are themselves topics.
   const [topicLinks, setTopicLinks] = useState<Record<string, TopicLink>>({})
@@ -214,13 +237,17 @@ export function TopicPage() {
   }
 
   // Distribute images across the page like a museum exhibit / DK Eyewitness.
-  // The first two sit in the summary and the examples. The next ones fill blank
-  // spots. Whatever remains stays in the gallery.
+  // The summary takes the first. Example slides carry their own pictures. The
+  // rest fill blank spots, and whatever remains stays in the gallery.
+  const exampleShots = lookedUp.key === exampleKey ? lookedUp.images : []
+  const illustrations = chooseIllustrations(exampleNames, exampleShots, images)
+  const illustratedFiles = new Set(Object.values(illustrations).map((image) => image.file))
   const hasHeader = !!topicTheme?.header
-  const scatterPool = hasHeader ? images.filter((img) => !img.is_main) : images
+  const scatterPool = (hasHeader ? images.filter((img) => !img.is_main) : images).filter(
+    (image) => !illustratedFiles.has(image.file),
+  )
   const summaryFloat = scatterPool[0] ?? null
-  const featureFloat = special ? (scatterPool[1] ?? null) : null
-  const placed = scatterPool.slice(summaryFloat ? (featureFloat ? 2 : 1) : 0)
+  const placed = scatterPool.slice(summaryFloat ? 1 : 0)
   const take = (items: WikiImage[]) => ({ item: items[0] ?? null, rest: items.slice(1) })
   const factsSpot = facts ? take(placed) : { item: null, rest: placed }
   const clueSpot = take(factsSpot.rest)
@@ -329,18 +356,6 @@ export function TopicPage() {
             </aside>
           )}
 
-          {ai && special && (
-            <section className="exhibit-feature" id="room-feature">
-              {featureFloat && <FloatImage image={featureFloat} side="left" />}
-              <Feature special={special} />
-            </section>
-          )}
-          {ai && !special && isPending(specialSection) && (
-            <section className="exhibit-feature" id="room-feature">
-              <ExhibitGenerating />
-            </section>
-          )}
-
         </div>
 
         {/* Right sidebar: timeline, reading */}
@@ -362,6 +377,17 @@ export function TopicPage() {
           )}
         </aside>
       </div>
+
+      {ai && special && (
+        <section className="exhibit-feature" id="room-feature">
+          <Feature key={topic.id} special={special} illustrations={illustrations} />
+        </section>
+      )}
+      {ai && !special && isPending(specialSection) && (
+        <section className="exhibit-feature" id="room-feature">
+          <ExhibitGenerating />
+        </section>
+      )}
 
       <section className="exhibit-clues" id="room-clues">
         <h2><span className="room-number">C</span> The clue hall</h2>

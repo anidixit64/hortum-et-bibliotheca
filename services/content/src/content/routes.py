@@ -11,6 +11,8 @@ from pydantic import BaseModel
 
 from content import blurbs, cleanup, jobs, special, theme, writing
 from content.fetchers import books, images, videos, wiki
+from content.http import FetchError
+from content.worker import make_http
 
 router = APIRouter()
 
@@ -222,6 +224,20 @@ def explain_more(
 
 class ThumbnailRequest(BaseModel):
     topic_ids: list[str]
+
+
+@router.get("/example-images", tags=["content"])
+def example_images(
+    request: Request, names: Annotated[list[str] | None, Query()] = None
+) -> dict[str, Any]:
+    """Images of a handful of example names: at most two, from Wikipedia page images."""
+    http = make_http(request.app.state.db, request.app.state.settings)
+    try:
+        return {"images": images.illustrations(names or [], http)}
+    except FetchError:
+        return {"images": []}
+    finally:
+        http.client.close()
 
 
 @router.post("/thumbnails", tags=["content"])
