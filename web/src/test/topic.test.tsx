@@ -1,6 +1,8 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
+import type { Clue } from '../api/types'
+import { sortedClues } from '../components/ClueList'
 import { TopicPage } from '../pages/TopicPage'
 import { App } from '../App'
 import record from './fixtures/invisible-man.json'
@@ -121,6 +123,8 @@ test('sort toggle switches between frequency and rarity ordering', async () => {
   )
   const freq = await screen.findByRole('button', { name: 'Frequency' })
   const rarity = screen.getByRole('button', { name: 'Rarity' })
+  expect(screen.getByRole('button', { name: 'Position' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Descending' })).toBeInTheDocument()
   expect(freq.className).toContain('active')
   expect(rarity.className).not.toContain('active')
   // Switch to rarity
@@ -128,6 +132,25 @@ test('sort toggle switches between frequency and rarity ordering', async () => {
   expect(rarity.className).toContain('active')
   expect(freq.className).not.toContain('active')
   vi.unstubAllGlobals()
+})
+
+test('frequency, rarity, and position follow the chosen direction', () => {
+  const base = record.clues[0]
+  const clues = [1, 2, 3].map((i) => ({
+    ...base,
+    rank: i,
+    cluster_id: i,
+    n_questions: i * 10,
+    n_tossups: i * 10,
+    median_position: i / 10,
+    mean_position: i / 10,
+  })) as unknown as Clue[]
+  expect(sortedClues(clues, 'frequency', null).map((c) => c.rank)).toEqual([3, 2, 1])
+  expect(sortedClues(clues, 'frequency', null, 'asc').map((c) => c.rank)).toEqual([1, 2, 3])
+  expect(sortedClues(clues, 'rarity', null).map((c) => c.rank)).toEqual([1, 2, 3])
+  expect(sortedClues(clues, 'rarity', null, 'desc').map((c) => c.rank)).toEqual([3, 2, 1])
+  expect(sortedClues(clues, 'position', null).map((c) => c.rank)).toEqual([1, 2, 3])
+  expect(sortedClues(clues, 'position', null, 'desc').map((c) => c.rank)).toEqual([3, 2, 1])
 })
 
 test('rarity orders the cleaned list, and show more walks that order', async () => {
