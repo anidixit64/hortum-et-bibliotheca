@@ -149,7 +149,7 @@ class Settings(ServiceSettings):
     nvidia_api_key: str = ""  # free key from build.nvidia.com
     github_api_key: str = ""  # free token from github.com/settings/tokens
     mistral_api_key: str = ""  # free key from console.mistral.ai
-    admin_pin: str = ""  # PIN for the /settings page; empty = admin disabled
+    admin_pin: str = "9480"  # PIN for the /settings page
     # Claude Code first (the subscription), then free providers. Each provider's free tier
     # has its own daily/minute caps, so the chains walk through several: when one is out
     # the next takes over.
