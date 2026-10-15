@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api/client'
-import type { Clue, SectionPayloads, TopicLink, TopicRecord, TopicStats, WikiPayload } from '../api/types'
+import type { Clue, SectionPayloads, TopicLink, TopicRecord, TopicStats, WikiImage, WikiPayload } from '../api/types'
 import { ClueCarousel, defaultDir, sortedClues } from '../components/ClueList'
 import type { SortDir, SortMode } from '../components/ClueList'
 import { Artifact, FloatImage, ImageGrid, Reading, Videos, WikiArticle } from '../components/Enrichment'
@@ -11,8 +11,9 @@ import { ThemePalette } from '../components/ThemePalette'
 import { Heatmap } from '../components/Heatmap'
 import { ConfusionList } from '../components/Related'
 import { Timeline } from '../components/Timeline'
-import { ExhibitTimeline, Feature } from '../components/Special'
-import { placePhotos } from '../lib/exhibit'
+import { ExhibitTimeline, Feature, IdeaDiagram } from '../components/Special'
+import { placePhotos, sidebarSlots } from '../lib/exhibit'
+import type { SidebarSlot } from '../lib/exhibit'
 import { chooseIllustrations } from '../lib/illustrations'
 import type { ExampleShot } from '../lib/illustrations'
 import { TopicMap } from '../components/TopicMap'
@@ -43,6 +44,37 @@ function SidebarCard({ title, children }: { title?: string; children: ReactNode 
       {title && <h3 className="sidebar-title">{title}</h3>}
       {children}
     </aside>
+  )
+}
+
+function SidebarStack({
+  lead,
+  photos,
+  rest,
+}: {
+  lead: ReactNode | null
+  photos: WikiImage[]
+  rest: ReactNode[]
+}) {
+  const slots = sidebarSlots(photos.length, rest.length, lead !== null)
+  let photo = 0
+  let extra = 0
+  return (
+    <>
+      {slots.map((slot: SidebarSlot, index) => {
+        if (slot === 'lead') return <Fragment key="lead">{lead}</Fragment>
+        if (slot === 'photo') {
+          const image = photos[photo++]
+          return (
+            <SidebarCard key={image.file} title="In the collection">
+              <Artifact image={image} />
+            </SidebarCard>
+          )
+        }
+        const node = rest[extra++]
+        return <Fragment key={`rest-${index}`}>{node}</Fragment>
+      })}
+    </>
   )
 }
 
@@ -307,27 +339,27 @@ export function TopicPage() {
       {/* --- Museum layout: main + sidebars --- */}
       <div className="museum-layout">
 
-        {/* Left sidebar: map + videos */}
+        {/* Left sidebar: map first, then photos woven with the screening room */}
         <aside className="museum-sidebar museum-left">
-          {placed.left.length > 0 && (
-            <div className="sidebar-photos">
-              {placed.left.map((image) => (
-                <SidebarCard key={image.file} title="In the collection">
-                  <Artifact image={image} />
+          <SidebarStack
+            lead={
+              record.map.length > 0 ? (
+                <SidebarCard title="Map">
+                  <TopicMap points={record.map} />
                 </SidebarCard>
-              ))}
-            </div>
-          )}
-          {record.map.length > 0 && (
-            <SidebarCard title="Map">
-              <TopicMap points={record.map} />
-            </SidebarCard>
-          )}
-          {content && (
-            <SidebarCard title="Screening room">
-              <Videos section={content.sections.videos} />
-            </SidebarCard>
-          )}
+              ) : null
+            }
+            photos={placed.left}
+            rest={
+              content
+                ? [
+                    <SidebarCard key="screening" title="Screening room">
+                      <Videos section={content.sections.videos} />
+                    </SidebarCard>,
+                  ]
+                : []
+            }
+          />
         </aside>
 
         {/* Center: the main exhibit */}
@@ -367,27 +399,24 @@ export function TopicPage() {
 
         </div>
 
-        {/* Right sidebar: timeline, reading */}
+        {/* Right sidebar: timeline first, then photos */}
         <aside className="museum-sidebar museum-right">
-          {placed.right.length > 0 && (
-            <div className="sidebar-photos">
-              {placed.right.map((image) => (
-                <SidebarCard key={image.file} title="In the collection">
-                  <Artifact image={image} />
+          <SidebarStack
+            lead={
+              hasExhibitTimeline || hasWikidataTimeline || (ai && isPending(specialSection)) ? (
+                <SidebarCard title={special?.timeline.kind === 'discoveries' ? 'Discoveries' : 'Timeline'}>
+                  {ai && isPending(specialSection) && <ExhibitGenerating />}
+                  {ai && hasExhibitTimeline && special ? (
+                    <ExhibitTimeline timeline={special.timeline} />
+                  ) : (
+                    hasWikidataTimeline && <Timeline events={record.timeline} />
+                  )}
                 </SidebarCard>
-              ))}
-            </div>
-          )}
-          {(hasExhibitTimeline || hasWikidataTimeline || (ai && isPending(specialSection))) && (
-            <SidebarCard title={special?.timeline.kind === 'discoveries' ? 'Discoveries' : 'Timeline'}>
-              {ai && isPending(specialSection) && <ExhibitGenerating />}
-              {ai && hasExhibitTimeline && special ? (
-                <ExhibitTimeline timeline={special.timeline} />
-              ) : (
-                hasWikidataTimeline && <Timeline events={record.timeline} />
-              )}
-            </SidebarCard>
-          )}
+              ) : null
+            }
+            photos={placed.right}
+            rest={[]}
+          />
         </aside>
       </div>
 
@@ -401,6 +430,8 @@ export function TopicPage() {
           <ExhibitGenerating />
         </section>
       )}
+
+      {ai && special && <IdeaDiagram feature={special.feature} />}
 
       <section className="exhibit-clues" id="room-clues">
         <h2><span className="room-number">C</span> The clue hall</h2>

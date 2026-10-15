@@ -84,7 +84,13 @@ test('examples step through one at a time, with pictures on about two of them', 
     payload: {
       timeline: { kind: 'events', events: [] },
       feature: {
-        form: 'A handful', title: 'Six moments', body: '', dramatized: false, steps: [],
+        form: 'A handful', title: 'Six moments', body: '', dramatized: false,
+        diagram_title: 'How a mask holds a self',
+        steps: [
+          { label: 'A role', detail: 'Someone is handed a part.' },
+          { label: 'The mask', detail: 'The part starts to feel like a face.' },
+        ],
+        diagram_blurb: 'Start with a costume. The hard part is what remains when it comes off.',
         entries: [
           { name: 'Battle royal', text: 'Boys box blindfolded.' },
           { name: 'The prologue', text: 'He speaks from a hole full of light.' },
@@ -131,6 +137,13 @@ test('examples step through one at a time, with pictures on about two of them', 
   expect(within(box as HTMLElement).queryByRole('img')).not.toBeInTheDocument()
   fireEvent.click(within(box as HTMLElement).getByRole('button', { name: 'Next example' }))
   expect(within(box as HTMLElement).getByRole('img', { name: 'A rider' })).toBeInTheDocument()
+  expect(within(box as HTMLElement).queryByText('The mask')).not.toBeInTheDocument()
+  const diagram = document.getElementById('room-diagram')
+  expect(diagram).toBeTruthy()
+  expect(diagram?.closest('#room-feature')).toBeNull()
+  expect(screen.queryByText(/costume/)).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: /How a mask holds a self/ }))
+  expect(screen.getByText(/costume/)).toBeInTheDocument()
   vi.unstubAllGlobals()
 })
 
@@ -407,6 +420,12 @@ test('sidebars hold the photos, facts stay a checkerboard, and clues survive a b
   expect(await screen.findByRole('heading', { level: 3, name: 'Ras the Exhorter' })).toBeInTheDocument()
   expect(screen.queryByText(/Not asked often enough/)).not.toBeInTheDocument()
   expect(screen.getAllByRole('heading', { name: 'In the collection' })).toHaveLength(6)
+  const leftHeads = [...document.querySelectorAll('.museum-left h3')].map((node) => node.textContent)
+  const rightHeads = [...document.querySelectorAll('.museum-right h3')].map((node) => node.textContent)
+  expect(leftHeads[0]).toBe('Map')
+  expect(leftHeads).toEqual(['Map', 'In the collection', 'Screening room', 'In the collection', 'In the collection'])
+  expect(rightHeads[0]).toBe('Timeline')
+  expect(rightHeads.filter((title) => title === 'In the collection')).toHaveLength(3)
   expect(screen.getByText('Caption 0')).toBeInTheDocument()
   expect(screen.getByText('Caption 1')).toBeInTheDocument()
   const gallery = document.querySelector('.exhibit-gallery')

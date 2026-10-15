@@ -1,7 +1,32 @@
 import type { WikiImage } from '../api/types'
 
-/** How many collection cards sit above the map, and above the timeline. */
+/** How many collection cards share each sidebar with the map or the timeline. */
 export const SIDE_PHOTOS = 3
+
+export type SidebarSlot = 'lead' | 'photo' | 'rest'
+
+/** Map or timeline first, then photos with the other sidebar cards woven between them. */
+export function sidebarSlots(photoCount: number, restCount: number, hasLead: boolean): SidebarSlot[] {
+  const slots: SidebarSlot[] = []
+  if (hasLead) slots.push('lead')
+  let rest = restCount
+  if (photoCount === 0) {
+    for (let i = 0; i < rest; i++) slots.push('rest')
+    return slots
+  }
+  for (let i = 0; i < photoCount; i++) {
+    slots.push('photo')
+    if (rest > 0) {
+      slots.push('rest')
+      rest -= 1
+    }
+  }
+  while (rest > 0) {
+    slots.push('rest')
+    rest -= 1
+  }
+  return slots
+}
 
 export interface PlacedPhotos {
   summary: WikiImage[]

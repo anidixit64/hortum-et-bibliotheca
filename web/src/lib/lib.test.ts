@@ -1,5 +1,5 @@
 import { bookCover, evenShelf } from './books'
-import { placePhotos } from './exhibit'
+import { placePhotos, sidebarSlots } from './exhibit'
 import { themeVariables } from './theme'
 import type { WikiImage } from '../api/types'
 import { extractProperNouns, linkClues, parseMarks } from './marks'
@@ -133,6 +133,11 @@ describe('the exhibit shelf', () => {
     expect(placed.left).toHaveLength(3)
     expect(placed.right).toHaveLength(3)
     expect(placed.gallery.map((item) => item.file)).toEqual(['File:8.jpg', 'File:9.jpg'])
+  })
+  it('leads a sidebar with the map or timeline and weaves photos through the other cards', () => {
+    expect(sidebarSlots(3, 1, true)).toEqual(['lead', 'photo', 'rest', 'photo', 'photo'])
+    expect(sidebarSlots(3, 0, true)).toEqual(['lead', 'photo', 'photo', 'photo'])
+    expect(sidebarSlots(0, 1, true)).toEqual(['lead', 'rest'])
   })
   it('keeps an even number of books and builds an ISBN cover', () => {
     const books = Array.from({ length: 9 }, (_, i) => ({

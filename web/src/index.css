@@ -1869,6 +1869,38 @@ body {
 .example-carousel { margin-top: 0.4rem; }
 .diagram-block { clear: both; margin-top: 0.4rem; }
 .diagram-blurb { margin: 0.2rem 0 0; }
+.exhibit-diagram {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin: 1.25rem 0;
+  width: 100%;
+}
+.diagram-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  background: transparent;
+  border: 0;
+  padding: 0.72rem 1.2rem;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+  font: inherit;
+}
+.diagram-caret { width: 1rem; color: var(--accent); }
+.diagram-toggle-title {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.diagram-body { padding: 0.2rem 1.4rem 1.15rem; }
 .step-diagram { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 1.6rem; margin: 0.8rem 0 0; }
 .step-diagram li { position: relative; flex: 1 1 10rem; display: flex; flex-direction: column; gap: 0.25rem;
   border: 1px solid var(--border); border-top: 3px solid var(--accent); border-radius: 6px; padding: 0.7rem; background: var(--surface); }
@@ -2141,7 +2173,7 @@ body {
 .museum-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.85rem;
 }
 
 .sidebar-card {
