@@ -34,10 +34,10 @@ def test_forms_and_feature_checks() -> None:
     assert special.form("Social Science")[0] == "A handful"
     assert special.form("Science")[2] == "discoveries"
     assert special.form("Philosophy")[2] == "events"
-    assert not special.is_diagram("History")
+    assert special.is_diagram("History")
     assert special.is_diagram("Science")
-    assert special.is_diagram("Social Science")
-    assert special.is_diagram("Philosophy")
+    assert special.is_diagram("Literature")
+    assert special.is_diagram(None)
 
 
 def test_a_handful_is_five_or_six_and_a_diagram_keeps_its_steps() -> None:
@@ -51,11 +51,18 @@ def test_a_handful_is_five_or_six_and_a_diagram_keeps_its_steps() -> None:
         {"label": "Premise", "detail": "What is granted."},
         {"label": "Conclusion", "detail": "What follows."},
     ]
-    blurb = " ".join(["word"] * 120)
-    drawn = {"title": "Six things", "entries": entries, "steps": steps, "diagram_blurb": blurb}
+    blurb = " ".join(["word"] * 150)
+    drawn = {
+        "title": "Six things",
+        "entries": entries,
+        "diagram_title": "How a lens bends a ray",
+        "steps": steps,
+        "diagram_blurb": blurb,
+    }
     assert special.entries_problem(drawn, diagram=True) is None
     missing_steps = special.entries_problem(
-        {"title": "Six things", "entries": entries, "steps": [], "diagram_blurb": blurb},
+        {"title": "Six things", "entries": entries, "diagram_title": "How a lens bends a ray",
+         "steps": [], "diagram_blurb": blurb},
         diagram=True,
     )
     assert "diagram" in str(missing_steps)
@@ -66,6 +73,8 @@ def test_a_handful_is_five_or_six_and_a_diagram_keeps_its_steps() -> None:
     short_blurb = " ".join(["word"] * 40)
     short = special.entries_problem({**drawn, "diagram_blurb": short_blurb}, diagram=True)
     assert short is not None and "blurb" in short
-    long_blurb = " ".join(["word"] * 200)
+    long_blurb = " ".join(["word"] * 260)
+    missing_title = special.entries_problem({**drawn, "diagram_title": ""}, diagram=True)
+    assert missing_title is not None and "title" in missing_title
     long = special.entries_problem({**drawn, "diagram_blurb": long_blurb}, diagram=True)
     assert long is not None and "blurb" in long

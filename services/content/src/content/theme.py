@@ -15,7 +15,7 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
-THEME_VERSION = 3
+THEME_VERSION = 5
 TOKENS = ("bg", "surface", "text", "muted", "accent", "accent2", "accent_soft", "header_tint")
 FONT_PAIRINGS = {
     "classical-serif": "Old-style serif (Palatino, Iowan): history, classics, literature",
@@ -30,6 +30,8 @@ FONT_PAIRINGS = {
 DEFAULT_ACCENT = {"light": "#2f6f5e", "dark": "#7fc4ad"}
 MIN_BG_CHROMA = 0.012  # OKLab chroma: below this a background reads as plain grey
 MIN_ACCENT_DISTANCE = 0.08  # OKLab distance from the default accent
+MIN_ACCENT_CHROMA = 0.06  # accents have to read as colors, not tints of the page
+MIN_HUE_GAP = 42.0  # degrees between the two accents
 # Minimum contrast ratios (WCAG AA): body text, secondary text, links and accents.
 CONTRAST = {"text": 7.0, "muted": 4.5, "accent": 4.5}
 _HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -81,6 +83,14 @@ def chroma(color: str) -> float:
 
 def distance(x: str, y: str) -> float:
     return float(np.linalg.norm(rgb_to_oklab(hex_to_rgb(x)) - rgb_to_oklab(hex_to_rgb(y))))
+
+
+def hue_gap(x: str, y: str) -> float:
+    """The smaller angle, in degrees, between two colors' OKLab hues."""
+    _, ax, bx = rgb_to_oklab(hex_to_rgb(x))
+    _, ay, by = rgb_to_oklab(hex_to_rgb(y))
+    gap = abs(float(np.degrees(np.arctan2(bx, ax)) - np.degrees(np.arctan2(by, ay)))) % 360
+    return min(gap, 360 - gap)
 
 
 def luminance(color: str) -> float:
@@ -145,19 +155,28 @@ def palette(image: bytes, k: int = 6, seed: int = 7) -> list[dict[str, Any]]:
 # --- the request and its checks ---------------------------------------------------------
 
 SYSTEM = """You design the color palette of a study page about one topic, like the color \
-scheme of a museum exhibit. First envision the 5-6 colors that represent the topic — for \
-a polar topic, whites, icy purples and blues with hints of aurora green and pink; for the \
-Aztec Empire, jade, terracotta, obsidian, gold and turquoise. Then map those colors to a \
-coherent page scheme. Text stays easy to read."""
+scheme of a museum exhibit. Be picky, and a little adventurous. The colors should fit \
+what the topic is, what it does, and the feeling it leaves, not only the literal color \
+of an object in a photograph. Choose 2-3 colors that embody the atmosphere, aesthetic, \
+and era, and 2-3 accent colors that highlight a different aspect. Those accents must be \
+clearly different hues, not neighboring shades of one color, and they still have to sit \
+together as one palette. Text stays easy to read. A revolution can be lampblack, \
+arterial red, and cold paper white. A proof can be chalk, indigo, and a sharp cadmium \
+yellow. A funeral rite can be incense brown, bone, and a deep violet. Do not collapse \
+the page into one family of tans, greys, or blues."""
 
 PROMPT = """Topic: {name} (category: {category})
 Opening of the page: {hook}
 Header image: {caption}
 Dominant colors of the header image (hex, share of the image): {palette}
 {related_colors}
-First think of 5-6 colors that REPRESENT this topic — what a designer would put in a \
-mood board. Then map them into two color sets, "light" and "dark", each with these hex \
-colors:
+The header colors are a reference, not a cage. Leave them when a braver pair fits better. \
+First choose 2-3 colors for the atmosphere, aesthetic, and era, and 2-3 accent colors. \
+Ground that choice in what the topic does and the mood it gives off, as well as what it \
+is. Accent and accent2 must be different hues, far enough apart that a person can name \
+them as two colors. Do not pick two blues, two browns, or a color and its tint. Then map \
+them into two \
+color sets, "light" and "dark", each with these hex colors:
 - bg: page background, clearly tinted with the topic's character (light: a pale version \
 of a topic color; dark: a deep, rich version), never plain grey, white or black
 - surface: card background, slightly lifted from bg, with the same tint
@@ -170,7 +189,10 @@ of a topic color; dark: a deep, rich version), never plain grey, white or black
 Then pick "font" from: {fonts}
 The site's default scheme is grey with a teal-green accent ({default}); this page must \
 look distinctly different from it. The colors should feel like the topic — someone seeing \
-only the colors should guess the subject. Avoid plain grey schemes and garish neon."""
+only the colors should guess the subject. Avoid plain grey schemes and garish neon.
+Also write "rationale": 40 to 80 words on why these colors were picked. Name the atmosphere, \
+what the topic does, the feeling it gives off, and what each accent is highlighting. No \
+hex codes in that paragraph."""
 
 SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -180,8 +202,9 @@ SCHEMA: dict[str, Any] = {
         "dark": {"type": "object", "properties": {t: {"type": "string"} for t in TOKENS},
                  "required": list(TOKENS)},
         "font": {"type": "string", "enum": list(FONT_PAIRINGS)},
+        "rationale": {"type": "string"},
     },
-    "required": ["light", "dark", "font"],
+    "required": ["light", "dark", "font", "rationale"],
 }  # fmt: skip
 
 
@@ -203,6 +226,14 @@ def problem(data: dict[str, Any]) -> str | None:
                 f"the {mode} accent is too close to the site's default teal "
                 f"{DEFAULT_ACCENT[mode]}: choose a different hue"
             )
+        accent, second = data[mode]["accent"], data[mode]["accent2"]
+        if chroma(accent) < MIN_ACCENT_CHROMA or chroma(second) < MIN_ACCENT_CHROMA:
+            return f"the {mode} accents are too pale: pick two saturated colors"
+        if hue_gap(accent, second) < MIN_HUE_GAP:
+            return f"the {mode} accents are too similar: pick hues that sit farther apart"
+    rationale = str(data.get("rationale", "")).split()
+    if not 30 <= len(rationale) <= 110:
+        return "rationale should explain the palette in about 40-80 words"
     return None
 
 
@@ -221,4 +252,5 @@ def finish(data: dict[str, Any]) -> dict[str, Any]:
         "light": enforce(data["light"]),
         "dark": enforce(data["dark"]),
         "font": data["font"],
+        "rationale": " ".join(str(data.get("rationale", "")).split()),
     }

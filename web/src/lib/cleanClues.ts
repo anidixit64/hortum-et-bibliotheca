@@ -6,10 +6,12 @@ export const CLEANED_FROM = 25
 /** The page's clue list after cleanup: each cleaned clue built from its corpus clues
  *  (label and count from the cleanup; text, examples and heatmap from the records). */
 export function applyCleanup(records: Clue[], cleaned: CleanedClue[]): Clue[] {
-  const byId = new Map(records.map((r) => [r.cluster_id, r]))
+  const byId = new Map(records.map((r) => [Number(r.cluster_id), r]))
   const out: Clue[] = []
   for (const c of cleaned) {
-    const parts = c.clue_ids.map((id) => byId.get(id)).filter((r): r is Clue => r !== undefined)
+    const parts = c.clue_ids
+      .map((id) => byId.get(Number(id)))
+      .filter((r): r is Clue => r !== undefined)
     const home = parts[0]
     if (!home) continue
     const hist = home.heatmap.position_hist.map((_, i) =>

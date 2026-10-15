@@ -84,7 +84,13 @@ test('examples step through one at a time, with pictures on about two of them', 
     payload: {
       timeline: { kind: 'events', events: [] },
       feature: {
-        form: 'A handful', title: 'Six moments', body: '', dramatized: false, steps: [],
+        form: 'A handful', title: 'Six moments', body: '', dramatized: false,
+        diagram_title: 'How a mask holds a self',
+        steps: [
+          { label: 'A role', detail: 'Someone is handed a part.' },
+          { label: 'The mask', detail: 'The part starts to feel like a face.' },
+        ],
+        diagram_blurb: 'Start with a costume. The hard part is what remains when it comes off.',
         entries: [
           { name: 'Battle royal', text: 'Boys box blindfolded.' },
           { name: 'The prologue', text: 'He speaks from a hole full of light.' },
@@ -131,6 +137,13 @@ test('examples step through one at a time, with pictures on about two of them', 
   expect(within(box as HTMLElement).queryByRole('img')).not.toBeInTheDocument()
   fireEvent.click(within(box as HTMLElement).getByRole('button', { name: 'Next example' }))
   expect(within(box as HTMLElement).getByRole('img', { name: 'A rider' })).toBeInTheDocument()
+  expect(within(box as HTMLElement).queryByText('The mask')).not.toBeInTheDocument()
+  const diagram = document.getElementById('room-diagram')
+  expect(diagram).toBeTruthy()
+  expect(diagram?.closest('#room-feature')).toBeNull()
+  expect(screen.queryByText(/costume/)).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: /How a mask holds a self/ }))
+  expect(screen.getByText(/costume/)).toBeInTheDocument()
   vi.unstubAllGlobals()
 })
 
@@ -345,6 +358,87 @@ test('non-AI opens the article without generation, and AI starts in place', asyn
   expect(await screen.findAllByText('exhibit generating...')).not.toHaveLength(0)
   expect(screen.getByRole('heading', { level: 1, name: 'Invisible Man' })).toBeInTheDocument()
   expect(urls.some((u) => u.includes('generate=true'))).toBe(true)
+  localStorage.removeItem('museo-ai')
+  vi.unstubAllGlobals()
+})
+
+test('sidebars hold the photos, facts stay a checkerboard, and clues survive a bad cleanup', async () => {
+  localStorage.setItem('museo-ai', 'on')
+  const ready = content('ready')
+  const shot = (file: string, caption: string) => ({
+    file, url: `https://example.test/${file}`, width: 800, height: 600, page: null, caption,
+    artist: null, license: 'CC BY-SA 4.0', license_url: null, attribution_required: false, is_main: false,
+  })
+  const images = Array.from({ length: 10 }, (_, i) => shot(`File:${i}.jpg`, `Caption ${i}`))
+  const tone = {
+    bg: '#f4ead8', surface: '#fff8ee', text: '#24161f', muted: '#5c4a42',
+    accent: '#8d4a36', accent2: '#c9a227', accent_soft: '#f0ddd2', header_tint: '#f4ead8',
+  }
+  ready.sections.images = { status: 'ok', fetched_at: '2026-10-10', payload: { images } }
+  ready.sections.facts = {
+    status: 'ok', fetched_at: '2026-10-10',
+    payload: { facts: [1, 2, 3, 4].map((i) => ({ fact: `Fact ${i} about the novel.`, source_sentence: 'He lives underground.' })) },
+  }
+  ready.sections.theme = {
+    status: 'ok', fetched_at: '2026-10-10',
+    payload: {
+      light: tone, dark: tone, font: 'classical-serif', header: null,
+      rationale: 'Candlelight and basement gold were chosen because the novel lives underground.',
+    },
+  }
+  ready.sections.clues = {
+    status: 'ok', fetched_at: '2026-10-10',
+    payload: { clues: [{ rank: 1, label: 'Gone', n_questions: 4, clue_ids: [999999], spellings: ['Gone'] }] },
+  }
+  ready.sections.books = {
+    status: 'ok', fetched_at: '2026-10-10',
+    payload: {
+      books: [0, 1, 2].map((i) => ({
+        title: `Shelf Book ${i}`, author: 'A. Writer', year: 2000 + i, isbn: '9780393000000',
+        cover: null, open_library: `https://openlibrary.org/works/OL${i}W`, cited: 1, source: 'cited',
+        publisher: 'W. W. Norton & Company',
+      })),
+      references: [],
+    },
+  }
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    let body: unknown = {
+      topic_id: 'Q1784288', followed: false, cards: 0, due: 0, buzzed_clusters: {},
+      buzzing: { buzzes: 0, correct: 0, accuracy: null, median_correct_position: null, power_rate: null },
+    }
+    if (String(url).includes('/clues')) body = []
+    else if (String(url).includes('/lookup')) body = {}
+    else if (String(url).startsWith('/api/catalog/topics/')) body = record
+    else if (String(url).startsWith('/api/content/')) body = ready
+    return new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } })
+  }))
+  render(
+    <MemoryRouter initialEntries={['/topic/invisible-man']}>
+      <Routes><Route path="/topic/:key" element={<TopicPage />} /></Routes>
+    </MemoryRouter>,
+  )
+  expect(await screen.findByRole('heading', { level: 3, name: 'Ras the Exhorter' })).toBeInTheDocument()
+  expect(screen.queryByText(/Not asked often enough/)).not.toBeInTheDocument()
+  expect(screen.getAllByRole('heading', { name: 'In the collection' })).toHaveLength(6)
+  const leftHeads = [...document.querySelectorAll('.museum-left h3')].map((node) => node.textContent)
+  const rightHeads = [...document.querySelectorAll('.museum-right h3')].map((node) => node.textContent)
+  expect(leftHeads[0]).toBe('Map')
+  expect(leftHeads).toEqual(['Map', 'In the collection', 'Screening room', 'In the collection', 'In the collection'])
+  expect(rightHeads[0]).toBe('Timeline')
+  expect(rightHeads.filter((title) => title === 'In the collection')).toHaveLength(3)
+  expect(screen.getByText('Caption 0')).toBeInTheDocument()
+  expect(screen.getByText('Caption 1')).toBeInTheDocument()
+  const gallery = document.querySelector('.exhibit-gallery')
+  expect(gallery?.textContent).toContain('Caption 8')
+  expect(gallery?.textContent).toContain('Caption 9')
+  const plaques = [...document.querySelectorAll('.plaque')]
+  expect(plaques).toHaveLength(4)
+  expect(plaques[0].textContent).toContain('Fact 1')
+  expect(document.querySelector('.plaques img')).toBeNull()
+  expect(document.querySelectorAll('.books li')).toHaveLength(2)
+  expect(document.querySelector('.books img')?.getAttribute('src')).toContain('9780393000000')
+  fireEvent.click(screen.getByRole('button', { name: 'Color palette' }))
+  expect(screen.getByText(/Candlelight and basement gold/)).toBeInTheDocument()
   localStorage.removeItem('museo-ai')
   vi.unstubAllGlobals()
 })

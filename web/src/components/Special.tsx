@@ -36,6 +36,35 @@ export function StepDiagram({ steps }: { steps: FeatureStep[] }) {
   )
 }
 
+/** One line until it is opened, then a small diagram and a plain-language explanation. */
+export function IdeaDiagram({ feature }: { feature: SpecialPayload['feature'] }) {
+  const steps = feature.steps ?? []
+  const blurb = feature.diagram_blurb?.trim() ?? ''
+  const [open, setOpen] = useState(false)
+  if (steps.length < 2 && !blurb) return null
+  const title = feature.diagram_title?.trim() || 'A closer look'
+  return (
+    <section className="exhibit-diagram" id="room-diagram">
+      <button
+        type="button"
+        className="diagram-toggle"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span className="diagram-caret" aria-hidden="true">{open ? '▼' : '▶'}</span>
+        <span className="diagram-toggle-title">{title}</span>
+        <span className="muted small">{open ? 'hide' : 'show'}</span>
+      </button>
+      {open && (
+        <div className="diagram-body">
+          {steps.length >= 2 && <StepDiagram steps={steps} />}
+          {blurb && <p className="prose diagram-blurb">{blurb}</p>}
+        </div>
+      )}
+    </section>
+  )
+}
+
 export function Feature({
   special,
   illustrations = {},
@@ -45,7 +74,6 @@ export function Feature({
 }) {
   const { feature, source } = special
   const entries = feature.entries?.filter((entry) => entry.name && entry.text) ?? []
-  const diagram = feature.steps.length >= 2
   const [index, setIndex] = useState(0)
   const safe = entries.length ? Math.min(index, entries.length - 1) : 0
   const entry = entries[safe]
@@ -53,7 +81,7 @@ export function Feature({
   return (
     <article className="feature">
       <h3>{feature.title}</h3>
-      {feature.dramatized && !diagram && (
+      {feature.dramatized && entries.length === 0 && (
         <p className="muted small">
           A dramatized scene: the events, people and places are real; the atmosphere is imagined.
         </p>
@@ -96,18 +124,9 @@ export function Feature({
           </nav>
         </div>
       ) : (
-        !diagram &&
         feature.body.split(/\n\s*\n/).filter(Boolean).map((p, i) => (
           <p key={i} className="prose">{p}</p>
         ))
-      )}
-      {diagram && (
-        <div className="diagram-block">
-          <StepDiagram steps={feature.steps} />
-          {feature.diagram_blurb?.trim() && (
-            <p className="prose diagram-blurb">{feature.diagram_blurb.trim()}</p>
-          )}
-        </div>
       )}
       {source && (
         <p className="muted small attribution">

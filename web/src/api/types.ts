@@ -317,6 +317,7 @@ export interface SpecialPayload {
     steps: FeatureStep[]
     dramatized: boolean
     entries?: HandfulEntry[]
+    diagram_title?: string
     diagram_blurb?: string
   }
   source: { title: string; url: string } | null
@@ -332,6 +333,7 @@ export interface Theme {
   dark: ThemeColors
   font: string // one of a fixed set of pairings
   header: WikiImage | null
+  rationale?: string
 }
 
 export interface FunFact {

@@ -3,7 +3,7 @@ from content.generate import chain
 
 
 def test_summary_checks_marks_length_and_hook() -> None:
-    body = "[[1|Ras the Exhorter]] and [[2|the battle royal]] " + " ".join(["w"] * 600)
+    body = "[[1|Ras the Exhorter]] and [[2|the battle royal]] " + " ".join(["w"] * 420)
     good = {"hook": "A man underground burns 1,369 light bulbs. Why?", "summary": body}
     assert writing.summary_problem(good, [1, 2, 3]) is None
     assert "aren't in the list" in str(writing.summary_problem(good, [1]))

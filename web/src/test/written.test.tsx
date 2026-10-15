@@ -30,6 +30,32 @@ test('summary clues are bold, with a one-line popup and a link to the full expla
 })
 
 describe('special sections', () => {
+  it('keeps the diagram collapsed on its own line until it is opened', async () => {
+    const { IdeaDiagram } = await import('../components/Special')
+    render(
+      <IdeaDiagram
+        feature={{
+          form: 'A handful',
+          title: 'Six moments',
+          body: '',
+          dramatized: false,
+          steps: [{ label: 'Light enters', detail: 'x' }, { label: 'Rays bend', detail: 'y' }],
+          diagram_title: 'How a lens bends a ray',
+          diagram_blurb: 'The diagram follows one ray from the air into the glass and back out again.',
+        }}
+      />,
+    )
+    const toggle = screen.getByRole('button', { name: /How a lens bends a ray/ })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('Rays bend')).toBeNull()
+    expect(screen.queryByText(/follows one ray/)).toBeNull()
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('Rays bend')).toBeTruthy()
+    expect(screen.getByText(/follows one ray/)).toBeTruthy()
+    expect(document.getElementById('room-diagram')).toBeTruthy()
+  })
+
   it('keeps the diagram and the example list, and drops the essay', async () => {
     const { Feature, ExhibitTimeline } = await import('../components/Special')
     const special = {
@@ -54,8 +80,8 @@ describe('special sections', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next example' }))
     expect(screen.getByText('Focal length')).toBeTruthy()
     expect(screen.queryByText('Convex lens')).toBeNull()
-    expect(screen.getByText('Rays bend')).toBeTruthy()
-    expect(screen.getByText(/follows one ray/)).toBeTruthy()
+    expect(screen.queryByText('Rays bend')).toBeNull()
+    expect(screen.queryByText(/follows one ray/)).toBeNull()
     expect(screen.getByText('44 BCE')).toBeTruthy()
     expect(screen.queryByText(/essay should stay hidden/)).toBeNull()
     expect(screen.queryByText(/dramatized scene/)).toBeNull()

@@ -8,6 +8,11 @@ import { percent } from '../lib/format'
 
 const TREND = { rising: '↑ rising', steady: '→ steady', fading: '↓ fading' } as const
 
+export function emptyClueNote(questions: number) {
+  if (questions > 0) return 'These questions have not been split into ranked clues yet.'
+  return 'Not asked often enough to rank clues yet.'
+}
+
 export function ClueList({
   clues,
   explanations,
@@ -23,7 +28,7 @@ export function ClueList({
   const byRank = new Map((explanations ?? []).map((e) => [e.rank, e]))
   const lines = new Map((explanations ?? []).map((e) => [e.rank, e.one_line]))
   const names = clues.map((c) => ({ rank: c.rank, names: [c.label, ...(c.variants ?? [])] }))
-  if (!clues.length) return <p className="muted">Not asked often enough to rank clues yet.</p>
+  if (!clues.length) return <p className="muted">{emptyClueNote(0)}</p>
   return (
     <ol className="clues">
       {clues.map((clue) => (
@@ -157,6 +162,7 @@ export function ClueCarousel({
   ornament,
   articleNotes,
   wikiLoaded = false,
+  questions = 0,
 }: {
   clues: Clue[]
   explanations?: Explanation[]
@@ -174,6 +180,8 @@ export function ClueCarousel({
   ornament?: WikiImage | null
   articleNotes?: Record<number, WikiNote | null>
   wikiLoaded?: boolean
+  /** Questions on the topic, so an empty hall doesn't claim it was rarely asked. */
+  questions?: number
 }) {
   const [index, setIndex] = useState(0)
   const [flashMsg, setFlashMsg] = useState<string | null>(null)
@@ -195,7 +203,7 @@ export function ClueCarousel({
   }, [clues, sortMode, category, sortDir, onSortMode])
   const clueImages = useMemo(() => matchClueImages(clues, images), [clues, images])
 
-  if (!clues.length) return <p className="muted">Not asked often enough to rank clues yet.</p>
+  if (!clues.length) return <p className="muted">{emptyClueNote(questions)}</p>
 
   const safeIndex = Math.min(index, sorted.length - 1)
   const clue = sorted[safeIndex]

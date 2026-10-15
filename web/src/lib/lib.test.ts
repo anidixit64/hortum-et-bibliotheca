@@ -1,4 +1,7 @@
+import { bookCover, evenShelf } from './books'
+import { placePhotos, sidebarSlots } from './exhibit'
 import { themeVariables } from './theme'
+import type { WikiImage } from '../api/types'
 import { extractProperNouns, linkClues, parseMarks } from './marks'
 import { applyCleanup } from './cleanClues'
 import type { Clue } from '../api/types'
@@ -114,5 +117,39 @@ describe('themeVariables', () => {
     expect(vars['--l-accent-soft']).toBe('#ffffff')
     expect(vars['--d-header-tint']).toBe('#000000')
     expect(vars['--font-body']).toContain('Didot')
+  })
+})
+
+describe('the exhibit shelf', () => {
+  const image = (file: string): WikiImage => ({
+    file, url: file, width: 100, height: 100, page: null, caption: file,
+    artist: null, license: 'CC BY-SA 4.0', license_url: null, attribution_required: false,
+    is_main: false,
+  })
+  it('puts two photos in the summary, three on each side, and the rest in the gallery', () => {
+    const images = Array.from({ length: 10 }, (_, i) => image(`File:${i}.jpg`))
+    const placed = placePhotos(images, new Set(), false)
+    expect(placed.summary.map((item) => item.file)).toEqual(['File:0.jpg', 'File:1.jpg'])
+    expect(placed.left).toHaveLength(3)
+    expect(placed.right).toHaveLength(3)
+    expect(placed.gallery.map((item) => item.file)).toEqual(['File:8.jpg', 'File:9.jpg'])
+  })
+  it('leads a sidebar with the map or timeline and weaves photos through the other cards', () => {
+    expect(sidebarSlots(3, 1, true)).toEqual(['lead', 'photo', 'rest', 'photo', 'photo'])
+    expect(sidebarSlots(3, 0, true)).toEqual(['lead', 'photo', 'photo', 'photo'])
+    expect(sidebarSlots(0, 1, true)).toEqual(['lead', 'rest'])
+  })
+  it('keeps an even number of books and builds an ISBN cover', () => {
+    const books = Array.from({ length: 9 }, (_, i) => ({
+      title: `Book ${i}`, author: null, year: null, isbn: i === 8 ? '9780393000000' : null,
+      cover: i === 0 ? 'https://covers.example/a.jpg' : null, open_library: null, cited: 0,
+      source: 'cited' as const,
+    }))
+    expect(evenShelf(books).map((book) => book.title)).toEqual(
+      ['Book 0', 'Book 1', 'Book 2', 'Book 3', 'Book 4', 'Book 5', 'Book 6', 'Book 7'],
+    )
+    expect(evenShelf(books.slice(0, 3))).toHaveLength(2)
+    expect(bookCover(books[8])).toBe('https://covers.openlibrary.org/b/isbn/9780393000000-L.jpg')
+    expect(bookCover(books[0])).toBe('https://covers.example/a.jpg')
   })
 })

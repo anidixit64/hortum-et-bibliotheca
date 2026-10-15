@@ -19,10 +19,11 @@ from content.fetchers import Topic, Unavailable, markup
 from content.http import FetchError, PoliteClient
 from hortum_common.text import normalize
 
-VERSION = 4
+VERSION = 5
 WIKI_API = "https://en.wikipedia.org/w/api.php"
 OPEN_LIBRARY = "https://openlibrary.org/search.json"
-COVERS = "https://covers.openlibrary.org/b/id/{}-M.jpg"
+COVERS = "https://covers.openlibrary.org/b/id/{}-L.jpg"
+COVERS_ISBN = "https://covers.openlibrary.org/b/isbn/{}-L.jpg"
 FIELDS = (
     "key,title,author_name,first_publish_year,edition_count,ratings_count,cover_i,isbn,publisher"
 )
@@ -81,7 +82,8 @@ _NOTED: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
         ("Manchester University Press", r"manchester university press"),
         ("Melbourne University Press", r"melbourne university press"),
         ("New York University Press", r"new york university press|\bnyu press\b"),
-        ("Palgrave Macmillan", r"palgrave|st martin s press"),
+        ("Palgrave Macmillan", r"palgrave"),
+        ("St. Martin's Press", r"st martin s press|st martins press"),
         ("Politico's", r"politico s"),
         ("Polity Press", r"polity press|\bpolity\b"),
         ("Routledge", r"routledge|taylor (?:and|&) francis|taylor francis"),
@@ -98,13 +100,56 @@ _NOTED: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
         ("Wiley-Blackwell", r"wiley blackwell|\bblackwell\b"),
         ("John Wiley & Sons", r"john wiley|\bwiley\b"),
         ("Basic Books", r"basic books"),
-        ("Harper & Row", r"harper row|harpercollins|harper collins"),
+        ("HarperCollins", r"harpercollins|harper collins|harper row"),
         ("Pergamon Press", r"pergamon"),
         ("Prentice Hall", r"prentice hall"),
         ("Random House", r"random house"),
         ("Springer", r"springer"),
         ("Academic Press", r"academic press"),
         ("World Health Organization", r"world health organization|\bwho\b"),
+        ("Viking", r"\bviking\b"),
+        ("Crown", r"\bcrown\b"),
+        ("Portfolio", r"\bportfolio\b"),
+        ("Riverhead Books", r"riverhead"),
+        ("Avery", r"\bavery\b"),
+        ("Simon & Schuster", r"simon (?:and|&)? ?schuster"),
+        ("Scribner", r"\bscribner\b"),
+        ("Avid Reader Press", r"avid reader"),
+        ("Atria Books", r"\batria\b"),
+        ("One Signal Publishers", r"one signal"),
+        ("PublicAffairs", r"publicaffairs|public affairs"),
+        ("Little, Brown and Company", r"little brown"),
+        ("Twelve", r"\btwelve\b"),
+        ("Farrar, Straus and Giroux", r"farrar straus|farrar, straus|\bfsg\b"),
+        ("Henry Holt and Company", r"henry holt"),
+        ("Metropolitan Books", r"metropolitan books"),
+        ("Flatiron Books", r"flatiron"),
+        ("Ecco", r"\becco\b"),
+        ("Harper Business", r"harper business"),
+        ("Dey Street Books", r"dey street"),
+        ("Harper", r"\bharper\b"),
+        ("W. W. Norton & Company", r"w w norton|\bnorton\b"),
+        ("Bloomsbury", r"bloomsbury"),
+        ("Grove Atlantic", r"grove atlantic|\bgrove\b"),
+        ("Profile Books", r"profile books"),
+        ("The New Press", r"the new press"),
+        ("Beacon Press", r"beacon press"),
+        ("Verso Books", r"\bverso\b"),
+        ("Haymarket Books", r"haymarket"),
+        ("Seven Stories Press", r"seven stories"),
+        ("Island Press", r"island press"),
+        ("O'Reilly Media", r"o reilly|oreilly"),
+        ("National Geographic Books", r"national geographic"),
+        ("Timber Press", r"timber press"),
+        ("Phaidon Press", r"phaidon"),
+        ("Taschen", r"taschen"),
+        ("Thames & Hudson", r"thames (?:and|&) hudson|thames hudson"),
+        ("Rizzoli New York", r"rizzoli"),
+        ("Chronicle Books", r"chronicle books"),
+        ("Graywolf Press", r"graywolf"),
+        ("Coffee House Press", r"coffee house"),
+        ("Melville House", r"melville house"),
+        ("Catapult", r"\bcatapult\b"),
     )
 )
 
@@ -243,6 +288,16 @@ def _fold(title: str) -> str:
     return " ".join(re.sub(r"[^a-z0-9]+", " ", title.lower()).split())
 
 
+def cover_from(cover_i: object = None, isbn: str | None = None) -> str | None:
+    """A large Open Library cover, by cover id or by ISBN when that id is missing."""
+    if isinstance(cover_i, int) and cover_i > 0:
+        return COVERS.format(cover_i)
+    digits = re.sub(r"[^0-9Xx]", "", isbn or "")
+    if len(digits) in (10, 13):
+        return COVERS_ISBN.format(digits)
+    return None
+
+
 def _publisher_of(doc: dict[str, Any]) -> str | None:
     pubs = doc.get("publisher") or []
     if isinstance(pubs, str):
@@ -263,7 +318,7 @@ def _match(
         "isbn": (doc.get("isbn") or [None])[0],
         "editions": doc.get("edition_count") or 0,
         "ratings": doc.get("ratings_count") or 0,
-        "cover": COVERS.format(doc["cover_i"]) if doc.get("cover_i") else None,
+        "cover": cover_from(doc.get("cover_i"), (doc.get("isbn") or [None])[0]),
         "open_library": f"https://openlibrary.org{doc['key']}" if doc.get("key") else None,
         "work": doc.get("key"),
         "cited": cited,
@@ -346,8 +401,8 @@ def _keep_public(shelf: dict[str, dict[str, Any]], book: dict[str, Any], source:
 
 
 def _attach_cover(book: dict[str, Any], http: PoliteClient) -> None:
-    """Open Library cover and edition counts. The citation stays if the lookup misses."""
-    if book.get("open_library"):
+    """Open Library cover and edition counts. An ISBN still gets a cover if the lookup misses."""
+    if book.get("cover"):
         return
     query: dict[str, Any] = {"title": book["title"], "limit": 1, "fields": FIELDS}
     if book.get("author"):
@@ -356,19 +411,20 @@ def _attach_cover(book: dict[str, Any], http: PoliteClient) -> None:
         docs = http.get_json(OPEN_LIBRARY, query).get("docs", [])
     except FetchError:
         docs = []
-    if not docs:
-        return
-    match = _match(docs[0], book["source"], book["cited"], book.get("publisher"))
-    book["editions"] = match["editions"]
-    book["ratings"] = match["ratings"]
-    book["cover"] = match["cover"]
-    book["open_library"] = match["open_library"]
-    book["work"] = match["work"]
-    book["isbn"] = book.get("isbn") or match.get("isbn")
-    if not book.get("author"):
-        book["author"] = match.get("author")
-    if not book.get("year"):
-        book["year"] = match.get("year")
+    if docs:
+        match = _match(docs[0], book["source"], book["cited"], book.get("publisher"))
+        book["editions"] = match["editions"]
+        book["ratings"] = match["ratings"]
+        book["cover"] = match["cover"]
+        book["open_library"] = match["open_library"]
+        book["work"] = match["work"]
+        book["isbn"] = book.get("isbn") or match.get("isbn")
+        if not book.get("author"):
+            book["author"] = match.get("author")
+        if not book.get("year"):
+            book["year"] = match.get("year")
+    if not book.get("cover"):
+        book["cover"] = cover_from(isbn=book.get("isbn"))
 
 
 def fetch(topic: Topic, http: PoliteClient) -> dict[str, Any]:

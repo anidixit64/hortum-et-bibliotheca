@@ -308,7 +308,7 @@ def test_books_rank_cited_then_popular(conn: sqlite3.Connection, web: Any) -> No
     assert "A casebook on Invisible man" not in titles
     assert "Feel the fear" not in titles
     rice = next(b for b in out["books"] if b["title"].startswith("Ralph Ellison and"))
-    assert rice["cover"] == "https://covers.openlibrary.org/b/id/4304650-M.jpg"
+    assert rice["cover"] == "https://covers.openlibrary.org/b/id/4304650-L.jpg"
     assert rice["cited"] == 2 and rice["source"] == "cited"
     assert rice["publisher"] == "Oxford University Press"
     bio = next(b for b in out["books"] if b["title"] == "Ralph Ellison: A Biography")
@@ -388,6 +388,32 @@ def test_bibliography_keeps_every_noted_book(conn: sqlite3.Connection, web: Any)
     assert "Tiny Pamphlet" not in titles
     assert "Journal Piece" not in titles
     assert "ignore me" not in titles
+
+
+def test_trade_presses_and_an_isbn_cover_when_lookup_misses(
+    conn: sqlite3.Connection, web: Any
+) -> None:
+    assert books.noted_publisher("Farrar, Straus and Giroux") == "Farrar, Straus and Giroux"
+    assert books.noted_publisher("W. W. Norton & Company") == "W. W. Norton & Company"
+    assert books.noted_publisher("Simon & Schuster") == "Simon & Schuster"
+    assert books.noted_publisher("Harper Business") == "Harper Business"
+    assert books.noted_publisher("Harper") == "Harper"
+    assert books.noted_publisher("Tiny House") is None
+    wikitext = (
+        "== Bibliography ==\n"
+        "{{cite book|title=The Traitor's Novel|author=A. Writer|year=2010"
+        "|publisher=W. W. Norton & Company|isbn=978-0-393-00000-0}}\n"
+    )
+
+    def handler(request: httpx.Request) -> Any:
+        if "wikipedia" in request.url.host:
+            return {"parse": {"wikitext": wikitext}}
+        return {"docs": []}
+
+    out = books.fetch(INVISIBLE_MAN, web(conn, handler))
+    book = next(b for b in out["books"] if b["title"] == "The Traitor's Novel")
+    assert book["publisher"] == "W. W. Norton & Company"
+    assert book["cover"] == "https://covers.openlibrary.org/b/isbn/9780393000000-L.jpg"
 
 
 def test_names_topic() -> None:
