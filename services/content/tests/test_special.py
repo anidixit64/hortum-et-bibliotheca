@@ -24,15 +24,15 @@ def test_timeline_keeps_events_whose_quote_names_their_year() -> None:
 
 
 def test_forms_and_feature_checks() -> None:
-    assert special.form("History")[0] == "Be there"
-    assert "one scene" in special.form("History")[1]
-    assert "Do not retell" in special.form("History")[1]
-    assert special.form("Literature")[0] == "Close reading"
-    assert "Do not retell" in special.form("Literature")[1]
-    assert "single work" in special.form("Literature")[1]
-    assert special.form("Mythology")[0] == "One telling"
-    assert "Do not retell" in special.form("Mythology")[1]
+    assert special.form("History")[0] == "A handful"
+    assert "5 or 6" in special.form("History")[1]
+    assert special.form("Literature") == special.DEFAULT_FORM
+    assert special.form("Mythology")[0] == "A handful"
+    assert not special.is_diagram("History")
+    assert special.is_diagram("Science")
+    assert special.form("Science")[0] == "Deep dive"
     assert special.form("Science")[2] == "discoveries"
+    assert special.form("Philosophy")[0] == "The argument"
     assert special.form("Pop Culture") == special.DEFAULT_FORM
     good = {
         "title": "T",
@@ -45,11 +45,14 @@ def test_forms_and_feature_checks() -> None:
     assert "short" in str(special.feature_problem({**good, "steps": long_step}))
 
 
-def test_history_and_science_features_are_short() -> None:
-    assert special.feature_words("History") == special.SHORT_FEATURE_WORDS
+def test_diagram_essays_stay_short_and_a_handful_is_five_or_six() -> None:
     assert special.feature_words("Science") == special.SHORT_FEATURE_WORDS
-    assert special.feature_words("Literature") == special.SHORT_FEATURE_WORDS
-    assert special.feature_words("Mythology") == special.SHORT_FEATURE_WORDS
-    assert special.feature_words("Fine Arts") == special.FEATURE_WORDS
+    assert special.feature_words("Social Science") == special.SHORT_FEATURE_WORDS
+    assert special.feature_words("Philosophy") == special.FEATURE_WORDS
     short = {"title": "T", "body": " ".join(["w"] * 700)}
     assert "words" in str(special.feature_problem(short, special.SHORT_FEATURE_WORDS))
+    entries = [{"name": f"Thing {i}", "text": " ".join(["word"] * 70)} for i in range(6)]
+    assert special.entries_problem({"title": "Six things", "entries": entries}) is None
+    assert "5 or 6" in str(special.entries_problem({"title": "Few", "entries": entries[:3]}))
+    brief = [{**entries[0], "text": "too short"}, *entries[1:]]
+    assert "words" in str(special.entries_problem({"title": "Six things", "entries": brief}))

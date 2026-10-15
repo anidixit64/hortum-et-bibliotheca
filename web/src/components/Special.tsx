@@ -37,6 +37,7 @@ export function StepDiagram({ steps }: { steps: FeatureStep[] }) {
 
 export function Feature({ special }: { special: SpecialPayload }) {
   const { feature, source } = special
+  const entries = feature.entries?.filter((entry) => entry.name && entry.text) ?? []
   return (
     <article className="feature">
       <h3>{feature.title}</h3>
@@ -45,8 +46,21 @@ export function Feature({ special }: { special: SpecialPayload }) {
           A dramatized scene: the events, people and places are real; the atmosphere is imagined.
         </p>
       )}
-      {feature.body.split(/\n\s*\n/).map((p, i) => <p key={i} className="prose">{p}</p>)}
-      <StepDiagram steps={feature.steps} />
+      <div className="scroll-panel">
+        {entries.length > 0 ? (
+          <ol className="handful">
+            {entries.map((entry) => (
+              <li key={entry.name}>
+                <strong>{entry.name}</strong>
+                <p className="prose">{entry.text}</p>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          feature.body.split(/\n\s*\n/).filter(Boolean).map((p, i) => <p key={i} className="prose">{p}</p>)
+        )}
+        <StepDiagram steps={feature.steps} />
+      </div>
       {source && (
         <p className="muted small attribution">
           Written by AI from <a href={source.url} target="_blank" rel="noreferrer">“{source.title}”</a>{' '}

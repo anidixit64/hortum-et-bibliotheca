@@ -87,13 +87,13 @@ export function Summary({
 }) {
   const lines = new Map(explanations.map((e) => [e.rank, e.one_line]))
   return (
-    <>
+    <div className="scroll-panel">
       {summary.summary.split(/\n\s*\n/).map((para, i) => (
         <p key={i} className="prose">
           <Pieces pieces={parseMarks(para)} lines={lines} topicLinks={topicLinks} />
         </p>
       ))}
-    </>
+    </div>
   )
 }
 

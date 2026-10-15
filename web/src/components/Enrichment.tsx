@@ -25,17 +25,19 @@ export function WikiArticle({ section }: { section: Section<'wiki'> | undefined 
   if (!wiki) return <Status section={section} what="the Wikipedia article" />
   return (
     <div className="wiki-article">
-      {wiki.lead.split('\n').filter(Boolean).map((p, i) => (
-        <p key={i} className="prose">{p}</p>
-      ))}
-      {wiki.sections.map((s) => (
-        <details key={s.heading} className="wiki-section">
-          <summary>{s.heading}</summary>
-          {s.text.split('\n').filter(Boolean).map((p, i) => (
-            <p key={i} className="prose">{p}</p>
-          ))}
-        </details>
-      ))}
+      <div className="scroll-panel">
+        {wiki.lead.split('\n').filter(Boolean).map((p, i) => (
+          <p key={i} className="prose">{p}</p>
+        ))}
+        {wiki.sections.map((s) => (
+          <details key={s.heading} className="wiki-section">
+            <summary>{s.heading}</summary>
+            {s.text.split('\n').filter(Boolean).map((p, i) => (
+              <p key={i} className="prose">{p}</p>
+            ))}
+          </details>
+        ))}
+      </div>
       <p className="muted small">
         <a href={wiki.url} target="_blank" rel="noreferrer">Read on Wikipedia</a>
       </p>

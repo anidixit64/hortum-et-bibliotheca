@@ -36,6 +36,27 @@ describe('special sections', () => {
     expect(screen.getByText('Daggers')).toBeTruthy()
     expect(screen.getByText('44 BCE')).toBeTruthy()
   })
+
+  it('lists a handful of related things instead of one long essay', async () => {
+    const { Feature } = await import('../components/Special')
+    render(
+      <Feature special={{
+        timeline: { kind: 'events', events: [] },
+        feature: {
+          form: 'A handful', title: 'Six snakes', body: '', dramatized: false, steps: [],
+          entries: [
+            { name: 'King cobra', text: 'A long hooded snake that nests.' },
+            { name: 'Sidewinder', text: 'It throws a loop of its body across the sand.' },
+          ],
+        },
+        source: null,
+      }} />,
+    )
+    expect(screen.getByText('Six snakes')).toBeTruthy()
+    expect(screen.getByText('King cobra')).toBeTruthy()
+    expect(screen.getByText(/throws a loop/)).toBeTruthy()
+    expect(screen.queryByText(/dramatized scene/)).toBeNull()
+  })
 })
 
 describe('the clue hall', () => {
