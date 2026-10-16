@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import type { ExploreResult } from '../api/types'
-import { Roulette } from '../components/Roulette'
+import { RouletteLayer } from '../components/Roulette'
 import { findCategory } from '../lib/categories'
 import { useAiMode, useSetAiMode } from '../lib/aiMode'
 
@@ -95,6 +95,9 @@ export function ExplorePage() {
       </div>
 
       <div className="explore-controls">
+        <button type="button" className="explore-random" onClick={() => setRoulette(true)}>
+          Randomizer
+        </button>
         <div className="explore-diff-bar">
           <button
             className={`explore-diff-btn${diffMin === undefined && diffMax === undefined ? ' active' : ''}`}
@@ -115,9 +118,6 @@ export function ExplorePage() {
             )
           })}
         </div>
-        <button type="button" className="explore-random" onClick={() => setRoulette(true)}>
-          Randomizer
-        </button>
         <div className="explore-ai-toggle">
           <span className={ai ? 'explore-mode-on' : undefined}>AI</span>
           <button
@@ -140,17 +140,7 @@ export function ExplorePage() {
         <p className="muted explore-empty">No topics found for this difficulty.</p>
       )}
 
-      {roulette && (
-        <>
-          <div className="palette-backdrop roulette-backdrop" />
-          <div className="roulette-layer" role="dialog" aria-modal="true" aria-label="Random topic">
-            <button type="button" className="roulette-back" onClick={() => setRoulette(false)}>
-              ← Explore
-            </button>
-            <Roulette />
-          </div>
-        </>
-      )}
+      {roulette && <RouletteLayer onClose={() => setRoulette(false)} />}
 
       {results && results.length > 0 && (
         <ol className="explore-results">

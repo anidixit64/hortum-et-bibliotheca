@@ -4,6 +4,7 @@ import { vi } from 'vitest'
 import { buildStrip, landingIndex, reelOffset, topicBlurb, WINDOW } from '../lib/roulette'
 import type { RouletteTopic } from '../api/types'
 import { ExplorePage } from '../pages/ExplorePage'
+import { BrowsePage } from '../pages/BrowsePage'
 import { HomePage } from '../pages/HomePage'
 
 const topics: RouletteTopic[] = [
@@ -61,5 +62,23 @@ test('the randomizer spins onto a topic over the explore page', async () => {
   expect(screen.getByText(/1952 novel|innermost planet|1863 battle/)).toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: '← Explore' }))
   expect(screen.queryByRole('dialog', { name: 'Random topic' })).not.toBeInTheDocument()
+  vi.unstubAllGlobals()
+})
+
+test('the explore landing offers the randomizer above the categories', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    const body = String(url).includes('/explore/roulette') ? topics : []
+    return new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } })
+  }))
+  render(
+    <MemoryRouter initialEntries={['/search']}>
+      <Routes><Route path="/search" element={<BrowsePage />} /></Routes>
+    </MemoryRouter>,
+  )
+  const button = screen.getByRole('button', { name: 'Randomizer' })
+  expect(document.getElementById('explore')?.contains(button)).toBe(true)
+  fireEvent.click(button)
+  const learn = await screen.findByRole('button', { name: 'Learn more' })
+  expect(learn.closest('a')?.getAttribute('href')).toMatch(/^\/topic\/Q[123]$/)
   vi.unstubAllGlobals()
 })

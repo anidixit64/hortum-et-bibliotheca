@@ -118,3 +118,18 @@ export function Roulette() {
     </div>
   )
 }
+
+/** The spinning reel over a dimmed page, with a way back to Explore. */
+export function RouletteLayer({ onClose }: { onClose: () => void }) {
+  return (
+    <>
+      <div className="palette-backdrop roulette-backdrop" />
+      <div className="roulette-layer" role="dialog" aria-modal="true" aria-label="Random topic">
+        <button type="button" className="roulette-back" onClick={onClose}>
+          ← Explore
+        </button>
+        <Roulette />
+      </div>
+    </>
+  )
+}
