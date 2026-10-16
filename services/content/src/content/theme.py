@@ -15,7 +15,7 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
-THEME_VERSION = 3
+THEME_VERSION = 4
 TOKENS = ("bg", "surface", "text", "muted", "accent", "accent2", "accent_soft", "header_tint")
 FONT_PAIRINGS = {
     "classical-serif": "Old-style serif (Palatino, Iowan): history, classics, literature",
@@ -145,10 +145,13 @@ def palette(image: bytes, k: int = 6, seed: int = 7) -> list[dict[str, Any]]:
 # --- the request and its checks ---------------------------------------------------------
 
 SYSTEM = """You design the color palette of a study page about one topic, like the color \
-scheme of a museum exhibit. First envision the 5-6 colors that represent the topic — for \
-a polar topic, whites, icy purples and blues with hints of aurora green and pink; for the \
-Aztec Empire, jade, terracotta, obsidian, gold and turquoise. Then map those colors to a \
-coherent page scheme. Text stays easy to read."""
+scheme of a museum exhibit. Be bold and specific: a palette should feel like one \
+particular thing, not a safe middle ground. First envision 2-3 colors that embody the \
+atmosphere, aesthetic and era of the topic, and 2-3 colors that accent and highlight \
+aspects the topic is known for. For a polar topic, stark whites and deep icy purples \
+with aurora green and pink; for the Aztec Empire, jade, terracotta, obsidian, gold and \
+turquoise; for a Romantic poet, stormy indigos, candlelight gold and ink-black. Then map \
+those into a coherent page scheme. Text stays easy to read."""
 
 PROMPT = """Topic: {name} (category: {category})
 Opening of the page: {hook}
@@ -168,6 +171,8 @@ of a topic color; dark: a deep, rich version), never plain grey, white or black
 - accent_soft: a pale (light) or deep (dark) tint of accent for highlighted boxes
 - header_tint: the color the header image fades into (close to bg)
 Then pick "font" from: {fonts}
+Then write "blurb": two sentences explaining why you picked these colors — what aspect \
+of the topic each color evokes.
 The site's default scheme is grey with a teal-green accent ({default}); this page must \
 look distinctly different from it. The colors should feel like the topic — someone seeing \
 only the colors should guess the subject. Avoid plain grey schemes and garish neon."""
@@ -180,8 +185,9 @@ SCHEMA: dict[str, Any] = {
         "dark": {"type": "object", "properties": {t: {"type": "string"} for t in TOKENS},
                  "required": list(TOKENS)},
         "font": {"type": "string", "enum": list(FONT_PAIRINGS)},
+        "blurb": {"type": "string"},
     },
-    "required": ["light", "dark", "font"],
+    "required": ["light", "dark", "font", "blurb"],
 }  # fmt: skip
 
 
@@ -217,8 +223,11 @@ def enforce(colors: dict[str, str]) -> dict[str, str]:
 
 
 def finish(data: dict[str, Any]) -> dict[str, Any]:
-    return {
+    out: dict[str, Any] = {
         "light": enforce(data["light"]),
         "dark": enforce(data["dark"]),
         "font": data["font"],
     }
+    if data.get("blurb"):
+        out["blurb"] = str(data["blurb"]).strip()
+    return out

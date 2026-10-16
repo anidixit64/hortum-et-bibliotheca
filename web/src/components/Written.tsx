@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { Fragment, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import type { Explanation, FunFact, TopicLink, WrittenSummary } from '../api/types'
 import { linkClues, parseMarks, type Piece } from '../lib/marks'
@@ -80,18 +80,24 @@ export function Summary({
   summary,
   explanations,
   topicLinks = {},
+  secondImage,
 }: {
   summary: WrittenSummary
   explanations: Explanation[]
   topicLinks?: Record<string, TopicLink>
+  secondImage?: ReactNode
 }) {
   const lines = new Map(explanations.map((e) => [e.rank, e.one_line]))
+  const paragraphs = summary.summary.split(/\n\s*\n/)
   return (
     <>
-      {summary.summary.split(/\n\s*\n/).map((para, i) => (
-        <p key={i} className="prose">
-          <Pieces pieces={parseMarks(para)} lines={lines} topicLinks={topicLinks} />
-        </p>
+      {paragraphs.map((para, i) => (
+        <Fragment key={i}>
+          {i === 2 && secondImage}
+          <p className="prose">
+            <Pieces pieces={parseMarks(para)} lines={lines} topicLinks={topicLinks} />
+          </p>
+        </Fragment>
       ))}
     </>
   )
