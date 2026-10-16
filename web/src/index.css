@@ -2717,35 +2717,21 @@ body {
   position: relative;
   height: min(72vh, 760px);
   overflow: hidden;
-  border-radius: 18px;
-  background: #221c19;
-  box-shadow: inset 0 0 0 4px #c6a56a, 0 22px 50px rgb(0 0 0 / 45%);
-}
-.reel-shade {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  background: linear-gradient(
-    to bottom,
-    rgb(18 14 12 / 78%) 0%,
-    transparent 22%,
-    transparent 78%,
-    rgb(18 14 12 / 78%) 100%
-  );
+  background: transparent;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 14%, #000 86%, transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 14%, #000 86%, transparent);
 }
 .reel-line {
   position: absolute;
-  left: 0.7rem;
-  right: 0.7rem;
+  left: 6%;
+  right: 6%;
   top: 50%;
   height: 104px;
   transform: translateY(-50%);
   z-index: 3;
   pointer-events: none;
-  border-top: 3px solid #e6c36a;
-  border-bottom: 3px solid #e6c36a;
-  box-shadow: 0 0 0 1px rgb(0 0 0 / 35%);
+  border-top: 2px solid var(--bg);
+  border-bottom: 2px solid var(--bg);
 }
 .reel-strip {
   transition: transform 3.6s cubic-bezier(0.08, 0.82, 0.16, 1);
@@ -2758,14 +2744,27 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.15rem;
-  color: #f6f1e8;
+  gap: 0.2rem;
+  color: var(--bg);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 45%);
 }
 .reel-cell span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   font-size: 0.78rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  opacity: 0.72;
+  color: var(--bg);
+  opacity: 1;
+}
+.reel-cell span::before {
+  content: '';
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--bg);
 }
 .reel-cell strong {
   font-family: var(--font-body);
@@ -2776,10 +2775,11 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--bg);
 }
 .roulette-status {
   margin: 0;
-  color: #f6f1e8;
+  color: var(--bg);
 }
 .roulette-result {
   animation: roulette-land 0.45s ease;
@@ -2793,25 +2793,41 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.12em;
   font-size: 0.72rem;
-  color: var(--accent);
+  color: var(--bg);
 }
 .roulette-result h2 {
   font-family: var(--font-body);
   font-size: 1.8rem;
   margin: 0.2rem 0 0.4rem;
+  color: var(--bg);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 45%);
 }
 .roulette-blurb {
   margin: 0 auto 1rem;
   max-width: 34rem;
-  color: var(--text);
+  color: var(--bg);
   font-family: var(--font-body);
   line-height: 1.5;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 45%);
 }
 .roulette-actions {
   display: flex;
   justify-content: center;
   gap: 0.6rem;
   flex-wrap: wrap;
+}
+@media (prefers-color-scheme: dark) {
+  .reel-cell,
+  .reel-cell strong,
+  .reel-cell span,
+  .roulette-status,
+  .roulette-kicker,
+  .roulette-result h2,
+  .roulette-blurb {
+    color: var(--text);
+  }
+  .reel-line { border-color: var(--text); }
+  .reel-cell span::before { box-shadow: 0 0 0 2px var(--text); }
 }
 @media (prefers-reduced-motion: reduce) {
   .reel-strip { transition: none; }

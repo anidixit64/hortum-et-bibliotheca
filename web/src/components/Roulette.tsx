@@ -80,7 +80,6 @@ export function Roulette() {
   return (
     <div className="roulette-panel">
       <div className="reel-window" ref={windowRef} aria-hidden={phase !== 'landed'}>
-        <div className="reel-shade" />
         <div className="reel-line" />
         <div
           className={instant ? 'reel-strip instant' : 'reel-strip'}
