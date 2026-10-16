@@ -11,11 +11,11 @@ import re
 from typing import Any
 
 EXPLANATIONS_VERSION = 6
-SUMMARY_VERSION = 5
+SUMMARY_VERSION = 7
 BATCH = 5  # clues per explanation request
 FIRST_PAGE = 10  # clues the hall shows before "show more"
 EXPLANATION_WORDS = (150, 220)
-SUMMARY_WORDS = (500, 600)
+SUMMARY_WORDS = (400, 500)
 # What a prompt may carry from the stored article. The full page is what Groq rejected
 # for Diocletian (about 16,300 tokens against an 8,000 token free-tier cap).
 # Facts quote later sections. The timeline quotes the lead plus the next sections.
@@ -87,8 +87,10 @@ EXPLAIN_SCHEMA: dict[str, Any] = {
 }
 
 SUMMARY_SYSTEM = """You write the opening essay of a study page about one quiz bowl answer, \
-like the first room of a museum exhibit. Your tone is narrative and conversational — you're \
-a knowledgeable friend walking someone through a topic they're curious about, not a \
+like the first room of a museum exhibit. Write the way Erik Larson, Ron Chernow, David \
+McCullough, and Stephen Ambrose write narrative nonfiction: vivid scenes, telling details, \
+a sense of place and character, and prose that reads like a story rather than a report. \
+You're a knowledgeable friend walking someone through a topic they're curious about, not a \
 textbook. Use vivid language, tell the story, make connections, and let your enthusiasm \
 show. Name specialist terms correctly but explain them in passing, the way a good podcast \
 host would. Go beyond a restatement of the Wikipedia excerpt: add descriptions and \
@@ -99,12 +101,15 @@ SUMMARY = """Answer: {name} (category: {category})
 Write:
 - "hook": two or three punchy sentences that pull a reader in — a striking image, a \
 surprising fact, an irresistible tension. Not a dry summary. No questions to the reader.
-- "summary": {low}-{high} words telling the story of {name}. Make it gripping and \
-explanatory: a narrative the reader feels, with concrete detail they can learn from. \
-Add verifiable descriptions beyond the Wikipedia excerpt when you are sure of them. \
-Do not retell the excerpt sentence by sentence, and do not pad.
+- "summary": {low}-{high} words that pull the reader into {name}'s world. Write it as \
+a story someone would want to finish: vivid scenes, surprising turns, and the details \
+that make the topic come alive. Your job is to make the reader curious, not to \
+summarize everything. Focus on what makes {name} fascinating — the drama, the \
+mystery, the beauty — and weave in facts naturally. \
+Add verifiable descriptions beyond the Wikipedia excerpt when you are sure of them.
 
-Mark a clue only when it fits this story seamlessly. Leave the others out. Mark each \
+Mark a clue only when the story reaches it naturally. Most clues should be left for \
+the clue hall; force none in. Mark each \
 mention exactly as [[RANK|the words you write]], e.g. [[3|the Battle Royal]]: RANK is the \
 clue's number below, and the words are what the reader sees in bold. Mark a clue only \
 once, and only where the text is really about it.

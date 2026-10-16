@@ -331,6 +331,7 @@ export interface Theme {
   light: ThemeColors
   dark: ThemeColors
   font: string // one of a fixed set of pairings
+  blurb?: string
   header: WikiImage | null
 }
 

@@ -260,11 +260,12 @@ export function ClueCarousel({
         </button>
       </div>
       {categories.length > 1 && (
-        <div className="clue-sort" role="group" aria-label="Filter clues by category">
-          <button className={`pill-btn${category === null ? ' active' : ''}`}
+        <div className="clue-categories" role="group" aria-label="Filter clues by category">
+          <span className="clue-categories-label">Category</span>
+          <button className={`cat-chip${category === null ? ' active' : ''}`}
             onClick={() => changeCategory(null)}>All</button>
           {categories.map((cat) => (
-            <button key={cat} className={`pill-btn${category === cat ? ' active' : ''}`}
+            <button key={cat} className={`cat-chip${category === cat ? ' active' : ''}`}
               onClick={() => changeCategory(cat)}>{cat}</button>
           ))}
         </div>

@@ -13,24 +13,26 @@ from typing import Any
 
 from content.writing import _squash
 
-SPECIAL_VERSION = 8
+SPECIAL_VERSION = 10
 TIMELINE_EVENTS = (4, 12)
 HANDFUL_COUNT = (5, 6)
 ENTRY_WORDS = (50, 100)
 BLURB_WORDS = (100, 150)
-DIAGRAM_CATEGORIES = {"Science", "Social Science", "Philosophy"}
-
-
 def is_diagram(category: str | None) -> bool:
-    """Science, social science and philosophy also draw a step diagram."""
-    return (category or "") in DIAGRAM_CATEGORIES
+    """Every topic gets a step diagram."""
+    return True
 
 
 HANDFUL_INSTRUCTIONS = (
     "List 5 or 6 things in one category that belongs with {name}, the way a fact book "
     "sets out a handful of examples and explains each one. "
     "If {name} is a person who made works (an author, composer, painter, director), "
-    "list works. If {name} is a work (a book, play, film, poem, opera), list important "
+    "list works. Lead with the most iconic, important, or essential works — the ones "
+    "everyone should know, the masterpieces, the career-defining hits. At most 1-2 entries "
+    "may be lesser-known or niche. For a poet, start with the poems that appear in every "
+    "anthology; for a director, the films critics and audiences agree are their best; "
+    "for a painter, the canvases people travel to see. "
+    "If {name} is a work (a book, play, film, poem, opera), list important "
     "moments in it. If {name} is an event or a battle, list specific moments or turning "
     "points. If {name} is a kind of thing, a place, or a field, list particular examples "
     "(species, places, pieces, people, objects). "
@@ -90,12 +92,16 @@ like the main room of a museum exhibit: immersive, vivid and accurate. You never
 facts, quotations, dates or numbers: they come from the source or are widely established."""
 
 DIAGRAM = """
-- "steps": 3-8 steps that draw one core idea as a flow. Each has a "label" (at most 6 \
-words) and a "detail" (at most 30 words). The steps are a diagram beside the list, not an \
-essay and not a substitute for the entries.
-- "diagram_blurb": 100-150 words in one paragraph about that diagram. Say what the flow \
-shows, how each step leads to the next, and what the picture is for. Do not repeat the \
-entries, and do not write a second overview of the topic."""
+- "steps": 3-8 steps that draw one core process, mechanism, or story arc related to \
+the topic as a flow. Pick the most complex or fascinating idea tied to the topic — \
+something a professor would explain in a lecture — and break it into steps a high-school \
+student can follow without losing accuracy. Each step has a "label" (at most 6 words) \
+and a "detail" (at most 30 words). The steps are a diagram, not an essay and not a \
+substitute for the entries.
+- "diagram_blurb": 100-150 words in one paragraph explaining that diagram from the ground \
+up. Assume the reader has no background. Say what the flow shows, how each step leads to \
+the next, and why it matters for understanding the topic. Be accurate without losing the \
+reader. Do not repeat the entries, and do not write a second overview of the topic."""
 
 HANDFUL = """Topic: {name} (category: {category})
 

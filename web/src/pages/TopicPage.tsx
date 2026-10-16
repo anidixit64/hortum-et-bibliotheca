@@ -10,7 +10,7 @@ import { FunFacts, Hook, Summary } from '../components/Written'
 import { Heatmap } from '../components/Heatmap'
 import { ConfusionList } from '../components/Related'
 import { Timeline } from '../components/Timeline'
-import { ExhibitTimeline, Feature } from '../components/Special'
+import { ExhibitTimeline, Feature, StepDiagram } from '../components/Special'
 import { chooseIllustrations } from '../lib/illustrations'
 import type { ExampleShot } from '../lib/illustrations'
 import { TopicMap } from '../components/TopicMap'
@@ -63,6 +63,7 @@ export function TopicPage() {
   const [sortMode, setSortMode] = useState<SortMode>('frequency')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [loadingMore, setLoadingMore] = useState(false)
+  const [paletteOpen, setPaletteOpen] = useState(false)
   const current = loaded?.key === key ? loaded.record : null
   const [content, refreshContent] = useTopicContent(current?.topic.id ?? '', ai)
   const summarySection = content?.sections.summary
@@ -246,15 +247,17 @@ export function TopicPage() {
   const scatterPool = (hasHeader ? images.filter((img) => !img.is_main) : images).filter(
     (image) => !illustratedFiles.has(image.file),
   )
-  const summaryFloat = scatterPool[0] ?? null
-  const placed = scatterPool.slice(summaryFloat ? 1 : 0)
+  const summaryFloat1 = scatterPool[0] ?? null
+  const summaryFloat2 = scatterPool.length > 1 ? scatterPool[1] : null
+  const afterSummary = scatterPool.slice(summaryFloat1 ? (summaryFloat2 ? 2 : 1) : 0)
   const take = (items: WikiImage[]) => ({ item: items[0] ?? null, rest: items.slice(1) })
-  const factsSpot = facts ? take(placed) : { item: null, rest: placed }
-  const clueSpot = take(factsSpot.rest)
+  const clueSpot = take(afterSummary)
   const connectionsSpot = take(clueSpot.rest)
-  const leftSpot = take(connectionsSpot.rest)
-  const rightSpot = take(leftSpot.rest)
-  const galleryImages = rightSpot.rest
+  const sidebarPool = connectionsSpot.rest
+  const half = Math.ceil(sidebarPool.length / 2)
+  const leftSidebar = sidebarPool.slice(0, Math.min(4, half))
+  const rightSidebar = sidebarPool.slice(leftSidebar.length, leftSidebar.length + Math.min(4, sidebarPool.length - leftSidebar.length))
+  const galleryImages = sidebarPool.slice(leftSidebar.length + rightSidebar.length)
 
   // Has a timeline?
   const hasExhibitTimeline = special && special.timeline.events.length >= 3
@@ -275,6 +278,37 @@ export function TopicPage() {
             {topic.thin && <span className="pill">rarely asked</span>}
           </div>
           <div className="topic-actions">
+            {ai && topicTheme && (
+              <div className="palette-trigger">
+                <button
+                  className="palette-btn"
+                  onClick={() => setPaletteOpen(!paletteOpen)}
+                  title="Color palette"
+                >
+                  <span
+                    className="palette-icon"
+                    style={{ background: `linear-gradient(135deg, var(--accent), var(--accent-2))` }}
+                  />
+                </button>
+                {paletteOpen && (
+                  <div className="palette-popover">
+                    <div className="palette-swatches">
+                      {(['accent', 'accent2', 'bg', 'surface', 'muted'] as const).map((k) => (
+                        <div
+                          key={k}
+                          className="palette-swatch"
+                          style={{ background: topicTheme.light[k === 'accent2' ? 'accent2' : k] }}
+                          title={k}
+                        />
+                      ))}
+                    </div>
+                    {topicTheme.blurb && (
+                      <p className="palette-blurb small">{topicTheme.blurb}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             <Link to={`/practice?topic=${encodeURIComponent(topic.id)}`}>
               <button>Practice</button>
             </Link>
@@ -305,21 +339,21 @@ export function TopicPage() {
       {/* --- Museum layout: main + sidebars --- */}
       <div className="museum-layout">
 
-        {/* Left sidebar: map + videos */}
+        {/* Left sidebar: map + collection images + videos */}
         <aside className="museum-sidebar museum-left">
           {record.map.length > 0 && (
             <SidebarCard title="Map">
               <TopicMap points={record.map} />
             </SidebarCard>
           )}
+          {leftSidebar.map((img) => (
+            <SidebarCard key={img.file} title="In the collection">
+              <Artifact image={img} />
+            </SidebarCard>
+          ))}
           {content && (
             <SidebarCard title="Screening room">
               <Videos section={content.sections.videos} />
-            </SidebarCard>
-          )}
-          {leftSpot.item && (
-            <SidebarCard title="In the collection">
-              <Artifact image={leftSpot.item} />
             </SidebarCard>
           )}
         </aside>
@@ -328,9 +362,14 @@ export function TopicPage() {
         <div className="museum-center">
           {/* Summary — the centerpiece, with key image floated alongside */}
           <section className="exhibit-main" id="room-introduction">
-            {summaryFloat && <FloatImage image={summaryFloat} side="right" />}
+            {summaryFloat1 && <FloatImage image={summaryFloat1} side="right" />}
             {ai && written ? (
-              <Summary summary={written} explanations={explanations} topicLinks={topicLinks} />
+              <Summary
+                summary={written}
+                explanations={explanations}
+                topicLinks={topicLinks}
+                secondImage={summaryFloat2 ? <FloatImage image={summaryFloat2} side="left" /> : undefined}
+              />
             ) : (
               <>
                 {ai && isPending(summarySection) && <ExhibitGenerating />}
@@ -343,10 +382,7 @@ export function TopicPage() {
           {ai && facts && facts.facts.length > 0 && (
             <aside className="plaque-row" aria-label="Did you know?">
               <h2>Did you know?</h2>
-              <FunFacts
-                facts={facts.facts}
-                ornament={factsSpot.item ? <Artifact image={factsSpot.item} /> : undefined}
-              />
+              <FunFacts facts={facts.facts} />
             </aside>
           )}
           {ai && !facts && isPending(factsSection) && (
@@ -370,22 +406,34 @@ export function TopicPage() {
               )}
             </SidebarCard>
           )}
-          {rightSpot.item && (
-            <SidebarCard title="In the collection">
-              <Artifact image={rightSpot.item} />
+          {rightSidebar.map((img) => (
+            <SidebarCard key={img.file} title="In the collection">
+              <Artifact image={img} />
             </SidebarCard>
-          )}
+          ))}
         </aside>
       </div>
 
       {ai && special && (
         <section className="exhibit-feature" id="room-feature">
-          <Feature key={topic.id} special={special} illustrations={illustrations} />
+          <Feature key={topic.id} special={special} illustrations={illustrations} hideDiagram />
         </section>
       )}
       {ai && !special && isPending(specialSection) && (
         <section className="exhibit-feature" id="room-feature">
           <ExhibitGenerating />
+        </section>
+      )}
+
+      {ai && special && special.feature.steps.length >= 2 && (
+        <section className="exhibit-diagram" id="room-diagram">
+          <details className="diagram-collapse">
+            <summary>How it works</summary>
+            <StepDiagram steps={special.feature.steps} />
+            {special.feature.diagram_blurb?.trim() && (
+              <p className="prose diagram-blurb">{special.feature.diagram_blurb.trim()}</p>
+            )}
+          </details>
         </section>
       )}
 

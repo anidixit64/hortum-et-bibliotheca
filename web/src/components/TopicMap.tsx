@@ -20,7 +20,7 @@ export function TopicMap({ points }: { points: MapPoint[] }) {
       {points.map((p, i) => (
         <CircleMarker key={`${p.id}-${i}`} center={[p.lat, p.lon]} radius={p.role === 'topic' ? 9 : 6}
                       pathOptions={{ color: p.role === 'topic' ? '#b5651d' : '#2f6f5e', fillOpacity: 0.8 }}>
-          <Tooltip>{`${p.label}: ${p.place} (${p.kind})`}</Tooltip>
+          <Tooltip direction="top" sticky offset={[0, -10]}>{`${p.label}: ${p.place} (${p.kind})`}</Tooltip>
         </CircleMarker>
       ))}
     </MapContainer>

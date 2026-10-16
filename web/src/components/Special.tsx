@@ -39,13 +39,15 @@ export function StepDiagram({ steps }: { steps: FeatureStep[] }) {
 export function Feature({
   special,
   illustrations = {},
+  hideDiagram = false,
 }: {
   special: SpecialPayload
   illustrations?: Record<string, WikiImage>
+  hideDiagram?: boolean
 }) {
   const { feature, source } = special
   const entries = feature.entries?.filter((entry) => entry.name && entry.text) ?? []
-  const diagram = feature.steps.length >= 2
+  const diagram = !hideDiagram && feature.steps.length >= 2
   const [index, setIndex] = useState(0)
   const safe = entries.length ? Math.min(index, entries.length - 1) : 0
   const entry = entries[safe]

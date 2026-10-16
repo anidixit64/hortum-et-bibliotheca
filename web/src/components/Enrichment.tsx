@@ -174,7 +174,8 @@ export function Reading({
   if (!section) return <p className="muted">Fetching books…</p>
   const data = payload(section)
   if (!data) return <Status section={section} what="books" />
-  const books = data.books.filter((b) => b.title)
+  const all = data.books.filter((b) => b.title)
+  const books = all.length % 2 === 1 ? all.slice(0, -1) : all
   const blurbFor = new Map(blurbs.map((b) => [foldTitle(b.title), b.blurb]))
   return (
     <>
