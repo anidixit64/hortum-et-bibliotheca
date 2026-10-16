@@ -2241,6 +2241,11 @@ body {
   margin-top: 2rem;
   padding-bottom: 3rem;
 }
+.explore-toolbar {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 1.25rem;
+}
 .explore-section { margin-bottom: 2rem; }
 .explore-section-title {
   font-family: var(--font-body);

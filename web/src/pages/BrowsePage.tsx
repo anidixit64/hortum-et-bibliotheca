@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { api } from '../api/client'
 import type { SearchResult } from '../api/types'
+import { RouletteLayer } from '../components/Roulette'
 import { SECTIONS } from '../lib/categories'
 
 const DEBOUNCE_MS = 200
@@ -22,6 +23,7 @@ export function BrowsePage() {
   const [thumbs, setThumbs] = useState<Record<string, string | null>>({})
   const [error, setError] = useState<string | null>(null)
   const [focused, setFocused] = useState(false)
+  const [roulette, setRoulette] = useState(false)
   const thumbReq = useRef(0)
   const wrapRef = useRef<HTMLDivElement>(null)
 
@@ -118,6 +120,11 @@ export function BrowsePage() {
       {error && <p className="error">{error}</p>}
 
       <div id="explore" className="explore-sections">
+        <div className="explore-toolbar">
+          <button type="button" className="explore-random" onClick={() => setRoulette(true)}>
+            Randomizer
+          </button>
+        </div>
         {SECTIONS.map((section) => (
           <section key={section.title} className="explore-section">
             <h2 className="explore-section-title">{section.title}</h2>
@@ -136,6 +143,7 @@ export function BrowsePage() {
           </section>
         ))}
       </div>
+      {roulette && <RouletteLayer onClose={() => setRoulette(false)} />}
     </div>
   )
 }
