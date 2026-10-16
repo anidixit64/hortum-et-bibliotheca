@@ -13,7 +13,7 @@ from typing import Any
 
 from content.writing import _squash
 
-SPECIAL_VERSION = 10
+SPECIAL_VERSION = 11
 TIMELINE_EVENTS = (4, 12)
 HANDFUL_COUNT = (5, 6)
 ENTRY_WORDS = (50, 100)
@@ -28,10 +28,14 @@ HANDFUL_INSTRUCTIONS = (
     "sets out a handful of examples and explains each one. "
     "If {name} is a person who made works (an author, composer, painter, director), "
     "list works. Lead with the most iconic, important, or essential works — the ones "
-    "everyone should know, the masterpieces, the career-defining hits. At most 1-2 entries "
-    "may be lesser-known or niche. For a poet, start with the poems that appear in every "
-    "anthology; for a director, the films critics and audiences agree are their best; "
-    "for a painter, the canvases people travel to see. "
+    "everyone should know, the masterpieces, the career-defining hits. Do NOT cluster "
+    "picks from one era, period, or theme; spread them across the creator's career to "
+    "show range. Do NOT pick inconsequential or niche works — every entry should be "
+    "something a well-read person would recognize or that critics consider essential. "
+    "At most 1 entry may be a deeper cut that rewards a curious reader. "
+    "For a poet, start with the poems that appear in every anthology; for a director, "
+    "the films critics and audiences agree are their best; for a painter, the canvases "
+    "people travel to see. "
     "If {name} is a work (a book, play, film, poem, opera), list important "
     "moments in it. If {name} is an event or a battle, list specific moments or turning "
     "points. If {name} is a kind of thing, a place, or a field, list particular examples "
