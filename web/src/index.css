@@ -2398,6 +2398,17 @@ body {
 .explore-controls .explore-diff-bar {
   margin-bottom: 0;
 }
+.explore-random {
+  padding: 0.35rem 0.85rem;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+.explore-random:hover { background: var(--accent); color: var(--bg); }
 .explore-ai-toggle {
   display: flex;
   align-items: center;
@@ -2571,6 +2582,12 @@ body {
   border-radius: 50%;
   box-shadow: inset 0 0 0 3px rgb(255 255 255 / 55%), 0 12px 40px rgb(0 0 0 / 35%);
 }
+.palette-wheel-ring-color {
+  box-shadow: none;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+.palette-wheel-ring-color.on { opacity: 1; }
 
 /* Center cutout */
 .palette-wheel-center {
@@ -2660,6 +2677,161 @@ body {
   place-items: center;
   background: rgb(0 0 0 / 35%);
   border-radius: 50%;
+}
+
+/* Random topic, over a dimmed explore page. */
+.roulette-backdrop { pointer-events: auto; z-index: 240; }
+.roulette-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 260;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  pointer-events: none;
+}
+.roulette-back,
+.roulette-panel { pointer-events: auto; }
+.roulette-back {
+  position: absolute;
+  top: 1.1rem;
+  left: 1.1rem;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.35rem 0.8rem;
+  cursor: pointer;
+}
+.roulette-panel {
+  width: min(92vw, 68rem);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.85rem;
+}
+.reel-window {
+  position: relative;
+  height: min(72vh, 760px);
+  overflow: hidden;
+  background: transparent;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 14%, #000 86%, transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 14%, #000 86%, transparent);
+}
+.reel-line {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  top: 50%;
+  height: 104px;
+  transform: translateY(-50%);
+  z-index: 3;
+  pointer-events: none;
+  border-top: 2px solid var(--bg);
+  border-bottom: 2px solid var(--bg);
+}
+.reel-strip {
+  transition: transform 3.6s cubic-bezier(0.08, 0.82, 0.16, 1);
+  will-change: transform;
+}
+.reel-strip.instant { transition: none; }
+.reel-cell {
+  height: 104px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  color: var(--bg);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 45%);
+}
+.reel-cell span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--bg);
+  opacity: 1;
+}
+.reel-cell span::before {
+  content: '';
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--bg);
+}
+.reel-cell strong {
+  font-family: var(--font-body);
+  font-size: clamp(1.7rem, 4vw, 2.7rem);
+  font-weight: 700;
+  line-height: 1.1;
+  max-width: 90%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--bg);
+}
+.roulette-status {
+  margin: 0;
+  color: var(--bg);
+}
+.roulette-result {
+  animation: roulette-land 0.45s ease;
+}
+@keyframes roulette-land {
+  from { opacity: 0; transform: translateY(10px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+.roulette-kicker {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  color: var(--bg);
+}
+.roulette-result h2 {
+  font-family: var(--font-body);
+  font-size: 1.8rem;
+  margin: 0.2rem 0 0.4rem;
+  color: var(--bg);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 45%);
+}
+.roulette-blurb {
+  margin: 0 auto 1rem;
+  max-width: 34rem;
+  color: var(--bg);
+  font-family: var(--font-body);
+  line-height: 1.5;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 45%);
+}
+.roulette-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+@media (prefers-color-scheme: dark) {
+  .reel-cell,
+  .reel-cell strong,
+  .reel-cell span,
+  .roulette-status,
+  .roulette-kicker,
+  .roulette-result h2,
+  .roulette-blurb {
+    color: var(--text);
+  }
+  .reel-line { border-color: var(--text); }
+  .reel-cell span::before { box-shadow: 0 0 0 2px var(--text); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reel-strip { transition: none; }
+  .roulette-result { animation: none; }
 }
 
 @media (max-width: 480px) {

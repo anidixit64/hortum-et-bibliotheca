@@ -376,6 +376,25 @@ class TopicStore:
             for r in rows
         ]
 
+    def roulette(self, limit: int) -> list[dict[str, object]]:
+        """A random draw of topics that have been asked at least once, for the explore wheel."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT id, display_name, primary_category, description, n_tossups "
+                "FROM topics WHERE n_tossups >= 1 ORDER BY RANDOM() LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [
+            {
+                "topic_id": r[0],
+                "name": r[1],
+                "category": r[2],
+                "description": r[3],
+                "count": r[4],
+            }
+            for r in rows
+        ]
+
     def topic_clues_brief(self, topic_id: str, limit: int) -> list[dict[str, object]] | None:
         with self._connect() as conn:
             if self._resolve(conn, topic_id) is None:

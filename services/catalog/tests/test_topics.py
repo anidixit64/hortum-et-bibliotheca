@@ -137,6 +137,29 @@ def test_one_tossup_with_its_answer_line_and_clues(client: TestClient) -> None:
     assert client.get("/tossups/nope").status_code == 404
 
 
+def test_roulette_draws_topics_that_have_been_asked(tmp_path: Path) -> None:
+    from catalog.topics import TopicStore
+
+    path = tmp_path / "corpus.db"
+    conn = sqlite3.connect(path)
+    conn.execute(
+        "CREATE TABLE topics (id TEXT PRIMARY KEY, display_name TEXT, "
+        "primary_category TEXT, description TEXT, n_tossups INTEGER)"
+    )
+    conn.executemany(
+        "INSERT INTO topics VALUES (?, ?, ?, ?, ?)",
+        [
+            ("Q1", "Invisible Man", "Literature", "A 1952 novel.", 12),
+            ("Q2", "Mercury", "Science", "The innermost planet.", 4),
+            ("Q3", "Unasked", "Mythology", "Never tossed up.", 0),
+        ],
+    )
+    conn.commit()
+    drawn = TopicStore(path).roulette(10)
+    assert {row["topic_id"] for row in drawn} == {"Q1", "Q2"}
+    assert {row["description"] for row in drawn} == {"A 1952 novel.", "The innermost planet."}
+
+
 def test_unlinked_answers_get_a_wikipedia_search() -> None:
     from catalog.topics import wikipedia_url
 

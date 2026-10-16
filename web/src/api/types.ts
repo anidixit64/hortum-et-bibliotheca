@@ -384,6 +384,14 @@ export interface ExploreResult {
   count: number
 }
 
+export interface RouletteTopic {
+  topic_id: string
+  name: string
+  category: string | null
+  description: string | null
+  count: number
+}
+
 export type ContentKind = keyof SectionPayloads
 
 export type SectionStatus = 'ok' | 'empty' | 'unavailable' | 'pending' | 'failed'

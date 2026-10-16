@@ -5,6 +5,7 @@ import type {
   Clue,
   DueCard,
   ExploreResult,
+  RouletteTopic,
   FollowedTopic,
   SearchResult,
   Stats,
@@ -106,6 +107,9 @@ export const api = {
     if (opts.limit !== undefined) params.set('limit', String(opts.limit))
     return request<ExploreResult[]>(catalog(`/explore/top?${params}`))
   },
+
+  roulette: (limit = 32) =>
+    request<RouletteTopic[]>(catalog(`/explore/roulette?limit=${limit}`)),
 
   cluesBrief: (topicId: string, limit = 10) =>
     request<{ label: string; count: number }[]>(
