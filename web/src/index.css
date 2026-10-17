@@ -714,11 +714,21 @@ main {
   font-style: italic;
 }
 
+.reader-frame {
+  display: grid;
+  min-height: 10rem;
+}
+.reader-frame > .reader {
+  grid-area: 1 / 1;
+}
+.reader-sizer {
+  visibility: hidden;
+  pointer-events: none;
+}
 .reader {
   font-family: var(--font-body);
   font-size: 1.2rem;
   line-height: 1.7;
-  min-height: 10rem;
 }
 .reader .power {
   color: var(--accent-2);
@@ -2045,7 +2055,7 @@ body {
 .room { scroll-margin-top: 1rem; }
 .room h2 { display: flex; align-items: center; font-family: var(--font-body); }
 .room h3 { margin-top: 1.4rem; font-family: var(--font-body); }
-.plaque-row { margin: 1.25rem 0; }
+.plaque-row { margin: 0 0 1.25rem; }
 .plaque-row > h2 { text-align: center; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--accent); }
 .museum-label { display: flex; flex-direction: column; gap: 0.15rem; border-left: 3px solid var(--accent); padding-left: 0.5rem; margin-top: 0.4rem; }
 .museum-label strong { color: var(--text); font-weight: 600; }
@@ -2318,9 +2328,6 @@ body {
   display: flex;
   flex-direction: column;
 }
-.museum-center .plaque-row {
-  margin-top: auto;
-}
 
 .exhibit-main,
 .exhibit-feature,
@@ -2335,7 +2342,7 @@ body {
   padding: 1.25rem 1.4rem;
   margin-bottom: 1.25rem;
 }
-.exhibit-clues { margin-top: 2.25rem; }
+.exhibit-clues { margin-top: 1.25rem; }
 .exhibit-connections { display: flow-root; }
 
 .exhibit-main,
@@ -2343,14 +2350,10 @@ body {
   display: flow-root;
 }
 .exhibit-main {
-  max-height: 36rem;
-  overflow-y: auto;
+  overflow-y: visible;
 }
-/* Wider than the center-column summary, narrower than the full-width clue hall. */
 .exhibit-feature {
-  width: calc(100% - 16rem);
-  margin-inline: auto;
-  margin-top: 1.25rem;
+  margin-top: 0;
 }
 
 .exhibit-clues h2,

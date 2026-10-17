@@ -10,12 +10,12 @@ the clue's one-line summary on hover and a "See more" link to its explanation.
 import re
 from typing import Any
 
-EXPLANATIONS_VERSION = 6
-SUMMARY_VERSION = 7
+EXPLANATIONS_VERSION = 7
+SUMMARY_VERSION = 8
 BATCH = 5  # clues per explanation request
 FIRST_PAGE = 10  # clues the hall shows before "show more"
 EXPLANATION_WORDS = (150, 220)
-SUMMARY_WORDS = (400, 500)
+SUMMARY_WORDS = (500, 600)
 # What a prompt may carry from the stored article. The full page is what Groq rejected
 # for Diocletian (about 16,300 tokens against an 8,000 token free-tier cap).
 # Facts quote later sections. The timeline quotes the lead plus the next sections.
@@ -26,8 +26,11 @@ SUMMARY_SOURCE_WORDS = 3_000
 
 EXPLAIN_SYSTEM = """You write study notes for quiz bowl players. A clue is a term that \
 quiz bowl questions about an answer mention; players learn clues to recognize the answer \
-early. You explain each clue so a reader truly understands it: detailed but grounded in \
-fundamentals, intuitive rather than jargon-heavy, like a great teacher. \
+early. Each explanation should read as a mini narrative — a short, self-contained story \
+that draws the reader in, builds understanding of the clue on its own terms, shows how \
+it connects to the topic, and leaves the reader knowing not just WHAT but WHY it matters. \
+Write the way Walter Isaacson or Ron Chernow would explain a detail inside a biography: \
+concrete, vivid, grounded in real scenes and people. \
 Accuracy comes first: state a date, number, name, place, quotation or mechanism only if \
 the source text gives it or you are certain of it; otherwise describe it in general terms. \
 The source can be loosely worded: where your own firm knowledge corrects it, follow your \
@@ -38,16 +41,18 @@ EXPLAIN = """Answer: {name} (category: {category})
 For each clue below, write:
 - "one_line": one sentence (at most 30 words) whose subject is the clue itself, saying \
 what it is and how it ties to {name}. It appears in a hover popup.
-- "explanation": {low}-{high} words of plain prose, one short story, no headings or lists. \
-Write it in this order, and let every sentence add something:
-  1. The thing itself, as its own subject. Give a concrete picture and the facts that \
-make it make sense even apart from {name}. Define any specialist term you use.
-  2. How it meets {name}: the people, the moment, or the mechanism that ties them, \
-in specific terms.
-  3. A detail a summary of {name} would leave out — its own history, a related person, \
-a consequence, or how it is known outside this topic — so the reader understands both \
-what it is and why it belongs with {name}.
-  Don't repeat what another explanation on this page covers.
+- "explanation": {low}-{high} words of plain prose, one mini narrative, no headings or \
+lists. Write it as a short story that a reader would want to finish:
+  1. Open with a concrete, vivid picture of the thing itself — what it looks like, when \
+it happened, or why it matters on its own. Ground it in a scene, a moment, or a striking \
+fact. Define any specialist term you use.
+  2. Then connect it to {name}: the people, the moment, or the mechanism that ties them. \
+Show the reader the link rather than stating it flatly.
+  3. Close with a detail a summary of {name} would leave out — its own history, a related \
+person, a consequence, or how it is known outside this topic — so the reader understands \
+not just what it is but why it belongs with {name} and why that matters.
+  Every sentence should advance the story. Don't repeat what another explanation on this \
+page covers.
 
 The example sentences show how questions use each clue ("this man", "this work" etc. stand \
 for {name}); use them to tell which thing the clue means, but write about the thing itself.
@@ -87,9 +92,12 @@ EXPLAIN_SCHEMA: dict[str, Any] = {
 }
 
 SUMMARY_SYSTEM = """You write the opening essay of a study page about one quiz bowl answer, \
-like the first room of a museum exhibit. Write the way Erik Larson, Ron Chernow, David \
-McCullough, and Stephen Ambrose write narrative nonfiction: vivid scenes, telling details, \
-a sense of place and character, and prose that reads like a story rather than a report. \
+like the first room of a museum exhibit. Write the way Walter Isaacson, Ron Chernow, \
+Neil deGrasse Tyson, Erik Larson, David McCullough, and Stephen Ambrose write narrative \
+nonfiction: vivid scenes, telling details, a sense of place and character, and prose that \
+reads like a story rather than a report. Structure the essay in clear narrative paragraphs \
+— each one advancing the story and making a distinct point — the way a readable, \
+well-edited magazine feature flows from opening through development to a satisfying close. \
 You're a knowledgeable friend walking someone through a topic they're curious about, not a \
 textbook. Use vivid language, tell the story, make connections, and let your enthusiasm \
 show. Name specialist terms correctly but explain them in passing, the way a good podcast \

@@ -62,11 +62,12 @@ export function savePalette(index: number) {
 }
 
 export function applyPalette(index: number) {
+  const root = document.documentElement
+  if (root.classList.contains('themed')) return
   const p = PALETTES[index] ?? PALETTES[0]
   const isDark = typeof window.matchMedia === 'function'
     && window.matchMedia('(prefers-color-scheme: dark)').matches
   const colors = isDark ? p.dark : p.light
-  const root = document.documentElement
   if (index === 0) {
     root.style.removeProperty('--bg')
     root.style.removeProperty('--surface')

@@ -15,7 +15,7 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
-THEME_VERSION = 4
+THEME_VERSION = 5
 TOKENS = ("bg", "surface", "text", "muted", "accent", "accent2", "accent_soft", "header_tint")
 FONT_PAIRINGS = {
     "classical-serif": "Old-style serif (Palatino, Iowan): history, classics, literature",
@@ -144,14 +144,16 @@ def palette(image: bytes, k: int = 6, seed: int = 7) -> list[dict[str, Any]]:
 
 # --- the request and its checks ---------------------------------------------------------
 
-SYSTEM = """You design the color palette of a study page about one topic, like the color \
-scheme of a museum exhibit. Be bold and specific: a palette should feel like one \
-particular thing, not a safe middle ground. First envision 2-3 colors that embody the \
-atmosphere, aesthetic and era of the topic, and 2-3 colors that accent and highlight \
-aspects the topic is known for. For a polar topic, stark whites and deep icy purples \
-with aurora green and pink; for the Aztec Empire, jade, terracotta, obsidian, gold and \
-turquoise; for a Romantic poet, stormy indigos, candlelight gold and ink-black. Then map \
-those into a coherent page scheme. Text stays easy to read."""
+SYSTEM = """You are a museum exhibit designer choosing the color palette for a single \
+gallery room. Every surface in the room — walls, display cases, label cards, accent \
+lighting — must feel like the topic. A visitor walking in should sense the subject before \
+reading a word. Be bold and specific: a palette should feel like one particular thing, \
+not a safe middle ground. First envision 2-3 colors that embody the atmosphere, aesthetic \
+and era of the topic, and 2-3 colors that accent and highlight aspects the topic is known \
+for. For a polar topic, stark whites and deep icy purples with aurora green and pink; for \
+the Aztec Empire, jade, terracotta, obsidian, gold and turquoise; for a Romantic poet, \
+stormy indigos, candlelight gold and ink-black. Then map those into a coherent page \
+scheme. Text stays easy to read."""
 
 PROMPT = """Topic: {name} (category: {category})
 Opening of the page: {hook}

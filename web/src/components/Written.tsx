@@ -81,11 +81,13 @@ export function Summary({
   explanations,
   topicLinks = {},
   secondImage,
+  thirdImage,
 }: {
   summary: WrittenSummary
   explanations: Explanation[]
   topicLinks?: Record<string, TopicLink>
   secondImage?: ReactNode
+  thirdImage?: ReactNode
 }) {
   const lines = new Map(explanations.map((e) => [e.rank, e.one_line]))
   const paragraphs = summary.summary.split(/\n\s*\n/)
@@ -94,6 +96,7 @@ export function Summary({
       {paragraphs.map((para, i) => (
         <Fragment key={i}>
           {i === 2 && secondImage}
+          {i === 4 && thirdImage}
           <p className="prose">
             <Pieces pieces={parseMarks(para)} lines={lines} topicLinks={topicLinks} />
           </p>
