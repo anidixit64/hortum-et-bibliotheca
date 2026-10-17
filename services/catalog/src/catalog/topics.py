@@ -278,7 +278,8 @@ class TopicStore:
                 args.append(category)
             if subcategory is not None:
                 join = "JOIN tossups t2 ON t2.id = p.tossup_id"
-                where.append("t2.subcategory = ?")
+                where.append("(t2.subcategory = ? OR t2.alt_subcategory = ?)")
+                args.append(subcategory)
                 args.append(subcategory)
             if difficulty_min is not None:
                 where.append("p.difficulty >= ?")
