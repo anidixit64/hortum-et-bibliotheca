@@ -4,12 +4,9 @@ import { api } from '../api/client'
 import type { ExploreResult } from '../api/types'
 import { Roulette } from '../components/Roulette'
 import { findCategory } from '../lib/categories'
+import { DIFFICULTY_LABELS } from '../lib/format'
 import { useAiMode, useSetAiMode } from '../lib/aiMode'
 
-const DIFFICULTY_LABELS: Record<number, string> = {
-  0: 'MS', 1: '1', 2: '2', 3: '3', 4: '4',
-  5: '5', 6: '6', 7: '7', 8: '8', 9: '9', 10: 'Open',
-}
 
 type ClueSort = 'frequency' | 'rarity'
 

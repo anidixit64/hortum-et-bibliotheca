@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../api/client'
 import type { BuzzOut, ClueSpan, Stats, Tossup } from '../api/types'
-import { percent } from '../lib/format'
+import { percent, DIFFICULTY_LABELS, difficultyLabel } from '../lib/format'
 import { msPerWord, pastPower, words as split } from '../lib/reveal'
 
 type Phase = 'loading' | 'reading' | 'countdown' | 'answering' | 'result' | 'empty'
@@ -31,10 +31,6 @@ const CATEGORY_TREE: CategoryGroup[] = [
   { label: 'Social Science', subcategories: ['Anthropology', 'Economics', 'Linguistics', 'Psychology', 'Sociology', 'Other Social Science'] },
 ]
 
-const DIFFICULTY_LABELS: Record<number, string> = {
-  0: 'MS', 1: '1', 2: '2', 3: '3', 4: '4',
-  5: '5', 6: '6', 7: '7', 8: '8', 9: '9', 10: 'Open',
-}
 
 function computePoints(
   buzzResult: 'correct' | 'incorrect' | 'no_buzz' | 'prompt',
@@ -387,7 +383,7 @@ export function PracticePage() {
             <div className="practice-card">
               <p className="practice-meta muted small">
                 {tossup.set_name} {tossup.year && `(${tossup.year})`} · {tossup.category}
-                {tossup.difficulty !== null && ` · D${tossup.difficulty}`}
+                {tossup.difficulty !== null && ` · ${difficultyLabel(tossup.difficulty)}`}
               </p>
 
               <div className="reader-frame">

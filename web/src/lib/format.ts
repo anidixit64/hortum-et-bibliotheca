@@ -30,3 +30,22 @@ export const DIFFICULTY_BANDS: Record<string, string> = {
   open: 'Open',
   unrated: 'Unrated',
 }
+
+export const DIFFICULTY_LABELS: Record<number, string> = {
+  0: 'Pop Culture',
+  1: 'Middle School',
+  2: 'Easy High School',
+  3: 'Regular High School',
+  4: 'Hard High School',
+  5: 'National High School',
+  6: '● / Easy College',
+  7: '●● / Medium College',
+  8: '●●● / Regionals College',
+  9: '●●●● / Nationals College',
+  10: 'Open',
+}
+
+export function difficultyLabel(d: number | null | undefined): string {
+  if (d === null || d === undefined) return ''
+  return DIFFICULTY_LABELS[d] ?? `D${d}`
+}
