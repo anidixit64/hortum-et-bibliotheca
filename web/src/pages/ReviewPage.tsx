@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { api, type CardFilter } from '../api/client'
 import type { DueCard, FollowedTopic, Stats } from '../api/types'
 import { categoryNames, subcategoriesOf } from '../lib/categories'
-import { percent } from '../lib/format'
+import { percent, DIFFICULTY_LABELS } from '../lib/format'
 
 const RATINGS = [
   { value: 1, label: 'Again', color: 'var(--bad)' },
@@ -12,10 +12,6 @@ const RATINGS = [
   { value: 4, label: 'Easy', color: 'var(--good)' },
 ] as const
 
-const DIFFICULTY_LABELS: Record<number, string> = {
-  0: 'MS', 1: '1', 2: '2', 3: '3', 4: '4',
-  5: '5', 6: '6', 7: '7', 8: '8', 9: '9', 10: 'Open',
-}
 
 const COLLECTIONS_KEY = 'museo.collections'
 const CARD_COLLECTIONS_KEY = 'museo.cardCollections'

@@ -2,11 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import type { PracticeHistory } from '../api/types'
+import { DIFFICULTY_LABELS, difficultyLabel } from '../lib/format'
 
-const DIFFICULTY_LABELS: Record<number, string> = {
-  0: 'MS', 1: '1', 2: '2', 3: '3', 4: '4',
-  5: '5', 6: '6', 7: '7', 8: '8', 9: '9', 10: 'Open',
-}
 
 function pct(n: number | null): string {
   if (n === null) return '—'
@@ -189,7 +186,7 @@ export function PracticeHistoryPage() {
                   {r.in_power && r.result === 'correct' && <span className="practice-power-tag">Power</span>}
                   <span className="muted small">
                     {r.category ?? ''}{r.subcategory ? ` · ${r.subcategory}` : ''}
-                    {r.difficulty !== null ? ` · D${r.difficulty}` : ''}
+                    {r.difficulty !== null ? ` · ${difficultyLabel(r.difficulty)}` : ''}
                   </span>
                 </div>
                 <div className="history-recent-body">
