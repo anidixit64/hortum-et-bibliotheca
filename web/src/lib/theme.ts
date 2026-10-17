@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import type { Theme, ThemeColors } from '../api/types'
+import { applyPalette, readPalette } from './palette'
 
 const FONTS: Record<string, string> = {
   'classical-serif': "'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif",
@@ -69,6 +70,7 @@ export function useTopicTheme(theme: Theme | null) {
       for (const prop of PROPS) root.style.removeProperty(prop)
       document.body.style.background = ''
       root.classList.remove('themed')
+      applyPalette(readPalette())
     }
   }, [theme])
 }

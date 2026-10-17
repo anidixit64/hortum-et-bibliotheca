@@ -80,12 +80,13 @@ function matchClueImages(clues: Clue[], images: WikiImage[]): Map<number, WikiIm
   const matched = new Map<number, WikiImage>()
   const used = new Set<string>()
   for (const clue of clues) {
-    const words = clue.label.toLowerCase().split(/[\s']+/).filter((w) => w.length > 3)
-    if (!words.length) continue
+    const label = clue.label.toLowerCase()
+    if (label.length < 4) continue
     for (const img of images) {
       if (used.has(img.file)) continue
-      const hay = `${img.caption ?? ''} ${img.file}`.toLowerCase().replace(/_/g, ' ')
-      if (words.some((w) => hay.includes(w))) {
+      const caption = (img.caption ?? '').toLowerCase()
+      if (!caption) continue
+      if (caption.includes(label)) {
         matched.set(clue.rank, img)
         used.add(img.file)
         break

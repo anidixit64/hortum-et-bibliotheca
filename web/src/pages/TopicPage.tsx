@@ -249,7 +249,9 @@ export function TopicPage() {
   )
   const summaryFloat1 = scatterPool[0] ?? null
   const summaryFloat2 = scatterPool.length > 1 ? scatterPool[1] : null
-  const afterSummary = scatterPool.slice(summaryFloat1 ? (summaryFloat2 ? 2 : 1) : 0)
+  const summaryFloat3 = scatterPool.length > 2 ? scatterPool[2] : null
+  const summaryCount = [summaryFloat1, summaryFloat2, summaryFloat3].filter(Boolean).length
+  const afterSummary = scatterPool.slice(summaryCount)
   const take = (items: WikiImage[]) => ({ item: items[0] ?? null, rest: items.slice(1) })
   const clueSpot = take(afterSummary)
   const connectionsSpot = take(clueSpot.rest)
@@ -369,6 +371,7 @@ export function TopicPage() {
                 explanations={explanations}
                 topicLinks={topicLinks}
                 secondImage={summaryFloat2 ? <FloatImage image={summaryFloat2} side="left" /> : undefined}
+                thirdImage={summaryFloat3 ? <FloatImage image={summaryFloat3} side="right" /> : undefined}
               />
             ) : (
               <>

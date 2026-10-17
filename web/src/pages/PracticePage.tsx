@@ -390,17 +390,21 @@ export function PracticePage() {
                 {tossup.difficulty !== null && ` · D${tossup.difficulty}`}
               </p>
 
-              <div className="reader" aria-live="polite">
-                {words.slice(0, shown).map((w, i) => (
-                  <span key={i}>
-                    {w}
-                    {buzzAt === i && <span className="buzz-mark"> &#x1F514;</span>}
-                    {tossup.power_word !== null && i === tossup.power_word - 1 && pastPower(tossup.power_word, shown) && (
-                      <span className="power">(*)</span>
-                    )}{' '}
-                  </span>
-                ))}
-                {(phase === 'result' || phase === 'countdown') && shown >= words.length && phase === 'result' && null}
+              <div className="reader-frame">
+                <div className="reader reader-sizer" aria-hidden="true">
+                  {words.map((w, i) => <span key={i}>{w}{' '}</span>)}
+                </div>
+                <div className="reader" aria-live="polite">
+                  {words.slice(0, shown).map((w, i) => (
+                    <span key={i}>
+                      {w}
+                      {buzzAt === i && <span className="buzz-mark"> &#x1F514;</span>}
+                      {tossup.power_word !== null && i === tossup.power_word - 1 && pastPower(tossup.power_word, shown) && (
+                        <span className="power">(*)</span>
+                      )}{' '}
+                    </span>
+                  ))}
+                </div>
               </div>
 
               {phase === 'reading' && (
