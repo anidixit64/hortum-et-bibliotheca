@@ -9,6 +9,7 @@ help: ## Show available targets
 install: ## Install all workspace packages + dev tools into .venv
 	uv sync --all-packages
 	ln -sf "$(CURDIR)/museo" .venv/bin/museo
+	ln -sf "$(CURDIR)/museo" /usr/local/bin/museo
 
 lint: ## Lint with ruff
 	uv run ruff check .

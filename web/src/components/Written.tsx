@@ -1,4 +1,4 @@
-import { Fragment, useState, type ReactNode } from 'react'
+import React, { Fragment, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import type { Explanation, FunFact, TopicLink, WrittenSummary } from '../api/types'
 import { linkClues, parseMarks, type Piece } from '../lib/marks'
@@ -7,17 +7,29 @@ import { linkClues, parseMarks, type Piece } from '../lib/marks'
  *  its full explanation further down. */
 export function ClueMention({ text, rank, line }: { text: string; rank: number; line?: string }) {
   const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLSpanElement>(null)
+  const [style, setStyle] = useState<React.CSSProperties>({})
+
+  const show = () => {
+    setOpen(true)
+    if (ref.current) {
+      const rect = ref.current.getBoundingClientRect()
+      setStyle({ top: rect.bottom + 4, left: Math.max(8, Math.min(rect.left, window.innerWidth - 340)) })
+    }
+  }
+
   return (
     <span
       className="mention"
-      onMouseEnter={() => setOpen(true)}
+      ref={ref}
+      onMouseEnter={show}
       onMouseLeave={() => setOpen(false)}
     >
-      <button type="button" className="mention-text" onClick={() => setOpen(!open)} aria-expanded={open}>
+      <button type="button" className="mention-text" onClick={() => { if (open) setOpen(false); else show() }} aria-expanded={open}>
         {text}
       </button>
       {open && (
-        <span className="popover" role="tooltip">
+        <span className="popover" role="tooltip" style={style}>
           {line && <span className="popover-line">{line}</span>}
           <a href={`#clue-${rank}`} onClick={() => setOpen(false)}>See more</a>
         </span>
@@ -132,6 +144,9 @@ export function FunFacts({ facts, ornament }: { facts: FunFact[]; ornament?: Rea
       {facts.map((f) => (
         <figure key={f.fact} className="plaque">
           <span className="plaque-mark" aria-hidden="true">{'?'}</span>
+          {f.kind === 'clue' && f.clue_label && (
+            <span className="plaque-clue-label">{f.clue_label}</span>
+          )}
           <p>{f.fact}</p>
         </figure>
       ))}

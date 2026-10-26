@@ -338,6 +338,8 @@ export interface Theme {
 export interface FunFact {
   fact: string
   source_sentence: string // the Wikipedia sentence it rests on
+  kind?: 'party' | 'clue'
+  clue_label?: string
 }
 
 // Written from the cleaned clues: rank is the cleaned clue's rank.

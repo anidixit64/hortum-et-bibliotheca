@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import type { Theme, ThemeColors } from '../api/types'
 import { applyPalette, readPalette } from './palette'
+import { resolvedIsDark, onModeChange } from './colorMode'
 
 const FONTS: Record<string, string> = {
   'classical-serif': "'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif",
@@ -45,7 +46,7 @@ export function useTopicTheme(theme: Theme | null) {
     const root = document.documentElement
 
     function apply() {
-      const isDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches
+      const isDark = resolvedIsDark()
       const colors = isDark ? theme!.dark : theme!.light
       for (const [token, prop] of Object.entries(TOKEN_TO_PROP)) {
         root.style.setProperty(prop, colors[token as keyof ThemeColors])
@@ -63,9 +64,11 @@ export function useTopicTheme(theme: Theme | null) {
     const mq = window.matchMedia?.('(prefers-color-scheme: dark)')
     const handler = () => apply()
     mq?.addEventListener('change', handler)
+    const unsubMode = onModeChange(handler)
 
     return () => {
       mq?.removeEventListener('change', handler)
+      unsubMode()
       for (const k of Object.keys(vars)) root.style.removeProperty(k)
       for (const prop of PROPS) root.style.removeProperty(prop)
       document.body.style.background = ''

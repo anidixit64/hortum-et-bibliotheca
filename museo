@@ -163,6 +163,7 @@ cmd_install() {
     echo -e "${BOLD}Installing all workspace packages...${RESET}"
     uv sync --all-packages
     ln -sf "$ROOT/museo" .venv/bin/museo
+    ln -sf "$ROOT/museo" /usr/local/bin/museo
     echo -e "${BOLD}Installing frontend dependencies...${RESET}"
     (cd web && npm ci)
     echo -e "${GREEN}Done.${RESET}"

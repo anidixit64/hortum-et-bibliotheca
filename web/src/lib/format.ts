@@ -38,10 +38,10 @@ export const DIFFICULTY_LABELS: Record<number, string> = {
   3: 'Regular High School',
   4: 'Hard High School',
   5: 'National High School',
-  6: '● / Easy College',
-  7: '●● / Medium College',
-  8: '●●● / Regionals College',
-  9: '●●●● / Nationals College',
+  6: 'Easy College',
+  7: 'Medium College',
+  8: 'Regionals College',
+  9: 'Nationals College',
   10: 'Open',
 }
 

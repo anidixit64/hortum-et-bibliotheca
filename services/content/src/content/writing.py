@@ -11,7 +11,7 @@ import re
 from typing import Any
 
 EXPLANATIONS_VERSION = 7
-SUMMARY_VERSION = 8
+SUMMARY_VERSION = 10
 BATCH = 5  # clues per explanation request
 FIRST_PAGE = 10  # clues the hall shows before "show more"
 EXPLANATION_WORDS = (150, 220)
@@ -91,30 +91,44 @@ EXPLAIN_SCHEMA: dict[str, Any] = {
     "required": ["explanations"],
 }
 
-SUMMARY_SYSTEM = """You write the opening essay of a study page about one quiz bowl answer, \
-like the first room of a museum exhibit. Write the way Walter Isaacson, Ron Chernow, \
-Neil deGrasse Tyson, Erik Larson, David McCullough, and Stephen Ambrose write narrative \
-nonfiction: vivid scenes, telling details, a sense of place and character, and prose that \
-reads like a story rather than a report. Structure the essay in clear narrative paragraphs \
-— each one advancing the story and making a distinct point — the way a readable, \
-well-edited magazine feature flows from opening through development to a satisfying close. \
-You're a knowledgeable friend walking someone through a topic they're curious about, not a \
-textbook. Use vivid language, tell the story, make connections, and let your enthusiasm \
-show. Name specialist terms correctly but explain them in passing, the way a good podcast \
-host would. Go beyond a restatement of the Wikipedia excerpt: add descriptions and \
-details you can verify. Accuracy comes first: never invent quotations, dates or numbers."""
+SUMMARY_SYSTEM = """You write the opening essay of a study page about one quiz bowl answer. \
+Write clear, informative prose — the tone of a well-edited encyclopedia article or a \
+good Britannica entry, not a novel or a magazine feature. Every sentence should convey \
+a specific, verifiable fact or explain something concrete. Structure the essay in clear \
+paragraphs, each making a distinct point and advancing the reader's understanding.
+
+STRICT RULES:
+- Never exaggerate. Do not call anything "revolutionary", "groundbreaking", "masterful", \
+"breathtaking", "iconic", or any similar superlative unless you can point to a specific \
+measurable reason (e.g. "the best-selling novel of 1960" is fine; "a masterpiece that \
+changed literature forever" is not).
+- Never use metaphors, similes, or poetic imagery. No "breath on glass", "thin line \
+between X and Y", "tapestry of", "dance of", "symphony of". Say what happened plainly.
+- Never fabricate atmosphere. Do not describe scenes you cannot verify ("the crowd \
+gasped", "tension filled the room"). Stick to what is documented.
+- Never pad with vague praise. Phrases like "fascinating", "remarkable", "extraordinary", \
+"legendary" add no information. Replace them with the specific fact that makes the \
+thing notable.
+- Name specialist terms correctly and explain them briefly in context.
+- You may add verifiable details beyond the Wikipedia excerpt when you are certain of \
+them. Accuracy comes first: never invent quotations, dates, or numbers."""
 
 SUMMARY = """Answer: {name} (category: {category})
 
 Write:
-- "hook": two or three punchy sentences that pull a reader in — a striking image, a \
-surprising fact, an irresistible tension. Not a dry summary. No questions to the reader.
-- "summary": {low}-{high} words that pull the reader into {name}'s world. Write it as \
-a story someone would want to finish: vivid scenes, surprising turns, and the details \
-that make the topic come alive. Your job is to make the reader curious, not to \
-summarize everything. Focus on what makes {name} fascinating — the drama, the \
-mystery, the beauty — and weave in facts naturally. \
-Add verifiable descriptions beyond the Wikipedia excerpt when you are sure of them.
+- "hook": two or three sentences that orient the reader with a concrete, specific fact \
+about why this topic matters — what it did, when, where, and why anyone cares. Lead \
+with the most important or surprising real-world fact. Be direct and informative, not \
+literary. No metaphors, no poetic imagery, no clichés ("breath on glass", "thin line", \
+"changed the world forever"). No questions to the reader. Write like a sharp encyclopedia \
+entry, not a novel's opening paragraph.
+- "summary": {low}-{high} words covering what {name} is, why it matters, and the key \
+facts a student should know. Write in a clear, direct style — every sentence should \
+teach the reader something specific. Do not pad with atmosphere, do not exaggerate \
+significance, and do not use flowery or literary language. Describe real events, dates, \
+causes, and consequences. You may include interesting or surprising facts, but state \
+them plainly rather than dressing them up. \
+Add verifiable details beyond the Wikipedia excerpt when you are sure of them.
 
 Mark a clue only when the story reaches it naturally. Most clues should be left for \
 the clue hall; force none in. Mark each \
@@ -280,23 +294,45 @@ def later_text(wiki: dict[str, Any] | None, words: int = SOURCE_WORDS) -> str:
 
 # --- fun facts ---------------------------------------------------------------------------
 
-FACTS_VERSION = 3
-FACT_COUNT = 4
+FACTS_VERSION = 4
+FACT_COUNT = 6
+PARTY_COUNT = 2
+CLUE_COUNT = 4
 
-FACTS_SYSTEM = """You pick fun facts for a study page: details a person could bring up in \
-conversation and enjoy telling. Every fact must rest on a sentence of the source text, \
-which you quote exactly. Skip anything that only restates the lead."""
+FACTS_SYSTEM = """You write fun facts for a study page. Every fact must rest on a sentence \
+of the source text, which you quote exactly. Skip anything that only restates the lead. \
+Write each fact plainly and specifically — no exaggeration, no vague superlatives, no \
+flowery language."""
 
 FACTS = """Topic: {name} (category: {category})
 
-Give exactly 4 facts. For each:
-- "fact": one or two sentences (at most 40 words) someone could say out loud. Vivid, \
-accurate, and entertaining.
+Give exactly 6 facts in two groups:
+
+GROUP 1 — "party" facts (exactly 2):
+Wild, surprising, or little-known facts about {name} itself — the kind of thing someone \
+would bring up at a party to surprise people. These must NOT overlap with any clue from \
+the clue list below, the diagram, or the main summary. Pick genuinely unexpected details \
+from the source text.
+
+GROUP 2 — "clue" facts (exactly 4):
+Each one is about a DIFFERENT clue from the list below. Pick 4 of the top 6 clues and \
+write one fun fact per clue — something interesting about that clue that is NOT mentioned \
+in the summary or in that clue's explanation. The fact should teach the reader something \
+new about the clue they wouldn't learn elsewhere on the page.
+
+For each fact:
+- "kind": "party" or "clue"
+- "clue_label": for clue facts, the exact label from the clue list. Omit for party facts.
+- "fact": one or two sentences (at most 40 words). Specific and accurate, not vague praise.
 - "source_sentence": the sentence of the source text below that the fact rests on, copied \
 exactly (word for word).
-The source is later in the Wikipedia article, past the lead. Pick details that would not \
-make the main summary: odd turns, objects, places, consequences. Skip the famous outline \
-and dry dates that only mark it.
+
+Top clues for this topic (use 4 of the first 6 for your clue facts):
+{clues}
+
+Already on the page (do NOT repeat anything from these):
+Summary: {summary}
+{explanations}
 
 Later sections of the Wikipedia article (CC BY-SA). Copy each source_sentence from this \
 text word for word:
@@ -309,8 +345,13 @@ FACTS_SCHEMA: dict[str, Any] = {
             "type": "array",
             "items": {
                 "type": "object",
-                "properties": {"fact": {"type": "string"}, "source_sentence": {"type": "string"}},
-                "required": ["fact", "source_sentence"],
+                "properties": {
+                    "kind": {"type": "string", "enum": ["party", "clue"]},
+                    "clue_label": {"type": "string"},
+                    "fact": {"type": "string"},
+                    "source_sentence": {"type": "string"},
+                },
+                "required": ["kind", "fact", "source_sentence"],
             },
         }
     },
@@ -330,9 +371,18 @@ def grounded(facts: list[dict[str, Any]], source: str) -> list[dict[str, str]]:
     for item in facts:
         fact = str(item.get("fact", "")).strip()
         quote = str(item.get("source_sentence", "")).strip()
+        kind = str(item.get("kind", "party")).strip()
+        clue_label = str(item.get("clue_label", "")).strip()
         quoted = len(quote.split()) >= 5 and _squash(quote) in haystack
         if fact and quoted and len(fact.split()) <= 45:
-            out.append({"fact": fact, "source_sentence": quote})
+            entry: dict[str, str] = {
+                "fact": fact,
+                "source_sentence": quote,
+                "kind": kind if kind in ("party", "clue") else "party",
+            }
+            if kind == "clue" and clue_label:
+                entry["clue_label"] = clue_label
+            out.append(entry)
     return out
 
 
@@ -344,4 +394,10 @@ def facts_problem(data: dict[str, Any], source: str) -> str | None:
             f"only {len(kept)} facts quote a sentence that is actually in the source; copy each "
             "source_sentence exactly from the source text"
         )
+    party = [f for f in kept if f["kind"] == "party"]
+    clue = [f for f in kept if f["kind"] == "clue"]
+    if len(party) < PARTY_COUNT:
+        return f"need {PARTY_COUNT} party facts but got {len(party)}"
+    if len(clue) < CLUE_COUNT:
+        return f"need {CLUE_COUNT} clue facts but got {len(clue)}"
     return None

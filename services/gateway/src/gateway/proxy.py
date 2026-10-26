@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from typing import Annotated
 
 import httpx
@@ -5,6 +7,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from gateway.config import Settings, get_settings
 from hortum_common.context import REQUEST_ID_HEADER, request_id_var
+
+log = logging.getLogger(__name__)
+
+_MAX_RETRIES = 2
+_RETRY_DELAY = 0.3
 
 # Headers that describe a single hop and must not be forwarded.
 HOP_BY_HOP = {
@@ -48,16 +55,30 @@ async def proxy(
     if request_id := request_id_var.get():
         headers[REQUEST_ID_HEADER] = request_id
 
-    try:
-        upstream_resp = await client.request(
-            request.method,
-            f"{base_url.rstrip('/')}/{path}",
-            params=request.query_params,
-            headers=headers,
-            content=await request.body(),
-        )
-    except httpx.RequestError as exc:
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"{upstream} unavailable") from exc
+    url = f"{base_url.rstrip('/')}/{path}"
+    body = await request.body()
+    last_exc: Exception | None = None
+    for attempt in range(1, _MAX_RETRIES + 1):
+        try:
+            upstream_resp = await client.request(
+                request.method,
+                url,
+                params=request.query_params,
+                headers=headers,
+                content=body,
+            )
+            break
+        except httpx.RequestError as exc:
+            last_exc = exc
+            log.warning(
+                "upstream %s unreachable (attempt %d/%d): %s %s — %s",
+                upstream, attempt, _MAX_RETRIES, request.method, path, exc,
+            )
+            if attempt < _MAX_RETRIES:
+                await asyncio.sleep(_RETRY_DELAY)
+    else:
+        log.error("upstream %s failed after %d attempts: %s %s", upstream, _MAX_RETRIES, request.method, path)
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"{upstream} unavailable") from last_exc
 
     # httpx already decoded the body, so drop content-encoding along with hop-by-hop headers.
     resp_headers = {

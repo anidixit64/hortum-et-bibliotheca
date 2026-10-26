@@ -62,18 +62,35 @@ export function Feature({
       )}
       {entry ? (
         <div className="example-carousel">
-          <div className="clue-slide" key={entry.name}>
-            {image && (
-              <figure className="float-image float-right clue-img">
-                <img src={image.url} alt={image.caption || entry.name} loading="lazy" />
-                {image.caption && <figcaption className="muted small">{image.caption}</figcaption>}
-              </figure>
-            )}
-            <p className="clue-slide-rank muted small">
-              Example {safe + 1} of {entries.length}
-            </p>
-            <h3 className="clue-slide-title">{entry.name}</h3>
-            <p className="prose">{entry.text}</p>
+          <div className="clue-slide-frame">
+            {entries.map((e) => {
+              const eImg = illustrations[e.name]
+              return (
+                <div className="clue-slide clue-slide-sizer" key={`sizer-${e.name}`} aria-hidden="true">
+                  {eImg && (
+                    <figure className="float-image float-right clue-img">
+                      <img src={eImg.url} alt="" loading="lazy" />
+                    </figure>
+                  )}
+                  <p className="clue-slide-rank muted small">Example</p>
+                  <h3 className="clue-slide-title">{e.name}</h3>
+                  <p className="prose">{e.text}</p>
+                </div>
+              )
+            })}
+            <div className="clue-slide" key={entry.name}>
+              {image && (
+                <figure className="float-image float-right clue-img">
+                  <img src={image.url} alt={image.caption || entry.name} loading="lazy" />
+                  {image.caption && <figcaption className="muted small">{image.caption}</figcaption>}
+                </figure>
+              )}
+              <p className="clue-slide-rank muted small">
+                Example {safe + 1} of {entries.length}
+              </p>
+              <h3 className="clue-slide-title">{entry.name}</h3>
+              <p className="prose">{entry.text}</p>
+            </div>
           </div>
           <nav className="clue-nav" aria-label="Example navigation">
             <button
@@ -106,9 +123,6 @@ export function Feature({
       {diagram && (
         <div className="diagram-block">
           <StepDiagram steps={feature.steps} />
-          {feature.diagram_blurb?.trim() && (
-            <p className="prose diagram-blurb">{feature.diagram_blurb.trim()}</p>
-          )}
         </div>
       )}
       {source && (

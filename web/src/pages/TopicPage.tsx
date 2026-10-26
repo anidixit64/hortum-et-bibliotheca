@@ -13,6 +13,7 @@ import { Timeline } from '../components/Timeline'
 import { ExhibitTimeline, Feature, StepDiagram } from '../components/Special'
 import { chooseIllustrations } from '../lib/illustrations'
 import type { ExampleShot } from '../lib/illustrations'
+import { resolvedIsDark } from '../lib/colorMode'
 import { TopicMap } from '../components/TopicMap'
 import { LoadingScreen } from '../components/LoadingScreen'
 import { applyCleanup, CLEANED_FROM } from '../lib/cleanClues'
@@ -35,9 +36,9 @@ function isPending(section: { status: string; stale?: boolean } | undefined) {
   return section?.status === 'pending' || section?.stale === true
 }
 
-function SidebarCard({ title, children }: { title?: string; children: ReactNode }) {
+function SidebarCard({ title, className, children }: { title?: string; className?: string; children: ReactNode }) {
   return (
-    <aside className="sidebar-card">
+    <aside className={`sidebar-card${className ? ` ${className}` : ''}`}>
       {title && <h3 className="sidebar-title">{title}</h3>}
       {children}
     </aside>
@@ -299,7 +300,7 @@ export function TopicPage() {
                         <div
                           key={k}
                           className="palette-swatch"
-                          style={{ background: topicTheme.light[k === 'accent2' ? 'accent2' : k] }}
+                          style={{ background: (resolvedIsDark() ? topicTheme.dark : topicTheme.light)[k] }}
                           title={k}
                         />
                       ))}
@@ -353,11 +354,6 @@ export function TopicPage() {
               <Artifact image={img} />
             </SidebarCard>
           ))}
-          {content && (
-            <SidebarCard title="Screening room">
-              <Videos section={content.sections.videos} />
-            </SidebarCard>
-          )}
         </aside>
 
         {/* Center: the main exhibit */}
@@ -381,26 +377,13 @@ export function TopicPage() {
             )}
           </section>
 
-          {/* Fun facts — museum plaques scattered in the main flow */}
-          {ai && facts && facts.facts.length > 0 && (
-            <aside className="plaque-row" aria-label="Did you know?">
-              <h2>Did you know?</h2>
-              <FunFacts facts={facts.facts} />
-            </aside>
-          )}
-          {ai && !facts && isPending(factsSection) && (
-            <aside className="plaque-row" aria-label="Did you know?">
-              <h2>Did you know?</h2>
-              <ExhibitGenerating />
-            </aside>
-          )}
 
         </div>
 
         {/* Right sidebar: timeline, reading */}
         <aside className="museum-sidebar museum-right">
           {(hasExhibitTimeline || hasWikidataTimeline || (ai && isPending(specialSection))) && (
-            <SidebarCard title={special?.timeline.kind === 'discoveries' ? 'Discoveries' : 'Timeline'}>
+            <SidebarCard className="sidebar-timeline" title={special?.timeline.kind === 'discoveries' ? 'Discoveries' : 'Timeline'}>
               {ai && isPending(specialSection) && <ExhibitGenerating />}
               {ai && hasExhibitTimeline && special ? (
                 <ExhibitTimeline timeline={special.timeline} />
@@ -416,6 +399,20 @@ export function TopicPage() {
           ))}
         </aside>
       </div>
+
+      {/* Fun facts — full-width between museum layout and feature section */}
+      {ai && facts && facts.facts.length > 0 && (
+        <aside className="plaque-row" aria-label="Did you know?">
+          <h2>Did you know?</h2>
+          <FunFacts facts={facts.facts} />
+        </aside>
+      )}
+      {ai && !facts && isPending(factsSection) && (
+        <aside className="plaque-row" aria-label="Did you know?">
+          <h2>Did you know?</h2>
+          <ExhibitGenerating />
+        </aside>
+      )}
 
       {ai && special && (
         <section className="exhibit-feature" id="room-feature">
@@ -433,9 +430,6 @@ export function TopicPage() {
           <details className="diagram-collapse">
             <summary>How it works</summary>
             <StepDiagram steps={special.feature.steps} />
-            {special.feature.diagram_blurb?.trim() && (
-              <p className="prose diagram-blurb">{special.feature.diagram_blurb.trim()}</p>
-            )}
           </details>
         </section>
       )}

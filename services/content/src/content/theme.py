@@ -10,12 +10,12 @@ saturation the model chose survive.
 
 import io
 import re
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 from PIL import Image
 
-THEME_VERSION = 5
+THEME_VERSION = 7
 TOKENS = ("bg", "surface", "text", "muted", "accent", "accent2", "accent_soft", "header_tint")
 FONT_PAIRINGS = {
     "classical-serif": "Old-style serif (Palatino, Iowan): history, classics, literature",
@@ -28,8 +28,9 @@ FONT_PAIRINGS = {
 }
 # The site's own colors (web/src/index.css): a topic's theme must look different from them.
 DEFAULT_ACCENT = {"light": "#2f6f5e", "dark": "#7fc4ad"}
-MIN_BG_CHROMA = 0.012  # OKLab chroma: below this a background reads as plain grey
+MIN_BG_CHROMA = 0.025  # OKLab chroma: below this a background reads as plain grey
 MIN_ACCENT_DISTANCE = 0.08  # OKLab distance from the default accent
+MIN_THEME_DISTANCE = 0.06  # OKLab distance: bg or accent must differ from every other topic
 # Minimum contrast ratios (WCAG AA): body text, secondary text, links and accents.
 CONTRAST = {"text": 7.0, "muted": 4.5, "accent": 4.5}
 _HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -145,39 +146,69 @@ def palette(image: bytes, k: int = 6, seed: int = 7) -> list[dict[str, Any]]:
 # --- the request and its checks ---------------------------------------------------------
 
 SYSTEM = """You are a museum exhibit designer choosing the color palette for a single \
-gallery room. Every surface in the room — walls, display cases, label cards, accent \
-lighting — must feel like the topic. A visitor walking in should sense the subject before \
-reading a word. Be bold and specific: a palette should feel like one particular thing, \
-not a safe middle ground. First envision 2-3 colors that embody the atmosphere, aesthetic \
-and era of the topic, and 2-3 colors that accent and highlight aspects the topic is known \
-for. For a polar topic, stark whites and deep icy purples with aurora green and pink; for \
-the Aztec Empire, jade, terracotta, obsidian, gold and turquoise; for a Romantic poet, \
-stormy indigos, candlelight gold and ink-black. Then map those into a coherent page \
-scheme. Text stays easy to read."""
+gallery room. Your mandate: EVERY room must have its own unmistakable identity. A visitor \
+should know the subject from the colors alone, without reading a word. Safe, muted, \
+generic palettes are failures — they make rooms forgettable. Commit fully to the topic's \
+visual world.
+
+Think in specific, real-world colors tied to the subject:
+- Einstein / relativity: blackboard slate, chalk-dust white, the amber glow of a desk lamp
+- Frida Kahlo: Mexican pink, cobalt blue Casa Azul walls, marigold yellow, deep green
+- Photosynthesis: chlorophyll green, sunlight gold, soil brown, leaf-vein white
+- The Roman Empire: imperial purple, marble white, terracotta red, bronze
+- The Amazon Rainforest: emerald canopy, humid jade, clay-river brown, orchid pink
+- Marie Curie: radium green glow, laboratory steel-blue, chalkboard grey-violet
+- Mount Everest: Himalayan ice blue, snow white, granite rock grey, deep crevasse blue
+- Shakespeare: parchment cream, ink black, Tudor rose red, stage-curtain burgundy
+- Van Gogh: sunflower yellow, Provençal lavender, starry-night cobalt, cypress green
+- The Sahara: sand dune gold, burnt sienna, oasis turquoise, sunset copper
+
+CRITICAL: dark mode backgrounds must reflect the TOPIC, not default to navy. A mountain \
+gets deep glacial blue-grey, a forest gets midnight green, a war gets charcoal-smoke, a \
+poet gets ink-dark parchment, a scientist gets lab-dark teal. Navy is ONLY for oceanic, \
+nautical, or sky-related topics. If the topic has nothing to do with the sea or sky, \
+do not use navy.
+
+Saturate the backgrounds — a pale rose, a deep ocean blue, a warm parchment — never grey \
+or off-white. The accent color should be the single most iconic color of the topic, \
+pushed to full saturation. Text stays readable."""
 
 PROMPT = """Topic: {name} (category: {category})
 Opening of the page: {hook}
 Header image: {caption}
 Dominant colors of the header image (hex, share of the image): {palette}
 {related_colors}
-First think of 5-6 colors that REPRESENT this topic — what a designer would put in a \
-mood board. Then map them into two color sets, "light" and "dark", each with these hex \
-colors:
-- bg: page background, clearly tinted with the topic's character (light: a pale version \
-of a topic color; dark: a deep, rich version), never plain grey, white or black
-- surface: card background, slightly lifted from bg, with the same tint
-- text: body text (near-neutral, very readable on surface)
+Step 1 — Name 5-6 specific real-world colors that ARE this topic (not generic "warm" or \
+"cool" — name the actual object: "aged copper green", "lava orange", "Arctic ice blue"). \
+These are your raw materials.
+
+Step 2 — Map them into two color sets, "light" and "dark", each with these hex values:
+- bg: SATURATED page background tinted with the topic's signature color. Light mode: a \
+clearly colored pale wash (pale rose, warm sand, cool lilac — never off-white or grey). \
+Dark mode: a deep, rich version derived from the topic's own hue — deep forest green \
+for a naturalist, dark burgundy for a revolution, charcoal-brown for an explorer, \
+midnight purple for a playwright, deep teal for a scientist. NEVER default to navy \
+unless the topic is literally about the ocean or sky. This is the most important color \
+— it sets the room.
+- surface: card background, same color family as bg, slightly lighter/darker
+- text: body text, readable on surface (near-neutral but can carry a slight warm/cool cast)
 - muted: secondary text
-- accent: links and highlights drawn from the topic's palette — the most evocative color
-- accent2: a second color from the topic palette that complements accent
-- accent_soft: a pale (light) or deep (dark) tint of accent for highlighted boxes
-- header_tint: the color the header image fades into (close to bg)
+- accent: the single most iconic, recognizable color of this topic at FULL saturation — \
+the color someone would point to and say "that's [topic]"
+- accent2: a second vivid color from the topic that contrasts with accent
+- accent_soft: a tint of accent for highlighted boxes (pale in light, deep in dark)
+- header_tint: blends into bg at the bottom of the header image
+
 Then pick "font" from: {fonts}
-Then write "blurb": two sentences explaining why you picked these colors — what aspect \
-of the topic each color evokes.
-The site's default scheme is grey with a teal-green accent ({default}); this page must \
-look distinctly different from it. The colors should feel like the topic — someone seeing \
-only the colors should guess the subject. Avoid plain grey schemes and garish neon."""
+Then write "blurb": two sentences — what real-world thing each color references.
+
+RULES:
+- The site default is grey + teal-green ({default}). Your palette MUST look nothing like it.
+- bg must be visibly colored, not a neutral. If you can't tell the hue at a glance, it's wrong.
+- accent must be vivid and saturated — no dusty pastels, no muddy browns for accent.
+- Every topic gets a DIFFERENT palette. Two topics should never look alike.
+- Someone seeing only bg + accent should be able to guess the subject.
+{avoid_colors}"""
 
 SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -212,6 +243,40 @@ def problem(data: dict[str, Any]) -> str | None:
                 f"{DEFAULT_ACCENT[mode]}: choose a different hue"
             )
     return None
+
+
+def problem_with_avoids(
+    avoids: list[dict[str, str]],
+) -> "Callable[[dict[str, Any]], str | None]":
+    """Return a checker that also rejects palettes whose bg AND accent are both too close
+    to any existing topic's palette. ``avoids`` is a list of {"bg": hex, "accent": hex}."""
+
+    def check(data: dict[str, Any]) -> str | None:
+        base = problem(data)
+        if base is not None:
+            return base
+        for other in avoids:
+            for mode in ("light", "dark"):
+                bg_close = distance(data[mode]["bg"], other["bg"]) < MIN_THEME_DISTANCE
+                acc_close = distance(data[mode]["accent"], other["accent"]) < MIN_THEME_DISTANCE
+                if bg_close and acc_close:
+                    return (
+                        f"the {mode} bg+accent are too similar to an existing topic "
+                        f"(bg {other['bg']}, accent {other['accent']}): pick a different hue"
+                    )
+        return None
+
+    return check
+
+
+def format_avoids(avoids: list[dict[str, Any]]) -> str:
+    """Format existing topic palettes as a prompt instruction to avoid them."""
+    if not avoids:
+        return ""
+    lines = ["ALREADY USED by other topics — your bg and accent must look DIFFERENT from all of these:"]
+    for a in avoids:
+        lines.append(f"  {a.get('name', '?')}: bg {a['bg']}, accent {a['accent']}")
+    return "\n".join(lines)
 
 
 def enforce(colors: dict[str, str]) -> dict[str, str]:

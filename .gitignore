@@ -21,6 +21,9 @@ data/
 .env.*
 !.env.example
 
+# Runtime databases (rebuilt by services on startup)
+*.db
+
 # Editors / OS
 .idea/
 .vscode/
