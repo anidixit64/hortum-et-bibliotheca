@@ -13,10 +13,10 @@ from typing import Any
 
 from content.writing import _squash
 
-SPECIAL_VERSION = 11
+SPECIAL_VERSION = 13
 TIMELINE_EVENTS = (4, 12)
 HANDFUL_COUNT = (5, 6)
-ENTRY_WORDS = (50, 100)
+ENTRY_WORDS = (100, 150)
 BLURB_WORDS = (100, 150)
 def is_diagram(category: str | None) -> bool:
     """Every topic gets a step diagram."""
@@ -100,12 +100,11 @@ DIAGRAM = """
 the topic as a flow. Pick the most complex or fascinating idea tied to the topic — \
 something a professor would explain in a lecture — and break it into steps a high-school \
 student can follow without losing accuracy. Each step has a "label" (at most 6 words) \
-and a "detail" (at most 30 words). The steps are a diagram, not an essay and not a \
-substitute for the entries.
-- "diagram_blurb": 100-150 words in one paragraph explaining that diagram from the ground \
-up. Assume the reader has no background. Say what the flow shows, how each step leads to \
-the next, and why it matters for understanding the topic. Be accurate without losing the \
-reader. Do not repeat the entries, and do not write a second overview of the topic."""
+and a "detail" (at most 40 words). The detail should be clear enough that a reader \
+understands the step without any separate explanation — say what happens and why it \
+leads to the next step. The steps are a diagram, not an essay and not a substitute \
+for the entries.
+- "diagram_blurb": leave this as an empty string."""
 
 HANDFUL = """Topic: {name} (category: {category})
 
@@ -168,7 +167,7 @@ def handful_schema(diagram: bool) -> dict[str, Any]:
             "steps": STEP_SCHEMA,
             "diagram_blurb": {"type": "string"},
         },
-        "required": ["title", "entries", "steps", "diagram_blurb"],
+        "required": ["title", "entries", "steps"],
     }
 
 
@@ -229,12 +228,7 @@ def entries_problem(data: dict[str, Any], *, diagram: bool = False) -> str | Non
         for step in steps:
             if (
                 len(str(step.get("label", "")).split()) > 8
-                or len(str(step.get("detail", "")).split()) > 40
+                or len(str(step.get("detail", "")).split()) > 50
             ):
-                return "diagram steps must be short: a label of at most 6 words, details of 30"
-        blurb = str(data.get("diagram_blurb", "")).strip()
-        n = len(blurb.split())
-        low, high = BLURB_WORDS
-        if not low * 0.85 <= n <= high * 1.2:
-            return f"the diagram blurb has {n} words, not {low}-{high}"
+                return "diagram steps must be short: a label of at most 6 words, details of 40"
     return None

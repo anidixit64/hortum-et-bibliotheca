@@ -58,8 +58,8 @@ export function PracticePage() {
   // Filters
   const [filterCategory, setFilterCategory] = useState<string | undefined>(initCategory)
   const [filterSubcategory, setFilterSubcategory] = useState<string | undefined>(undefined)
-  const [diffMin, setDiffMin] = useState<number | undefined>(undefined)
-  const [diffMax, setDiffMax] = useState<number | undefined>(undefined)
+  const [diffMin, setDiffMin] = useState(0)
+  const [diffMax, setDiffMax] = useState(10)
   const [buzzEndsQuestion, setBuzzEndsQuestion] = useState(true)
 
   // Game state
@@ -81,6 +81,7 @@ export function PracticePage() {
   const [score, setScore] = useState(0)
   const [highScore, setHighScore] = useState(readHighScore)
   const [lastPoints, setLastPoints] = useState<number | null>(null)
+  const [flash, setFlash] = useState<'correct' | 'incorrect' | null>(null)
   const [progress, setProgress] = useState<Stats | null>(null)
 
   useEffect(() => {
@@ -89,30 +90,67 @@ export function PracticePage() {
 
   const words = tossup ? split(tossup.question) : []
 
-  const load = useCallback(() => {
-    api
-      .practiceNext({
-        topic,
-        category: filterCategory,
-        subcategory: filterSubcategory,
-        difficultyMin: diffMin,
-        difficultyMax: diffMax,
-        exclude: seen.current,
+  const queue = useRef<Tossup[]>([])
+  const fetching = useRef(false)
+
+  const fetchOne = useCallback((): Promise<Tossup> => {
+    return api.practiceNext({
+      topic,
+      category: filterCategory,
+      subcategory: filterSubcategory,
+      difficultyMin: diffMin,
+      difficultyMax: diffMax,
+      exclude: [...seen.current, ...queue.current.map(q => q.id)],
+    })
+  }, [topic, filterCategory, filterSubcategory, diffMin, diffMax])
+
+  const fillQueue = useCallback(() => {
+    if (fetching.current || queue.current.length >= 3) return
+    fetching.current = true
+    fetchOne()
+      .then((t) => {
+        if (!queue.current.some(q => q.id === t.id) && !seen.current.includes(t.id)) {
+          queue.current = [...queue.current, t]
+        }
+        fetching.current = false
+        if (queue.current.length < 3) fillQueue()
       })
+      .catch(() => {
+        fetching.current = false
+      })
+  }, [fetchOne])
+
+  const load = useCallback(() => {
+    if (queue.current.length > 0) {
+      const next = queue.current[0]
+      queue.current = queue.current.slice(1)
+      seen.current = [...seen.current, next.id]
+      setTossup(next)
+      setPhase('reading')
+      fillQueue()
+      return
+    }
+    fetchOne()
       .then((t) => {
         seen.current = [...seen.current, t.id]
         setTossup(t)
         setPhase('reading')
+        fillQueue()
       })
       .catch((e: Error & { status?: number }) => {
         if (e.status === 404) setPhase('empty')
         else setError(e.message)
       })
-  }, [topic, filterCategory, filterSubcategory, diffMin, diffMax])
+  }, [fetchOne, fillQueue])
 
   useEffect(load, [load])
 
-  const next = () => {
+  useEffect(() => {
+    queue.current = []
+    fetching.current = false
+  }, [topic, filterCategory, filterSubcategory, diffMin, diffMax])
+
+  const next = useCallback(() => {
     setPhase('loading')
     setTossup(null)
     setShown(0)
@@ -126,7 +164,7 @@ export function PracticePage() {
     setHolding(false)
     setLastPoints(null)
     load()
-  }
+  }, [load])
 
   useEffect(() => localStorage.setItem(WPM_KEY, String(wpm)), [wpm])
 
@@ -156,9 +194,13 @@ export function PracticePage() {
           setAnswer('')
           input.current?.focus()
         } else if (out.result === 'incorrect' && !buzzEndsQuestion && wordIndex !== null) {
+          setFlash('incorrect')
           setAnswer('')
           setPhase(shown >= words.length ? 'countdown' : 'reading')
         } else {
+          if (out.result === 'correct' || out.result === 'incorrect') {
+            setFlash(out.result)
+          }
           setShown(words.length)
           setPhase('result')
           applyPoints(out.result, wordIndex, words.length, tossup.power_word)
@@ -212,15 +254,25 @@ export function PracticePage() {
   }, [phase, shown, words.length])
 
   useEffect(() => {
+    if (!flash) return
+    const t = setTimeout(() => setFlash(null), 600)
+    return () => clearTimeout(t)
+  }, [flash])
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.code === 'Space' && (phase === 'reading' || phase === 'countdown')) {
         e.preventDefault()
         buzz()
       }
+      if (e.code === 'Enter' && phase === 'result') {
+        e.preventDefault()
+        next()
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [buzz, phase])
+  }, [buzz, phase, next])
 
   const override = async (judgment: 'correct' | 'incorrect') => {
     if (!result?.buzz_id) return
@@ -278,6 +330,7 @@ export function PracticePage() {
 
   return (
     <div className="practice-page">
+      {flash && <div className={`practice-flash practice-flash-${flash}`} />}
       <h1 className="practice-title">Practice</h1>
 
       <div className="practice-layout">
@@ -315,28 +368,59 @@ export function PracticePage() {
             )}
 
             <label className="filter-label">Difficulty</label>
-            <div className="filter-diff-row">
-              <select
-                className="filter-select filter-select-half"
-                value={diffMin ?? ''}
-                onChange={e => setDiffMin(e.target.value ? Number(e.target.value) : undefined)}
-              >
-                <option value="">Min</option>
+            <div className="diff-range-label">
+              {diffMin === 0 && diffMax === 10
+                ? 'All difficulties'
+                : diffMin === diffMax
+                  ? DIFFICULTY_LABELS[diffMin]
+                  : `${DIFFICULTY_LABELS[diffMin]} – ${DIFFICULTY_LABELS[diffMax]}`}
+            </div>
+            <div className="diff-slider">
+              <div className="diff-slider-track">
+                <div
+                  className="diff-slider-fill"
+                  style={{
+                    left: `${(diffMin / 10) * 100}%`,
+                    right: `${100 - (diffMax / 10) * 100}%`,
+                  }}
+                />
+              </div>
+              <div className="diff-slider-inputs">
+                <input
+                  type="range"
+                  className="diff-slider-input"
+                  min={0}
+                  max={10}
+                  step={1}
+                  value={diffMin}
+                  onChange={e => {
+                    const v = Number(e.target.value)
+                    setDiffMin(Math.min(v, diffMax))
+                  }}
+                />
+                <input
+                  type="range"
+                  className="diff-slider-input"
+                  min={0}
+                  max={10}
+                  step={1}
+                  value={diffMax}
+                  onChange={e => {
+                    const v = Number(e.target.value)
+                    setDiffMax(Math.max(v, diffMin))
+                  }}
+                />
+              </div>
+              <div className="diff-slider-ticks">
                 {Array.from({ length: 11 }, (_, i) => (
-                  <option key={i} value={i}>{DIFFICULTY_LABELS[i]}</option>
+                  <span
+                    key={i}
+                    className={`diff-tick${i >= diffMin && i <= diffMax ? ' active' : ''}`}
+                  >
+                    {i}
+                  </span>
                 ))}
-              </select>
-              <span className="filter-dash">–</span>
-              <select
-                className="filter-select filter-select-half"
-                value={diffMax ?? ''}
-                onChange={e => setDiffMax(e.target.value ? Number(e.target.value) : undefined)}
-              >
-                <option value="">Max</option>
-                {Array.from({ length: 11 }, (_, i) => (
-                  <option key={i} value={i}>{DIFFICULTY_LABELS[i]}</option>
-                ))}
-              </select>
+              </div>
             </div>
 
             <label className="filter-label">Buzz mode</label>
@@ -406,7 +490,7 @@ export function PracticePage() {
               {phase === 'reading' && (
                 <div className="controls">
                   <button className="primary practice-buzz-btn" onClick={buzz}>Buzz (space)</button>
-                  <button type="button" onClick={skip}>Skip</button>
+                  <button type="button" onClick={skip}>Show Answer</button>
                   <button type="button" aria-pressed={paused} onClick={() => setPaused(p => !p)}>
                     {paused ? 'Resume' : 'Pause'}
                   </button>
@@ -417,7 +501,7 @@ export function PracticePage() {
               {phase === 'countdown' && (
                 <div className="controls practice-countdown-controls">
                   <button className="primary practice-buzz-btn" onClick={buzz}>Buzz (space)</button>
-                  <button type="button" onClick={skip}>Skip</button>
+                  <button type="button" onClick={skip}>Show Answer</button>
                   <button type="button" aria-pressed={paused} onClick={() => setPaused(p => !p)}>
                     {paused ? 'Resume' : 'Pause'}
                   </button>

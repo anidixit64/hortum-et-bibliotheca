@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { api } from './api/client'
 import { PracticePage } from './pages/PracticePage'
@@ -11,6 +11,29 @@ import { ExplorePage } from './pages/ExplorePage'
 import { PracticeHistoryPage } from './pages/PracticeHistoryPage'
 import { AiModeProvider, useAiMode, useSetAiMode } from './lib/aiMode'
 import { applyPalette, readPalette } from './lib/palette'
+import { applyMode, onModeChange, readMode, saveMode } from './lib/colorMode'
+
+const MODE_LABELS = { light: 'Light', dark: 'Dark', auto: 'Auto' } as const
+const MODE_CYCLE: Array<'light' | 'dark' | 'auto'> = ['auto', 'light', 'dark']
+
+function useColorMode() {
+  return useSyncExternalStore(onModeChange, readMode, () => 'auto' as const)
+}
+
+function ColorModeButton() {
+  const mode = useColorMode()
+  const next = MODE_CYCLE[(MODE_CYCLE.indexOf(mode) + 1) % MODE_CYCLE.length]
+  return (
+    <button
+      type="button"
+      className="nav-color-mode"
+      onClick={() => saveMode(next)}
+      title={`Theme: ${MODE_LABELS[mode]}`}
+    >
+      {mode === 'dark' ? '☾' : mode === 'light' ? '☀' : '◑'} {MODE_LABELS[mode]}
+    </button>
+  )
+}
 
 function Shell() {
   const [due, setDue] = useState<number | null>(null)
@@ -84,6 +107,7 @@ function Shell() {
                 </button>
                 <span className={!ai ? 'nav-mode-on' : undefined}>Non-AI</span>
               </div>
+              <ColorModeButton />
             </nav>
           )}
         </div>
@@ -108,13 +132,15 @@ function Shell() {
 
 export function App() {
   useEffect(() => {
+    applyMode()
     const idx = readPalette()
     if (idx !== 0) applyPalette(idx)
-    if (typeof window.matchMedia !== 'function') return
-    const mq = window.matchMedia('(prefers-color-scheme: dark)')
     const update = () => applyPalette(readPalette())
+    const unsubMode = onModeChange(update)
+    if (typeof window.matchMedia !== 'function') return unsubMode
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
     mq.addEventListener('change', update)
-    return () => mq.removeEventListener('change', update)
+    return () => { mq.removeEventListener('change', update); unsubMode() }
   }, [])
 
   return (

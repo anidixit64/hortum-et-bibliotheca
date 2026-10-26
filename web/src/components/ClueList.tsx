@@ -272,87 +272,121 @@ export function ClueCarousel({
         </div>
       )}
 
-      <div className="clue-slide" key={clue.cluster_id}>
-        {ornament && !clueImage && (
-          <figure className="artifact float-image float-left">
-            <img src={ornament.url} alt={ornament.caption ?? ornament.file} loading="lazy" />
-            {ornament.caption && <figcaption className="muted small">{ornament.caption}</figcaption>}
-          </figure>
-        )}
-        {clueImage && (
-          <figure className="float-image float-right clue-img">
-            <img src={clueImage.url} alt={clueImage.caption ?? ''} loading="lazy" />
-            {clueImage.caption && <figcaption className="muted small">{clueImage.caption}</figcaption>}
-          </figure>
-        )}
+      <div className="clue-slide-frame">
+        {sorted.map((s) => {
+          const sExp = byRank.get(s.rank)
+          const sImg = clueImages.get(s.rank)
+          const sNote = articleNotes?.[s.rank]
+          return (
+            <div className="clue-slide clue-slide-sizer" key={`sizer-${s.cluster_id}`} aria-hidden="true">
+              {sImg && (
+                <figure className="float-image float-right clue-img">
+                  <img src={sImg.url} alt="" loading="lazy" />
+                </figure>
+              )}
+              <p className="clue-slide-rank muted small">Clue</p>
+              <h3 className="clue-slide-title">{s.label}</h3>
+              <p className="muted small">{s.n_questions ?? s.n_tossups} questions</p>
+              {sExp ? (
+                <>
+                  <p className="one-line">{sExp.one_line}</p>
+                  <ExplanationText explanation={sExp} names={names} lines={lines} />
+                </>
+              ) : sNote ? (
+                <>
+                  <p className="one-line">{sNote.sentence}</p>
+                  <p className="clue-text muted small">As asked: {s.text}</p>
+                </>
+              ) : (
+                <p className="clue-text">{s.text}</p>
+              )}
+              {s.cooccurs && s.cooccurs.length > 0 && (
+                <p className="muted small">Often with: {s.cooccurs.slice(0, 3).map((c) => c.label).join(' · ')}</p>
+              )}
+              <details className="clue-lines">
+                <summary>{1 + s.examples.length} question wording{s.examples.length > 0 ? 's' : ''}</summary>
+              </details>
+              <div className="clue-actions"><button className="small">Add flashcards</button></div>
+            </div>
+          )
+        })}
 
-        <p className="clue-slide-rank muted small">
-          Clue {safeIndex + 1} of {sorted.length}
-          {category && <span className="clue-category-badge">{currentCategory}</span>}
-        </p>
-        <h3 className="clue-slide-title">
-          {topicLinks[clue.label] ? (
-            <Link to={`/topic/${encodeURIComponent(topicLinks[clue.label].id)}`} className="topic-link">
-              {clue.label}
-            </Link>
-          ) : (
-            clue.label
+        <div className="clue-slide" key={clue.cluster_id}>
+          {clueImage && (
+            <figure className="float-image float-right clue-img">
+              <img src={clueImage.url} alt={clueImage.caption ?? ''} loading="lazy" />
+              {clueImage.caption && <figcaption className="muted small">{clueImage.caption}</figcaption>}
+            </figure>
           )}
-        </h3>
 
-        <p className="muted small">
-          {clue.n_questions ?? clue.n_tossups} questions · {clue.n_sets} sets · usually at{' '}
-          {percent(clue.median_position)} of the question · {TREND[clue.heatmap.trend]}
-          {clue.heatmap.share_in_power > 0.5 && ' · often in power'}
-        </p>
-
-        {explanation ? (
-          <>
-            <p className="one-line">{explanation.one_line}</p>
-            <ExplanationText explanation={explanation} names={names} lines={lines} />
-          </>
-        ) : articleNotes?.[clue.rank] ? (
-          <>
-            <p className="one-line">{articleNotes[clue.rank]!.sentence}</p>
-            <p className="muted small">
-              From Wikipedia{articleNotes[clue.rank]!.heading ? `: ${articleNotes[clue.rank]!.heading}` : ''}
-            </p>
-            <p className="clue-text muted small">As asked: {clue.text}</p>
-          </>
-        ) : wikiLoaded ? (
-          <>
-            <p className="muted">The article excerpt does not cover this clue.</p>
-            <p className="clue-text muted small">As asked: {clue.text}</p>
-          </>
-        ) : (
-          <>
-            <p className="clue-text">{clue.text}</p>
-            {writing && <p className="muted small writing-note">Explanation being written…</p>}
-          </>
-        )}
-
-        {clue.cooccurs && clue.cooccurs.length > 0 && (
-          <p className="muted small">
-            Often with: {clue.cooccurs.slice(0, 3).map((c) => c.label).join(' · ')}
+          <p className="clue-slide-rank muted small">
+            Clue {safeIndex + 1} of {sorted.length}
+            {category && <span className="clue-category-badge">{currentCategory}</span>}
           </p>
-        )}
+          <h3 className="clue-slide-title">
+            {topicLinks[clue.label] ? (
+              <Link to={`/topic/${encodeURIComponent(topicLinks[clue.label].id)}`} className="topic-link">
+                {clue.label}
+              </Link>
+            ) : (
+              clue.label
+            )}
+          </h3>
 
-        <details className="clue-lines">
-          <summary>
-            {allLines.length} question wording{allLines.length > 1 ? 's' : ''}
-          </summary>
-          <ul>
-            {allLines.map((line, i) => (
-              <li key={i}>{line}</li>
-            ))}
-          </ul>
-        </details>
+          <p className="muted small">
+            {clue.n_questions ?? clue.n_tossups} questions · {clue.n_sets} sets · usually at{' '}
+            {percent(clue.median_position)} of the question · {TREND[clue.heatmap.trend]}
+            {clue.heatmap.share_in_power > 0.5 && ' · often in power'}
+          </p>
 
-        <div className="clue-actions">
-          <button className="small" onClick={makeFlashcards}>
-            Add {allLines.length} flashcard{allLines.length > 1 ? 's' : ''}
-          </button>
-          {flashMsg && <span className="muted small">{flashMsg}</span>}
+          {explanation ? (
+            <>
+              <p className="one-line">{explanation.one_line}</p>
+              <ExplanationText explanation={explanation} names={names} lines={lines} />
+            </>
+          ) : articleNotes?.[clue.rank] ? (
+            <>
+              <p className="one-line">{articleNotes[clue.rank]!.sentence}</p>
+              <p className="muted small">
+                From Wikipedia{articleNotes[clue.rank]!.heading ? `: ${articleNotes[clue.rank]!.heading}` : ''}
+              </p>
+              <p className="clue-text muted small">As asked: {clue.text}</p>
+            </>
+          ) : wikiLoaded ? (
+            <>
+              <p className="muted">The article excerpt does not cover this clue.</p>
+              <p className="clue-text muted small">As asked: {clue.text}</p>
+            </>
+          ) : (
+            <>
+              <p className="clue-text">{clue.text}</p>
+              {writing && <p className="muted small writing-note">Explanation being written…</p>}
+            </>
+          )}
+
+          {clue.cooccurs && clue.cooccurs.length > 0 && (
+            <p className="muted small">
+              Often with: {clue.cooccurs.slice(0, 3).map((c) => c.label).join(' · ')}
+            </p>
+          )}
+
+          <details className="clue-lines">
+            <summary>
+              {allLines.length} question wording{allLines.length > 1 ? 's' : ''}
+            </summary>
+            <ul>
+              {allLines.map((line, i) => (
+                <li key={i}>{line}</li>
+              ))}
+            </ul>
+          </details>
+
+          <div className="clue-actions">
+            <button className="small" onClick={makeFlashcards}>
+              Add {allLines.length} flashcard{allLines.length > 1 ? 's' : ''}
+            </button>
+            {flashMsg && <span className="muted small">{flashMsg}</span>}
+          </div>
         </div>
       </div>
 

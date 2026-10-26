@@ -174,8 +174,7 @@ export function Reading({
   if (!section) return <p className="muted">Fetching books…</p>
   const data = payload(section)
   if (!data) return <Status section={section} what="books" />
-  const all = data.books.filter((b) => b.title)
-  const books = all.length % 2 === 1 ? all.slice(0, -1) : all
+  const books = data.books.filter((b) => b.title)
   const blurbFor = new Map(blurbs.map((b) => [foldTitle(b.title), b.blurb]))
   return (
     <>
@@ -187,11 +186,6 @@ export function Reading({
             const blurb = b.title ? blurbFor.get(foldTitle(b.title)) : undefined
             return (
               <li key={b.open_library ?? b.title}>
-                {b.cover ? (
-                  <img src={b.cover} alt="" loading="lazy" />
-                ) : (
-                  <div className="no-cover" aria-hidden />
-                )}
                 <div>
                   {b.open_library ? (
                     <a href={b.open_library} target="_blank" rel="noreferrer">{b.title}</a>

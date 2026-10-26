@@ -1,3 +1,5 @@
+import { resolvedIsDark } from './colorMode'
+
 export interface Palette {
   name: string
   mood: string
@@ -65,8 +67,7 @@ export function applyPalette(index: number) {
   const root = document.documentElement
   if (root.classList.contains('themed')) return
   const p = PALETTES[index] ?? PALETTES[0]
-  const isDark = typeof window.matchMedia === 'function'
-    && window.matchMedia('(prefers-color-scheme: dark)').matches
+  const isDark = resolvedIsDark()
   const colors = isDark ? p.dark : p.light
   if (index === 0) {
     root.style.removeProperty('--bg')

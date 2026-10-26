@@ -3,19 +3,20 @@
 import re
 from typing import Any
 
-VERSION = 1
+VERSION = 2
 
 SYSTEM = """You recommend books to a quiz bowl student. From the list you are given, choose \
-books a general reader can enjoy: highly regarded, readable, or about an interesting part \
-of the topic. Write a short blurb that makes someone want to read the book. Use only titles \
-from the list, copied exactly."""
+the most important or interesting books: highly regarded, readable, or about a fascinating \
+part of the topic. For each, write one sentence explaining why this book matters or what \
+makes it worth reading. Use only titles from the list, copied exactly."""
 
 PROMPT = """Topic: {name} (category: {category})
 
-Pick {low} to {high} books from this list. For each:
+Pick {low} to {high} books from this list — choose the most important, acclaimed, or \
+interesting ones. For each:
 - "title": the title copied exactly from the list.
-- "blurb": two or three sentences encouraging a student to read it. Say what the book is \
-good for. Do not invent prizes or claims you are not sure of.
+- "blurb": ONE sentence explaining why this book is worth reading — what it does \
+uniquely well, why it matters, or what a reader will get from it. Be specific, not generic.
 
 Books:
 {books}"""
@@ -37,10 +38,12 @@ SCHEMA: dict[str, Any] = {
 
 
 def how_many(count: int) -> tuple[int, int]:
-    """One book gets one blurb. Two or more get two or three, never more than the shelf."""
+    """One book gets one blurb. Four or more get three or four, never more than the shelf."""
     if count <= 1:
         return 1, 1
-    return 2, min(3, count)
+    if count <= 3:
+        return 2, min(3, count)
+    return 3, min(4, count)
 
 
 def _fold(title: str) -> str:
@@ -56,7 +59,7 @@ def kept(data: dict[str, Any], titles: list[str]) -> list[dict[str, str]]:
         title = str(item.get("title", "")).strip()
         blurb = str(item.get("blurb", "")).strip()
         folded = _fold(title)
-        if folded not in by_fold or folded in seen or not blurb or len(blurb.split()) > 80:
+        if folded not in by_fold or folded in seen or not blurb or len(blurb.split()) > 50:
             continue
         seen.add(folded)
         out.append({"title": by_fold[folded], "blurb": blurb})

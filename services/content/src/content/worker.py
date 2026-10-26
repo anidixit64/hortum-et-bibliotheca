@@ -386,9 +386,47 @@ def write_facts(
     wiki = json.loads(row[1])
     source = writing.later_text(wiki)
     topic = catalog.get(f"/topics/{topic_id}/clue-candidates", params={"limit": 1}).json()
+
+    # Gather clues, summary, and explanations so the model can avoid repeating them.
+    clues_row = conn.execute(
+        "SELECT payload FROM generations WHERE topic_id = ? AND kind = 'clues'", (topic_id,)
+    ).fetchone()
+    clues: list[dict[str, Any]] = json.loads(clues_row[0]).get("clues", []) if clues_row else []
+    top_clues = clues[:6]
+    clue_listing = "\n".join(
+        f"- {c.get('label', '?')}" for c in top_clues
+    ) if top_clues else "(no clues yet)"
+
+    summary_row = conn.execute(
+        "SELECT payload FROM generations WHERE topic_id = ? AND kind = 'summary'", (topic_id,)
+    ).fetchone()
+    summary_text = "(no summary yet)"
+    if summary_row:
+        data = json.loads(summary_row[0])
+        raw = writing.MARK.sub(lambda m: m.group(2), str(data.get("summary", "")))
+        if raw.strip():
+            summary_text = raw.strip()
+
+    explained_row = conn.execute(
+        "SELECT payload FROM generations WHERE topic_id = ? AND kind = 'explanations'",
+        (topic_id,),
+    ).fetchone()
+    explanation_lines = ""
+    if explained_row:
+        explained = json.loads(explained_row[0]).get("clues", [])
+        top_ranks = {c.get("rank") for c in top_clues}
+        relevant = [e for e in explained if e.get("rank") in top_ranks]
+        if relevant:
+            explanation_lines = "Clue explanations already on the page:\n" + "\n".join(
+                f"- {e.get('label', '?')}: {e.get('explanation', '')}" for e in relevant
+            )
+
     prompt = writing.FACTS.format(
         name=topic["name"],
         category=topic.get("category") or "unknown",
+        clues=clue_listing,
+        summary=summary_text,
+        explanations=explanation_lines,
         source=source,
     )
     reply = chain.run(
@@ -396,7 +434,10 @@ def write_facts(
         Request("fun_facts", writing.FACTS_SYSTEM, prompt, writing.FACTS_SCHEMA),
         functools.partial(writing.facts_problem, source=source),
     )
-    facts = writing.grounded(reply.data.get("facts", []), source)[: writing.FACT_COUNT]
+    all_facts = writing.grounded(reply.data.get("facts", []), source)
+    party = [f for f in all_facts if f["kind"] == "party"][: writing.PARTY_COUNT]
+    clue_facts = [f for f in all_facts if f["kind"] == "clue"][: writing.CLUE_COUNT]
+    facts = party + clue_facts
     return {"facts": facts, "source": {"title": wiki["title"], "url": wiki["url"]}}, identity, reply
 
 
@@ -454,6 +495,25 @@ def _related_theme(conn: sqlite3.Connection, catalog: httpx.Client, topic_id: st
     return ""
 
 
+def _other_themes(conn: sqlite3.Connection, topic_id: str) -> list[dict[str, Any]]:
+    """Collect the dark-mode bg+accent from every other topic's theme so the new one can
+    avoid looking the same. Returns [{"name": ..., "bg": hex, "accent": hex}]."""
+    rows = conn.execute(
+        "SELECT topic_id, payload FROM generations WHERE kind = 'theme' AND topic_id != ?",
+        (topic_id,),
+    ).fetchall()
+    result: list[dict[str, Any]] = []
+    for tid, payload_str in rows:
+        try:
+            data = json.loads(payload_str)
+            dark = data.get("dark", {})
+            if dark.get("bg") and dark.get("accent"):
+                result.append({"name": tid, "bg": dark["bg"], "accent": dark["accent"]})
+        except (json.JSONDecodeError, TypeError):
+            continue
+    return result
+
+
 def write_theme(
     conn: sqlite3.Connection, settings: Settings, catalog: httpx.Client, topic_id: str
 ) -> tuple[dict[str, Any], str, Reply | None]:
@@ -482,6 +542,7 @@ def write_theme(
         "SELECT payload FROM generations WHERE topic_id = ? AND kind = 'summary'", (topic_id,)
     ).fetchone()
     related = _related_theme(conn, catalog, topic_id)
+    avoids = _other_themes(conn, topic_id)
     prompt = theme.PROMPT.format(
         name=topic["name"],
         category=topic.get("category") or "unknown",
@@ -491,11 +552,14 @@ def write_theme(
         related_colors=related,
         fonts="; ".join(f"{k}: {v}" for k, v in theme.FONT_PAIRINGS.items()),
         default=", ".join(f"{mode} {color}" for mode, color in theme.DEFAULT_ACCENT.items()),
+        avoid_colors=theme.format_avoids(avoids),
     )
+    avoid_pairs = [{"bg": a["bg"], "accent": a["accent"]} for a in avoids]
+    check = theme.problem_with_avoids(avoid_pairs) if avoid_pairs else theme.problem
     reply = chain.run(
         chain.build(settings.light_chain, settings),
         Request("theme", theme.SYSTEM, prompt, theme.SCHEMA),
-        theme.problem,
+        check,
     )
     payload = {**theme.finish(reply.data), "header": header, "palette": colors}
     return payload, f"images:{row[2]}", reply
